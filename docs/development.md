@@ -61,7 +61,13 @@ The container check uses a temporary loopback registry, a separate Compose proje
 
 Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose and version-pinned environment example with `SHA256SUMS`.
 
-Set the root package version before pushing a matching `vMAJOR.MINOR.PATCH` tag. The release workflow requires the complete CI workflow, publishes AMD64/ARM64 images to GHCR and creates a draft GitHub release with the installation files. Review and publish the draft. The first GHCR package must have public visibility for anonymous installation. A manual release-workflow run performs verification without publishing images or creating a release.
+Set the root package version before pushing a matching `vMAJOR.MINOR.PATCH` tag. The release workflow runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+
+If draft preparation fails after creating the GitHub draft, delete the incomplete draft while keeping its Git tag, then rerun the failed job.
+
+Review the draft's files and release notes, then click **Publish release**. The publication workflow tags the recorded digest without rebuilding. It updates Docker `latest` only when this is GitHub's latest release. Publishing through the GitHub UI or an authenticated maintainer CLI triggers this step; publishing through another workflow's `GITHUB_TOKEN` does not. Rerun a failed publication job to retry promotion of the same recorded digest. Treat `image-digest.txt` as part of the release artifacts; do not edit it independently.
+
+The first GHCR package must have public visibility for anonymous installation. Confirm the published downloads and versioned image work without signing in. Installed servers update when their operator changes `RILLDAY_VERSION` and runs the Compose update commands. A manual release-workflow run performs verification without publishing images or creating a release.
 
 ## Windows
 
