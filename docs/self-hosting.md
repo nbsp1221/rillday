@@ -12,10 +12,10 @@ cd rillday
 curl --fail --location --output compose.yaml \
   https://github.com/nbsp1221/rillday/releases/latest/download/compose.yaml
 curl --fail --location --output .env \
-  https://github.com/nbsp1221/rillday/releases/latest/download/.env.example
+  https://github.com/nbsp1221/rillday/releases/latest/download/example.env
 ```
 
-You can also download `compose.yaml` and `.env.example` from the [release page](https://github.com/nbsp1221/rillday/releases/latest) in your browser. Save `.env.example` as `.env` beside `compose.yaml`. No source checkout, Node.js or pnpm installation is needed.
+You can also download `compose.yaml` and `example.env` from the [release page](https://github.com/nbsp1221/rillday/releases/latest) in your browser. Save `example.env` as `.env` beside `compose.yaml`. No source checkout, Node.js or pnpm installation is needed.
 
 The environment file pins the release version. Review its public URL and network settings, then start Rillday:
 

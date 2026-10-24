@@ -34,7 +34,7 @@ See the [Windows guide](docs/windows.md) for installation, updates and data stor
 
 Run one Rillday container with Docker Compose. It serves the web application and synchronization API and stores server data in a persistent SQLite volume.
 
-Download `compose.yaml` and `.env.example` from the [latest release](https://github.com/nbsp1221/rillday/releases/latest), save the environment file as `.env`, and follow the [self-hosting guide](docs/self-hosting.md). From that installation directory, start the server with:
+Download `compose.yaml` and `example.env` from the [latest release](https://github.com/nbsp1221/rillday/releases/latest), save the environment file as `.env`, and follow the [self-hosting guide](docs/self-hosting.md). From that installation directory, start the server with:
 
 ```sh
 docker compose up -d

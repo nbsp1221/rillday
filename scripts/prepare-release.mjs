@@ -21,11 +21,11 @@ if (!/^RILLDAY_VERSION=.+$/m.test(environment)) {
   throw new Error('Environment example must declare RILLDAY_VERSION');
 }
 await writeFile(
-  resolve(output, '.env.example'),
+  resolve(output, 'example.env'),
   environment.replace(/^RILLDAY_VERSION=.+$/m, `RILLDAY_VERSION=${version}`),
 );
 const sums = [];
-for (const name of ['Rillday_windows_x64_setup.exe', 'compose.yaml', '.env.example']) {
+for (const name of ['Rillday_windows_x64_setup.exe', 'compose.yaml', 'example.env']) {
   const content = await readFile(resolve(output, name));
   sums.push(`${createHash('sha256').update(content).digest('hex')}  ${name}`);
 }

@@ -124,7 +124,7 @@ jobs:
         run: |
           gh release create "$TAG" --verify-tag --draft --generate-notes \
             release/Rillday_windows_x64_setup.exe \
-            release/compose.yaml release/.env.example release/SHA256SUMS \
+            release/compose.yaml release/example.env release/SHA256SUMS \
             release/image-digest.txt
 
   publish:

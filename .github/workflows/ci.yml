@@ -119,7 +119,6 @@ jobs:
         with:
           name: rillday-windows
           path: release/
-          include-hidden-files: true
           retention-days: 7
 
   container:
