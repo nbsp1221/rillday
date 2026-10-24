@@ -129,10 +129,13 @@ test('the real server persists native sync, merges devices and accepts offline e
     ),
   ]);
   await Promise.all([first.synchronization!.sync(), second.synchronization!.sync()]);
-  expect(second.repository.getSnapshot().workspace.tasks[task.id]).toMatchObject({
-    title: 'Reviewed on first device',
-    priority: 3,
-  });
+  // Server acknowledgment does not wait for delivery to the other device.
+  await expect
+    .poll(() => second.repository.getSnapshot().workspace.tasks[task.id])
+    .toMatchObject({
+      title: 'Reviewed on first device',
+      priority: 3,
+    });
   const died = once(server.child, 'exit');
   server.child.kill('SIGKILL');
   await died;
