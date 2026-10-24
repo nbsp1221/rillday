@@ -1,0 +1,40 @@
+{
+  "name": "@repo/server",
+  "version": "0.1.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "type": "module",
+  "exports": {
+    "./runtime": "./src/server.ts",
+    "./recovery": "./src/recovery.ts"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "test": "vitest run",
+    "maintenance": "node src/maintenance.ts",
+    "typecheck": "tsc && tsc -p tsconfig.application.json"
+  },
+  "dependencies": {
+    "@automerge/automerge": "3.5.0",
+    "@automerge/automerge-repo": "2.6.0-alpha.3",
+    "@automerge/automerge-repo-network-websocket": "2.6.0-alpha.3",
+    "@fastify/cors": "11.3.1",
+    "@fastify/rate-limit": "11.2.1",
+    "@fastify/static": "10.1.6",
+    "@fastify/swagger": "9.9.2",
+    "better-auth": "1.7.11",
+    "better-sqlite3": "12.11.1",
+    "fastify": "5.12.7",
+    "ws": "^8.22.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@repo/test-support": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "^24.19.2",
+    "@types/ws": "^8.18.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

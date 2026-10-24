@@ -1,0 +1,36 @@
+{
+  "name": "@repo/demo",
+  "version": "0.1.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@repo/frontend": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@repo/test-support": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "axe-core": "4.14.0",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.4",
+    "vite-plugin-pwa": "2.0.0",
+    "vite-plugin-wasm": "3.6.0",
+    "wrangler": "4.152.0"
+  }
+}

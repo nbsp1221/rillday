@@ -1,0 +1,20 @@
+{
+  "contentArea.editableMarkdown": "Task description",
+  "codeBlock.selectLanguage": "Code block language",
+  "codeBlock.inlineLanguage": "Language",
+  "codeblock.delete": "Delete code block",
+  "table.deleteTable": "Delete table",
+  "table.columnMenu": "Column menu",
+  "table.rowMenu": "Row menu",
+  "table.textAlignment": "Text alignment",
+  "table.alignLeft": "Align left",
+  "table.alignCenter": "Align center",
+  "table.alignRight": "Align right",
+  "table.insertColumnLeft": "Insert column left",
+  "table.insertColumnRight": "Insert column right",
+  "table.deleteColumn": "Delete column",
+  "table.insertRowAbove": "Insert row above",
+  "table.insertRowBelow": "Insert row below",
+  "table.deleteRow": "Delete row",
+  "imageEditor.deleteImage": "Delete image"
+}

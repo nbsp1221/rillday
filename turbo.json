@@ -1,0 +1,139 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "concurrency": "2",
+  "boundaries": {
+    "tags": {
+      "config": {
+        "dependencies": {
+          "allow": []
+        }
+      },
+      "domain": {
+        "dependencies": {
+          "allow": ["config"]
+        }
+      },
+      "ui": {
+        "dependencies": {
+          "allow": ["config"]
+        }
+      },
+      "frontend": {
+        "dependencies": {
+          "allow": ["domain", "ui", "server", "test-support", "config"]
+        }
+      },
+      "test-support": {
+        "dependencies": {
+          "allow": ["config"]
+        }
+      },
+      "server": {
+        "dependencies": {
+          "allow": ["test-support", "config"]
+        }
+      },
+      "client": {
+        "dependencies": {
+          "allow": ["frontend", "domain", "ui", "server", "test-support", "config"]
+        }
+      },
+      "site": {
+        "dependencies": {
+          "allow": ["ui", "config"]
+        }
+      }
+    }
+  },
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/LICENSE", "$TURBO_ROOT$/package.json"],
+      "outputs": ["dist/**"]
+    },
+    "@repo/desktop#build": {
+      "cache": false
+    },
+    "@repo/landing#build": {
+      "dependsOn": ["^build", "^transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/LICENSE",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/ui/LICENSE.pretendard"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@repo/demo#build": {
+      "dependsOn": ["^build", "^transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/LICENSE",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/ui/LICENSE.pretendard"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "@repo/landing#test:e2e": {
+      "dependsOn": ["build", "transit"],
+      "cache": false,
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": [
+        "RILLDAY_TEST_OUTPUT",
+        "RILLDAY_TEST_LANDING_DIR",
+        "RILLDAY_TEST_LANDING_PORT"
+      ]
+    },
+    "@repo/demo#test:e2e": {
+      "dependsOn": ["build", "transit"],
+      "cache": false,
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_DEMO_DIR", "RILLDAY_TEST_DEMO_PORT"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "//#typecheck:tools": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["tsconfig.json", "*.config.ts", "*.config.mts"]
+    },
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "test": {
+      "dependsOn": ["transit"],
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_KEEP_ARTIFACTS"]
+    },
+    "@repo/server#test": {
+      "dependsOn": ["transit"],
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_KEEP_ARTIFACTS"],
+      "cache": false
+    },
+    "//#lint:check": {},
+    "@repo/frontend#test": {
+      "dependsOn": ["transit"],
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_KEEP_ARTIFACTS"],
+      "cache": false
+    },
+    "@repo/web#test:e2e": {
+      "dependsOn": ["build", "transit"],
+      "cache": false,
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": [
+        "PLAYWRIGHT_*",
+        "RILLDAY_TEST_OUTPUT",
+        "RILLDAY_TEST_KEEP_ARTIFACTS",
+        "RILLDAY_TEST_BROWSER",
+        "RILLDAY_TEST_PORT",
+        "RILLDAY_TEST_WEB_DIR"
+      ]
+    }
+  }
+}

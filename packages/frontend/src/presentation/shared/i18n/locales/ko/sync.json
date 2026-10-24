@@ -1,0 +1,11 @@
+{
+  "local": "이 기기에 저장",
+  "syncing": "동기화 중",
+  "synced": "동기화 완료",
+  "offline": "오프라인 · 변경 내용은 이 기기에 보관",
+  "error": "동기화하지 못했어요 · 변경 내용은 이 기기에 보관",
+  "authentication-required": "로그인이 필요해요",
+  "conflict": "충돌한 변경을 확인해 주세요",
+  "local_rail": "동기화 완료",
+  "conflict_rail": "충돌한 변경을 확인해 주세요."
+}

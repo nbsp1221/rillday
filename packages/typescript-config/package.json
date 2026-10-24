@@ -1,0 +1,12 @@
+{
+  "name": "@repo/typescript-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "exports": {
+    "./base.json": "./base.json",
+    "./node.json": "./node.json",
+    "./react-library.json": "./react-library.json",
+    "./portable.json": "./portable.json"
+  }
+}

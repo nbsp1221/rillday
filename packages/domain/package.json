@@ -1,0 +1,32 @@
+{
+  "name": "@repo/domain",
+  "version": "0.1.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc && tsc -p tsconfig.application.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.0.1",
+    "canonicalize": "5.1.0",
+    "decimal.js": "10.6.0",
+    "mdast-util-from-markdown": "2.1.0",
+    "mdast-util-gfm-task-list-item": "2.0.0",
+    "micromark-extension-gfm-task-list-item": "2.1.0",
+    "temporal-polyfill": "1.0.6",
+    "uuid": "14.0.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/mdast": "4.0.4",
+    "@types/node": "^24.19.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

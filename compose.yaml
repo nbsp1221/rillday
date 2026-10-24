@@ -1,0 +1,20 @@
+services:
+  rillday:
+    image: ghcr.io/nbsp1221/rillday:${RILLDAY_VERSION:?Set RILLDAY_VERSION in .env}
+    restart: unless-stopped
+    init: true
+    ports:
+      - '${RILLDAY_BIND:-127.0.0.1}:${RILLDAY_PORT:-4287}:4287'
+    environment:
+      RILLDAY_PUBLIC_URL: ${RILLDAY_PUBLIC_URL:-http://127.0.0.1:4287}
+      RILLDAY_DB: ${RILLDAY_DB:-/data/data.sqlite}
+    volumes:
+      - data:/data
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  data:

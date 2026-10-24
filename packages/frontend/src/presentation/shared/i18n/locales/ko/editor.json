@@ -1,0 +1,20 @@
+{
+  "contentArea.editableMarkdown": "할 일 설명",
+  "codeBlock.selectLanguage": "코드 블록 언어",
+  "codeBlock.inlineLanguage": "언어",
+  "codeblock.delete": "코드 블록 삭제",
+  "table.deleteTable": "표 삭제",
+  "table.columnMenu": "열 메뉴",
+  "table.rowMenu": "행 메뉴",
+  "table.textAlignment": "텍스트 정렬",
+  "table.alignLeft": "왼쪽 정렬",
+  "table.alignCenter": "가운데 정렬",
+  "table.alignRight": "오른쪽 정렬",
+  "table.insertColumnLeft": "왼쪽에 열 추가",
+  "table.insertColumnRight": "오른쪽에 열 추가",
+  "table.deleteColumn": "열 삭제",
+  "table.insertRowAbove": "위에 행 추가",
+  "table.insertRowBelow": "아래에 행 추가",
+  "table.deleteRow": "행 삭제",
+  "imageEditor.deleteImage": "이미지 삭제"
+}

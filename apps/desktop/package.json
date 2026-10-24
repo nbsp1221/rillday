@@ -1,0 +1,32 @@
+{
+  "name": "@repo/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "dev:renderer": "vite",
+    "build:renderer": "vite build",
+    "typecheck": "tsc && tsc -p tsconfig.browser.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@repo/frontend": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tauri-apps/api": "2.12.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.12.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.4",
+    "vite-plugin-wasm": "3.6.0",
+    "vitest": "5.0.5"
+  }
+}

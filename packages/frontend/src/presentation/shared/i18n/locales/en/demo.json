@@ -1,0 +1,12 @@
+{
+  "label": "Demo",
+  "title": "Demo workspace",
+  "description": "Explore Rillday with sample data. Your changes stay in this browser and do not sync.",
+  "storage": "Clearing browser data removes your changes.",
+  "reset": "Reset examples",
+  "resetTitle": "Reset examples?",
+  "resetDescription": "Replace this demo workspace with fresh sample data in every open demo tab. Your changes will be replaced. Other Rillday workspaces are not affected.",
+  "resetting": "Resetting…",
+  "resetFailed": "Could not reset the demo. Your workspace is still available. Please try again.",
+  "product": "About Rillday"
+}

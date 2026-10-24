@@ -1,0 +1,8 @@
+/* The full font keeps Korean composition caret geometry correct in Lexical. */
+@font-face {
+  font-family: 'Pretendard Editor';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 45 920;
+  src: url('pretendard/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2');
+}

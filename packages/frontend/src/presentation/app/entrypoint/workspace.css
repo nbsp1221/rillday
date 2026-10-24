@@ -1,0 +1,211 @@
+@import '@repo/ui/styles/globals.css';
+
+@source '../..';
+
+@layer components {
+  .workspace-option {
+    @apply flex min-h-8 w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm leading-(--text-sm--line-height) hover:bg-overlay-hover focus-visible:bg-overlay-hover focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2 data-highlighted:bg-overlay-hover data-disabled:pointer-events-none data-disabled:opacity-50 aria-disabled:pointer-events-none;
+  }
+}
+
+@theme inline {
+  --color-scrollbar: var(--scrollbar);
+  --color-scrollbar-hover: var(--scrollbar-hover);
+  --color-selection: var(--selection);
+  --color-brand: var(--brand);
+  --color-button-destructive: var(--button-destructive);
+  --color-button-destructive-hover: var(--button-destructive-hover);
+  --color-button-primary: var(--button-primary);
+  --color-button-primary-foreground: var(--button-primary-foreground);
+  --color-button-primary-hover: var(--button-primary-hover);
+  --color-control-border: var(--control-border);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-text: var(--danger-text);
+  --color-date-color: var(--date-color);
+  --color-habit-color: var(--habit-color);
+  --color-habit-on-color: var(--habit-on-color);
+  --color-link: var(--link);
+  --color-overlay: var(--overlay);
+  --color-overlay-hover: var(--overlay-hover);
+  --color-positive: var(--positive);
+  --color-priority-color: var(--priority-color);
+  --color-priority-low: var(--priority-low);
+  --color-quadrant-color: var(--quadrant-color);
+  --color-separator: var(--separator);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-selected: var(--surface-selected);
+  --color-swatch: var(--swatch);
+  --color-warning: var(--warning);
+}
+
+/* Modern Minimal palettes, adapted from tweakcn (Apache-2.0). */
+
+:root {
+  --font-sans:
+    'Pretendard Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic',
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  color-scheme: dark;
+  --background: #171717;
+  --foreground: #e5e5e5;
+  --card: #262626;
+  --card-foreground: #e5e5e5;
+  --popover: #202020;
+  --popover-foreground: #e5e5e5;
+  --brand: #7060c3;
+  --primary: #beb0fa;
+  --primary-foreground: #281c55;
+  --button-primary: #6450b2;
+  --button-primary-hover: #503d96;
+  --button-primary-foreground: #ffffff;
+  --secondary: #262626;
+  --secondary-foreground: #e5e5e5;
+  --muted: #1f1f1f;
+  --muted-foreground: #a3a3a3;
+  --accent: #2e2842;
+  --accent-foreground: #beb0fa;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #404040;
+  --input: #404040;
+  --ring: #beb0fa;
+  --chart-1: #d4c9ff;
+  --chart-2: #beb0fa;
+  --chart-3: #a08de7;
+  --chart-4: #8470d2;
+  --chart-5: #7060c3;
+  --sidebar: #171717;
+  --sidebar-foreground: #e5e5e5;
+  --sidebar-primary: #beb0fa;
+  --sidebar-primary-foreground: #281c55;
+  --sidebar-accent: #2e2842;
+  --sidebar-accent-foreground: #beb0fa;
+  --sidebar-border: #404040;
+  --sidebar-ring: #beb0fa;
+  --warning: #f59e0b;
+  --positive: #22c55e;
+  --danger-text: #f87171;
+  --link: #beb0fa;
+  --priority-low: #60a5fa;
+  --shadow-opacity: 35%;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #333333;
+  --card: #ffffff;
+  --card-foreground: #333333;
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+  --primary: #6450b2;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #4b5563;
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #f0ebfc;
+  --accent-foreground: #564193;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #6450b2;
+  --chart-1: #6450b2;
+  --chart-2: #7060c3;
+  --chart-3: #8470d2;
+  --chart-4: #a08de7;
+  --chart-5: #beb0fa;
+  --sidebar: #f9fafb;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #6450b2;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0ebfc;
+  --sidebar-accent-foreground: #564193;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #6450b2;
+  --warning: #a16207;
+  --positive: #15803d;
+  --danger-text: #b91c1c;
+  --link: #6450b2;
+  --priority-low: #2563eb;
+  --shadow-opacity: 14%;
+}
+
+/* Product roles keep structural separators quieter than interactive bounds. */
+
+:root {
+  --surface-inset: var(--muted);
+  --surface-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
+  --surface-selected: var(--secondary);
+  --control-border: color-mix(in srgb, var(--foreground) 28%, var(--background));
+  --separator: color-mix(in srgb, var(--foreground) 9%, var(--background));
+  --grid-line: color-mix(in srgb, var(--foreground) 11%, var(--background));
+  --grid-line-subtle: color-mix(in srgb, var(--foreground) 6%, var(--background));
+  --selection: color-mix(in srgb, var(--primary) 24%, var(--background));
+  --danger-surface: color-mix(in srgb, var(--destructive) 10%, var(--background));
+  --scrollbar: color-mix(in srgb, var(--foreground) 20%, transparent);
+  --scrollbar-hover: color-mix(in srgb, var(--foreground) 30%, transparent);
+  --shadow: color-mix(in srgb, #000000 var(--shadow-opacity), transparent);
+  --overlay: color-mix(in srgb, #000000 40%, transparent);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --navigation-target: calc(var(--spacing) * 10);
+  --app-rail-width: calc(var(--navigation-target) + var(--spacing) * 4 + 1px);
+  --workspace-header-height: calc(var(--spacing) * 14);
+  --workspace-header-inset: calc(var(--spacing) * 5);
+  --workspace-control-size: var(--control-height);
+  --sidebar-row-height: calc(var(--spacing) * 9);
+  --control-height: 36px;
+  --task-row-height: 43px;
+  --habit-row-height: 76px;
+}
+
+:root[data-density='compact'] {
+  --control-height: 32px;
+  --task-row-height: 36px;
+  --habit-row-height: 62px;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --navigation-target: calc(var(--spacing) * 11);
+  }
+}
+
+:root {
+  --layout-page-inset: calc(var(--spacing) * 5);
+  --layout-page-inset-compact: calc(var(--spacing) * 4);
+  --layout-card-inset: calc(var(--spacing) * 4);
+  --layout-section-gap: calc(var(--spacing) * 6);
+  --layout-dialog-inset: calc(var(--spacing) * 6);
+  --layout-dialog-inset-compact: calc(var(--spacing) * 4);
+  --layout-form-gap: calc(var(--spacing) * 5);
+  --layout-field-gap: calc(var(--spacing) * 2);
+  --layout-navigation-height: calc(var(--spacing) * 9);
+  --layout-navigation-gap: calc(var(--spacing) * 3);
+}
+
+:root {
+  --button-destructive: color-mix(in srgb, var(--destructive) 78%, #000000);
+  --button-destructive-hover: color-mix(in srgb, var(--button-destructive) 86%, #000000);
+}
+
+:root {
+  --layer-overlay: 160;
+}
+
+:root {
+  --overlay-inset: var(--layout-dialog-inset);
+  --overlay-gap: 8px;
+  --overlay-edge: 8px;
+  --overlay-item-height: 32px;
+  --overlay-item-inset: 8px;
+  --overlay-hover: color-mix(in srgb, var(--popover-foreground) 7%, transparent);
+}
+
+:root {
+  --scrollbar-size: 7px;
+  --detail-pane-inset: 12px;
+}

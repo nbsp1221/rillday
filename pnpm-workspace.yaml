@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  better-sqlite3: true
+  cbor-extract: true
+  esbuild: true
+  workerd: true
+
+minimumReleaseAgeExclude:
+  - miniflare@5.20261019.2-beta
+  - wrangler@4.152.0

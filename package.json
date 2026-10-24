@@ -1,0 +1,62 @@
+{
+  "name": "rillday",
+  "version": "0.1.0",
+  "private": true,
+  "license": "EUPL-1.2",
+  "type": "module",
+  "scripts": {
+    "start": "pnpm --filter @repo/server start",
+    "dev": "turbo run dev --filter=@repo/web",
+    "dev:desktop": "pnpm build:icons && pnpm --filter @repo/desktop dev",
+    "build": "turbo run build --filter=@repo/web",
+    "build:web": "turbo run build --filter=@repo/web",
+    "build:icons": "node scripts/generate-icons.mjs",
+    "licenses:desktop": "node scripts/generate-native-licenses.mjs",
+    "build:desktop": "pnpm build:icons && pnpm --filter @repo/desktop build",
+    "typecheck": "turbo run typecheck typecheck:tools",
+    "typecheck:tools": "tsc",
+    "check:boundaries": "turbo boundaries",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck",
+    "lint": "turbo run lint:check",
+    "lint:oxlint": "oxlint --deny-warnings .",
+    "lint:eslint": "eslint --max-warnings 0 .",
+    "lint:fix": "oxlint --fix . && eslint --fix .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "start:server": "pnpm start",
+    "server:maintenance": "pnpm --filter @repo/server maintenance",
+    "preview": "pnpm --filter @repo/web preview",
+    "test:all": "turbo run test test:e2e",
+    "lint:check": "pnpm check:boundaries && pnpm lint:oxlint && pnpm lint:eslint"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@retn0/eslint-config": "2.1.0",
+    "@retn0/eslint-config-oxlint": "0.1.2",
+    "@retn0/oxfmt-config": "0.2.0",
+    "@retn0/oxlint-config": "2.2.0",
+    "@tauri-apps/cli": "2.12.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "10.12.0",
+    "oxfmt": "0.59.0",
+    "oxlint": "1.73.0",
+    "oxlint-tsgolint": "0.25.0",
+    "turbo": "2.11.9",
+    "typescript": "6.0.3"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "24.22.1",
+      "onFail": "download"
+    }
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.25.0"
+}

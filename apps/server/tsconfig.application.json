@@ -1,0 +1,5 @@
+{
+  "extends": "@repo/typescript-config/portable.json",
+  "include": ["src/modules/*/domain/**/*.ts", "src/modules/*/application/**/*.ts"],
+  "exclude": ["**/*.test.*"]
+}

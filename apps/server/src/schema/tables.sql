@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS workspace_documents (
+  owner TEXT PRIMARY KEY REFERENCES user (id) ON DELETE CASCADE,
+  documentId TEXT NOT NULL UNIQUE,
+  data BLOB
+);

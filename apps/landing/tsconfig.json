@@ -1,0 +1,5 @@
+{
+  "extends": "@repo/typescript-config/react-library.json",
+  "include": ["src", "e2e", "*.config.ts"],
+  "compilerOptions": { "types": ["node", "vite/client"] }
+}
