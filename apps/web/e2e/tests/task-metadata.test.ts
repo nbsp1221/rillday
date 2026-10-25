@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
@@ -221,7 +221,7 @@ test('empty labels survive reload and support contextual capture, rename, remova
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);
-      invariant(workspace.tasks[0] !== undefined, 'Missing workspace.tasks[0]');
+      assert(workspace.tasks[0] !== undefined, 'Missing workspace.tasks[0]');
       return { labels: workspace.labels, tags: workspace.tasks[0].tags };
     })
     .toEqual({ labels: ['organizing'], tags: ['organizing'] });

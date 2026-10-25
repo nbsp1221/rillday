@@ -1,9 +1,9 @@
+import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import {
@@ -38,7 +38,7 @@ test('pending writes warn before navigation; staying retains the edit until dura
   await ready(page);
   const registry = await storedRegistry(page);
   const entry1 = registry.accounts.find((account) => account.id === registry.activeId);
-  invariant(entry1 !== undefined, 'Missing entry');
+  assert(entry1 !== undefined, 'Missing entry');
   const workspaceId = entry1.contentId;
   const blocker = await context.newPage();
   await ready(blocker);
@@ -111,7 +111,7 @@ test('quick capture, metadata editing, checklist and reload persistence', async 
     .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('- [x] Check documents');
   const before = (await storedWorkspace(page)).tasks[0];
-  invariant(before !== undefined, 'Missing before');
+  assert(before !== undefined, 'Missing before');
   expect(before.tags).toEqual(['work', 'planning']);
   expect(before.priority).toBe(3);
   expect(before.time).toBe('15:00');
@@ -173,7 +173,7 @@ test('matrix drag changes priority and calendar date drag updates the same task'
   await add(page, 'Task being connected !1');
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(1);
   const task1 = (await storedWorkspace(page)).tasks[0];
-  invariant(task1 !== undefined, 'Missing task');
+  assert(task1 !== undefined, 'Missing task');
   const taskId = task1.id;
   await page.getByLabel('Eisenhower Matrix', { exact: true }).click();
   const quadrants = page.locator('.quadrant');
@@ -436,7 +436,7 @@ test('recognition preferences control real task capture and persist across reloa
     .poll(async () => (await storedWorkspace(page)).tasks[0]?.title)
     .toBe('Keep authored text tomorrow 3pm #work');
   const task = (await storedWorkspace(page)).tasks[0];
-  invariant(task !== undefined, 'Missing task');
+  assert(task !== undefined, 'Missing task');
   expect(task.date).toBeNull();
   expect(task.time).toBeNull();
   expect(task.tags).toEqual(['work']);
@@ -646,7 +646,7 @@ test('a downloaded backup above 10MiB restores through the file picker', async (
       notes: randomBytes(786432).toString('base64'),
     });
     expect(task).not.toBeNull();
-    invariant(task !== null, 'Task fixture must have a title');
+    assert(task !== null, 'Task fixture must have a title');
     return task;
   });
   await page.goto('/');

@@ -1,28 +1,11 @@
-import { type WorkspaceContents, hash } from '@repo/domain';
+import { hash } from '@repo/domain';
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
-import invariant from 'tiny-invariant';
 import { z } from 'zod';
 import type { AccountBackup, AccountRegistry } from '#application/account-repository';
 import { type AppPreferences, normalizePreferences } from '#application/preferences';
-import type { WorkspaceRecord as WorkspaceProfile } from '../../application/account-record.ts';
 
 interface WorkspaceDatabase extends DBSchema {
   metadata: { key: string; value: unknown };
-}
-
-interface RecoveryRecord {
-  id: string;
-  workspaceId: string;
-  createdAt: string;
-  reason: 'connection' | 'draft';
-  contents: WorkspaceContents;
-  source: string;
-  documentId: string;
-  revision: string;
-  digest: string;
-  scope?: string;
-  name?: string;
-  drafts?: number;
 }
 
 const registrySchema: z.ZodType<AccountRegistry> = z.object({
@@ -47,7 +30,7 @@ const registrySchema: z.ZodType<AccountRegistry> = z.object({
   ),
 });
 
-const recoverySchema: z.ZodType<RecoveryRecord> = z.object({
+const recoverySchema = z.object({
   id: z.string(),
   workspaceId: z.string(),
   createdAt: z.string(),
@@ -69,6 +52,8 @@ const recoverySchema: z.ZodType<RecoveryRecord> = z.object({
     hasData: z.boolean(),
   }),
 });
+
+type RecoveryRecord = z.infer<typeof recoverySchema>;
 
 export class BrowserWorkspaceRepository {
   private readonly registryKey: string;
@@ -271,21 +256,13 @@ export class BrowserWorkspaceRepository {
         throw new Error('profiles.detailsUnreadable');
       }
       const stored = parsed.data;
-      if (
-        !Array.isArray(stored.accounts) ||
-        !stored.accounts.length ||
-        !stored.accounts.every((a) => typeof a.id === 'string' && typeof a.name === 'string') ||
-        !stored.accounts.some((a) => a.id === stored.activeId)
-      ) {
+      if (!stored.accounts.some((a) => a.id === stored.activeId)) {
         throw new Error('profiles.detailsUnreadable');
       }
       return stored;
     }
-    const accounts: WorkspaceProfile[] = [
-      { id: crypto.randomUUID(), name: 'Personal', color: '#7d9cc4' },
-    ];
-    invariant(accounts[0] !== undefined, 'Missing accounts[0]');
-    return this.saveRegistry({ activeId: accounts[0].id, accounts });
+    const account = { id: crypto.randomUUID(), name: 'Personal', color: '#7d9cc4' };
+    return this.saveRegistry({ activeId: account.id, accounts: [account] });
   }
 
   async saveRegistry(registry: AccountRegistry): Promise<AccountRegistry> {

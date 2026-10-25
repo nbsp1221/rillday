@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -136,7 +136,7 @@ test('matrix color popovers contain Tab and Escape inside their modal and retain
   await trigger.click();
   const picker = page.locator('.color-picker-panel');
   await expect(picker).toBeVisible();
-  invariant(label !== null, 'Missing label');
+  assert(label !== null, 'Missing label');
   await custom(page, undefined, label);
   await page.getByLabel('HEX color', { exact: true }).fill('#12');
   await page.getByLabel('HEX color', { exact: true }).press('Tab');
@@ -171,7 +171,7 @@ test('a continuous custom-color drag commits one matrix undo step', async ({ pag
     .locator('span')
     .evaluate((el) => getComputedStyle(el).backgroundColor);
   const entry = await trigger.getAttribute('aria-label');
-  invariant(entry !== null, 'Missing entry');
+  assert(entry !== null, 'Missing entry');
   await custom(page, undefined, entry);
   const area = await visibleBox(page.locator('.color-area'));
 

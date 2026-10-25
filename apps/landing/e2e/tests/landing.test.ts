@@ -1,9 +1,9 @@
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import type axe from 'axe-core';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 
 declare global {
   interface Window {
@@ -59,10 +59,10 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       }
       if (width < 640) {
         const [primary, secondary] = await actions.all();
-        invariant(primary !== undefined, 'Missing primary');
+        assert(primary !== undefined, 'Missing primary');
         const primaryBox = await visibleBox(primary);
 
-        invariant(secondary !== undefined, 'Missing secondary');
+        assert(secondary !== undefined, 'Missing secondary');
         const secondaryBox = await visibleBox(secondary);
 
         expect(primaryBox.x).toBe(secondaryBox.x);
@@ -70,10 +70,10 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       }
       if (width >= 768) {
         const setupButtons = await page.locator('#get-started article > a').all();
-        invariant(setupButtons[0] !== undefined, 'Missing setupButtons[0]');
+        assert(setupButtons[0] !== undefined, 'Missing setupButtons[0]');
         const first = await visibleBox(setupButtons[0]);
 
-        invariant(setupButtons[1] !== undefined, 'Missing setupButtons[1]');
+        assert(setupButtons[1] !== undefined, 'Missing setupButtons[1]');
         const second = await visibleBox(setupButtons[1]);
 
         expect(first.y).toBe(second.y);

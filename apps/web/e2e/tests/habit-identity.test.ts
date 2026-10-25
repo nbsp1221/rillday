@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
@@ -14,7 +14,7 @@ async function fixture(page: Page) {
   const today = (await browserToday(page)).toString();
   data.habits = icons.map((icon, index) => {
     const color = colors[index % colors.length];
-    invariant(color !== undefined, 'Habit fixture requires a color');
+    assert(color !== undefined, 'Habit fixture requires a color');
     return {
       id: `habit-${index}`,
       name: `Habit ${index}`,

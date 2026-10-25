@@ -1,6 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { setPickerTime } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
@@ -137,11 +136,9 @@ for (const language of ['ko', 'en']) {
       [en ? '12:00 AM' : '오전 12:00', '00:00'],
       [en ? '12:00 PM' : '오후 12:00', '12:00'],
       ['23:59', '23:59'],
-    ]) {
-      invariant(text !== undefined, 'Missing text');
+    ] as const) {
       await field(page).fill(text);
       await field(page).press('Enter');
-      invariant(value !== undefined, 'Missing value');
       await expect(page.locator('.date-time-trigger')).toHaveAttribute('data-time', value);
       await page.locator('.date-time-trigger').click();
       await expect(field(page)).not.toHaveValue('');

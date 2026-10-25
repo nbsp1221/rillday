@@ -1,7 +1,6 @@
 import type { ResizeEvent } from '@interactjs/types';
 import interact from 'interactjs';
 import { useEffect, useEffectEvent, useState } from 'react';
-import invariant from 'tiny-invariant';
 import type { Task } from '#application';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
@@ -66,12 +65,11 @@ export function useCalendarResize(scroller: HTMLDivElement | null, tasks: Map<st
       return current;
     }
 
-    function preview(pointerY: number) {
+    const preview = (pointerY: number) => {
       if (!active) {
         return;
       }
       active.pointerY = pointerY;
-      invariant(grid !== null, 'Missing grid');
       const bounds = grid.getBoundingClientRect();
       const pixelsPerMinute = bounds.height / 1440;
       const patch = resizeCalendarTask(
@@ -92,7 +90,7 @@ export function useCalendarResize(scroller: HTMLDivElement | null, tasks: Map<st
       if (time) {
         time.textContent = describe(range.start, range.end);
       }
-    }
+    };
 
     const resizable = interact('.calendar-task.timed', { context: scroller })
       .resizable({

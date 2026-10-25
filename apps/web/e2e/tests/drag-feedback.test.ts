@@ -1,8 +1,8 @@
+import assert from 'node:assert/strict';
 import type { CalendarViewMode } from '@repo/frontend/application';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { browserToday } from '../support/clock';
 import { reloadSavedPage } from '../support/navigation';
@@ -125,7 +125,7 @@ for (const complex of [false, true]) {
     const before = (await storedWorkspace(page)).tasks.find(
       (task) => task.id === fixtureId('source'),
     );
-    invariant(before !== undefined, 'Missing before');
+    assert(before !== undefined, 'Missing before');
     const target = page.locator('.quadrant').last();
     const box = await visibleBox(target);
     await start(page, source(page));
@@ -142,7 +142,7 @@ for (const complex of [false, true]) {
     await expect
       .poll(async () => {
         const task = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
-        invariant(task !== undefined, 'Missing task');
+        assert(task !== undefined, 'Missing task');
 
         return {
           priority: task.priority,
@@ -160,13 +160,13 @@ for (const complex of [false, true]) {
         time: before.time,
       });
     const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
-    invariant(after !== undefined, 'Missing after');
+    assert(after !== undefined, 'Missing after');
     expect(after.notes).toBe(before.notes);
     expect(after.time).toBe(before.time);
     expect(after.priority).toBe(complex ? 1 : 0);
     if (complex) {
-      invariant(before.date !== null, 'Missing before.date');
-      invariant(after.date !== null, 'Missing after.date');
+      assert(before.date !== null, 'Missing before.date');
+      assert(after.date !== null, 'Missing after.date');
       expect(after.date > before.date).toBe(true);
     } else {
       expect(after.date).toBe(before.date);

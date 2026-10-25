@@ -91,9 +91,7 @@ function WorkspaceApp(props: RilldayAppProps) {
   const [captureRequest, setCaptureRequest] = useState(0);
   const { narrow, mobileSidebarOpen, setMobileSidebarOpen } = useWorkspaceLayout(captureRequest);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const { toasts, notify, historyRevision, onAccepted } = useWorkspaceNotifications(
-    connectionState.error,
-  );
+  const { toasts, notify, onAccepted } = useWorkspaceNotifications(connectionState.error);
   const [dialog, setDialog] = useState<'profiles' | 'settings' | 'search' | null>(null);
   const [globalQuery, setGlobalQuery] = useState('');
   const showDetail = area !== 'habits' && Boolean(selectedTaskId);
@@ -330,7 +328,6 @@ function WorkspaceApp(props: RilldayAppProps) {
           </WorkspacePanels>
           <WorkspaceToastViewport
             toasts={toasts}
-            historyRevision={historyRevision}
             canUndo={snapshot.canUndo}
             undo={taskActions.undo}
           />

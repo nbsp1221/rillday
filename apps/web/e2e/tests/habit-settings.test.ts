@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
 
 async function newHabit(page: Page) {
@@ -179,11 +179,9 @@ test('invalid numeric drafts and blank units cannot save; min/max keyboard and b
     ['0', '0'],
     ['abc', '0'],
     ['Infinity', '0'],
-  ]) {
-    invariant(value !== undefined, 'Missing value');
+  ] as const) {
     await goal.fill(value);
     await save.click();
-    invariant(expected !== undefined, 'Missing expected');
     await expect(goal).toHaveValue(expected);
     await expect(goal).toHaveAttribute('aria-invalid', 'true');
     await expect(page.locator('.habit-editor')).toBeVisible();
@@ -304,8 +302,8 @@ for (const width of [320, 900]) {
           return { width: box.width, border: style.borderColor, color: style.color };
         }),
       );
-    invariant(goalChoices[1] !== undefined, 'Missing goalChoices[1]');
-    invariant(goalChoices[0] !== undefined, 'Missing goalChoices[0]');
+    assert(goalChoices[1] !== undefined, 'Missing goalChoices[1]');
+    assert(goalChoices[0] !== undefined, 'Missing goalChoices[0]');
     expect(Math.abs(goalChoices[0].width - goalChoices[1].width)).toBeLessThan(1);
 
     expect(goalChoices[1].border).toBe(goalChoices[1].color);

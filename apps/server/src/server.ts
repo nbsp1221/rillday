@@ -2,7 +2,6 @@ import { resolve } from 'node:path';
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 import Fastify, { type FastifyRequest, type FastifyServerOptions } from 'fastify';
-import invariant from 'tiny-invariant';
 import { HttpFault } from './http-errors.ts';
 import {
   maximumRequestBodyBytes,
@@ -61,7 +60,6 @@ export async function createServer(
   const lifecycle = new ServerLifecycle(store);
   try {
     const instance = instanceConfiguration(store);
-    invariant(instance !== undefined, 'Missing instance');
     const { service: accounts, authentication: auth } = await createAccountModule(store, {
       origin,
       origins,

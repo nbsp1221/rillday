@@ -1,5 +1,5 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { browserToday } from '../support/clock';
@@ -103,7 +103,7 @@ test('task dates share semantic colors in both palettes and languages without ho
   const row = page.locator('.task-row');
   await row.locator('.task-title').click();
   await page.locator('.td-date-button').click();
-  invariant(dates[1] !== undefined, 'Missing dates[1]');
+  assert(dates[1] !== undefined, 'Missing dates[1]');
   await selectCalendarDate(page, dates[1]);
   await page.keyboard.press('Escape');
   await expect(row.locator('.row-date')).toHaveAttribute('data-date-tone', 'today');
@@ -166,7 +166,7 @@ for (const theme of ['dark', 'light']) {
     await expect
       .poll(async () => {
         const task = (await storedWorkspace(page)).tasks[0];
-        invariant(task !== undefined, 'Missing task');
+        assert(task !== undefined, 'Missing task');
         return { date: task.date, deleted: task.deleted, completedAt: task.completedAt };
       })
       .toEqual({ date: past, deleted: false, completedAt: null });

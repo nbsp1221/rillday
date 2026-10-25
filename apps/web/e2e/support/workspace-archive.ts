@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+import 'fake-indexeddb/auto';
 import {
   type Workspace,
   checkInId,
@@ -6,7 +8,6 @@ import {
   recordQuantity,
   validateWorkspace,
 } from '@repo/domain';
-import 'fake-indexeddb/auto';
 import {
   type WorkspaceData,
   applyWorkspaceIntent,
@@ -14,7 +15,6 @@ import {
 } from '@repo/frontend/application';
 import { createIndexedDbStorage } from '@repo/frontend/storage/indexeddb';
 import { Temporal } from 'temporal-polyfill/implementation';
-import invariant from 'tiny-invariant';
 
 export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): Promise<string> {
   const context = { now: () => new Date().toISOString(), newId: () => crypto.randomUUID() };
@@ -22,7 +22,7 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
   const inbox = Object.values(workspace.lists)[0];
   for (const list of data.lists) {
     if (list.id === 'inbox') {
-      invariant(inbox !== undefined, 'Missing inbox');
+      assert(inbox !== undefined, 'Missing inbox');
       Object.assign(inbox, { name: list.name, color: list.color });
     } else {
       applyWorkspaceIntent(workspace, { type: 'list.create', list }, context, zone);
@@ -47,7 +47,7 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
   applyWorkspaceIntent(workspace, { type: 'task.create', tasks }, context, zone);
   for (const source of data.tasks) {
     const task1 = workspace.tasks[source.id];
-    invariant(task1 !== undefined, 'Missing task');
+    assert(task1 !== undefined, 'Missing task');
     Object.assign(task1, {
       completedAt: source.completedAt,
       createdAt: source.createdAt,
@@ -72,7 +72,7 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
     );
 
     const savedHabit = workspace.habits[habit.id];
-    invariant(savedHabit !== undefined, 'Missing habit');
+    assert(savedHabit !== undefined, 'Missing habit');
     savedHabit.createdAt = habit.createdAt;
     if (habit.rules) {
       savedHabit.rules = structuredClone(habit.rules);
@@ -80,7 +80,7 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
   }
   for (const log of data.habitLogs) {
     const habit = workspace.habits[log.habitId];
-    invariant(habit !== undefined, 'Missing habit');
+    assert(habit !== undefined, 'Missing habit');
     const rule = currentRule(habit, log.date);
     const id = checkInId(habit.id, log.date);
     workspace.checkIns[id] = {
@@ -142,7 +142,7 @@ export async function conflictingArchive(
         for (const [index, document] of [left, right].entries()) {
           const next = structuredClone(document.repository.getSnapshot().workspace);
           const change = changes[index];
-          invariant(change !== undefined, 'Missing change');
+          assert(change !== undefined, 'Missing change');
           change(next);
           await document.repository.commit(next);
         }

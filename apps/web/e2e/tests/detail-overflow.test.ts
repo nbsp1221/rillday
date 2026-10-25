@@ -1,15 +1,15 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 
 async function expectViewportHeight(page: Page) {
   const entry = page.viewportSize();
-  invariant(entry !== null, 'Missing entry');
+  assert(entry !== null, 'Missing entry');
   const entry1 = page.viewportSize();
-  invariant(entry1 !== null, 'Missing entry');
+  assert(entry1 !== null, 'Missing entry');
   const entry2 = page.viewportSize();
-  invariant(entry2 !== null, 'Missing entry');
+  assert(entry2 !== null, 'Missing entry');
   expect(
     await page.evaluate(() => ({
       viewport: innerHeight,

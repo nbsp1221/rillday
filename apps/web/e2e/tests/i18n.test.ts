@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { seedWorkspace, storedRegistry, storedWorkspace } from '../support/storage';
 import { archiveFixture } from '../support/workspace-archive';
@@ -61,10 +61,10 @@ for (const language of ['ko', 'en'] as const) {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^(돌아가기|Back)$/, exact: true }).click();
 
-    invariant(areas[1] !== undefined, 'Missing areas[1]');
+    assert(areas[1] !== undefined, 'Missing areas[1]');
     await page.getByLabel(areas[1], { exact: true }).click();
     await expect(page.locator('.quadrant-header h2')).toHaveText(quadrants);
-    invariant(areas[0] !== undefined, 'Missing areas[0]');
+    assert(areas[0] !== undefined, 'Missing areas[0]');
     await page.getByLabel(areas[0], { exact: true }).click();
 
     for (const [index, priority] of priorities.entries()) {
@@ -134,7 +134,7 @@ for (const language of ['ko', 'en'] as const) {
         .nth(index + 1)
         .click();
       const trigger = page.locator('.date-repeat-trigger');
-      invariant(labels[index] !== undefined, 'Missing labels[index]');
+      assert(labels[index] !== undefined, 'Missing labels[index]');
       await expect(trigger.locator('.schedule-value')).toHaveText(labels[index]);
 
       for (const count of [1, 2, 365]) {
@@ -209,11 +209,11 @@ test('only system quadrant names translate, including names identical to a defau
   await expect(page.locator('#quick-add-input')).toBeVisible();
   const data = emptyWorkspace();
   const literal = '👩‍💻 {{count}} $t(common.save)';
-  invariant(data.quadrants[1] !== undefined, 'Missing data.quadrants[1]');
+  assert(data.quadrants[1] !== undefined, 'Missing data.quadrants[1]');
   data.quadrants[1].name = 'common.save';
-  invariant(data.quadrants[2] !== undefined, 'Missing data.quadrants[2]');
+  assert(data.quadrants[2] !== undefined, 'Missing data.quadrants[2]');
   data.quadrants[2].name = 'Urgent, not important';
-  invariant(data.quadrants[3] !== undefined, 'Missing data.quadrants[3]');
+  assert(data.quadrants[3] !== undefined, 'Missing data.quadrants[3]');
   data.quadrants[3].name = literal;
   await seedWorkspace(page, data);
   await page.reload();

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -44,7 +44,7 @@ async function seed(page: Page, scheduled = false, recurring = false) {
     task('block', 'Long event', today, '09:00', 120),
   ];
   if (recurring) {
-    invariant(fixture.tasks[0] !== undefined, 'Missing fixture.tasks[0]');
+    assert(fixture.tasks[0] !== undefined, 'Missing fixture.tasks[0]');
     fixture.tasks[0].repeat = { frequency: 'daily', interval: 1 };
   }
   await seedWorkspace(page, fixture);
@@ -55,7 +55,7 @@ async function seed(page: Page, scheduled = false, recurring = false) {
 
 async function sourceRecord(page: Page) {
   const task = (await storedWorkspace(page)).tasks.find((t) => t.id === fixtureId('source'));
-  invariant(task !== undefined, 'Expected a saved fixture value');
+  assert(task !== undefined, 'Expected a saved fixture value');
   return task;
 }
 
@@ -106,7 +106,7 @@ test('late events retain their wall-clock position and clip at midnight after re
   await seed(page, true);
   const data = await storedWorkspace(page);
   const task = data.tasks.find((item) => item.id === fixtureId('source'));
-  invariant(task !== undefined, 'Missing task');
+  assert(task !== undefined, 'Missing task');
 
   task.time = '23:30';
   task.duration = 90;
@@ -599,7 +599,7 @@ test('dense month virtualization keeps every task reachable and retains the drag
   const today = await seed(page);
   const dense = await storedWorkspace(page);
   const original = dense.tasks.find((task) => task.id === fixtureId('source'));
-  invariant(original !== undefined, 'Missing original');
+  assert(original !== undefined, 'Missing original');
   original.date = today;
   dense.tasks.push(
     ...Array.from({ length: 100 }, (_, i) => ({

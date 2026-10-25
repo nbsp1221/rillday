@@ -1,26 +1,23 @@
 import { useToastManager } from '@repo/ui/components/toast';
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent } from 'react';
 import { useI18n } from '#shared/i18n';
 import { syncError } from '../../shared/lib/operation-errors';
 
 export function useWorkspaceNotifications(error: string) {
-  const historyRevisionRef = useRef(0);
-  const [historyRevision, setHistoryRevision] = useState(0);
-  const onAccepted = useCallback(() => {
-    historyRevisionRef.current++;
-    setHistoryRevision(historyRevisionRef.current);
-  }, []);
   const { t } = useI18n();
-  const { toasts, add } = useToastManager<{ undoRevision?: number }>();
+  const { toasts, add, update } = useToastManager<{ undoable?: boolean }>();
+  const onAccepted = useCallback(() => {
+    update('workspace-notification', { data: { undoable: false } });
+  }, [update]);
   const notify = useCallback(
     (message: string, options?: { undoable?: boolean }) => {
       add({
         id: 'workspace-notification',
         title: message,
-        data: { undoRevision: options?.undoable ? historyRevisionRef.current : undefined },
+        data: { undoable: options?.undoable },
       });
     },
-    [add, historyRevisionRef],
+    [add],
   );
 
   const onConnectionError = useEffectEvent((value: string) => {
@@ -37,5 +34,5 @@ export function useWorkspaceNotifications(error: string) {
     window.addEventListener('rillday-close-save-error', handler);
     return () => window.removeEventListener('rillday-close-save-error', handler);
   }, [notify, t]);
-  return { toasts, notify, historyRevision, onAccepted };
+  return { toasts, notify, onAccepted };
 }

@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { seedWorkspace } from '../support/storage';
 
@@ -89,7 +89,7 @@ test('global search exposes every match and resets pagination for another query'
   data.tasks = Array.from({ length: 101 }, (_, order) => {
     const task = createTaskRecord(`Search review ${order}`, data, { order });
     expect(task).not.toBeNull();
-    invariant(task !== null, 'Task fixture must have a title');
+    assert(task !== null, 'Task fixture must have a title');
     return task;
   });
   await page.goto('/');

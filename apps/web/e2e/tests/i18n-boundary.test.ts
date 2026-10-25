@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { seedArchive, storedPreferences } from '../support/storage';
 import { archiveFixture, conflictingArchive } from '../support/workspace-archive';
 
@@ -44,7 +44,7 @@ for (const language of ['ko', 'en'] as const) {
     const conflicted = await conflictingArchive(source, [
       (workspace) => {
         const task = workspace.tasks[first.id];
-        invariant(task !== undefined, 'Missing task');
+        assert(task !== undefined, 'Missing task');
         task.priority = 1;
         task.schedule = {
           date: '2030-01-31',
@@ -56,24 +56,24 @@ for (const language of ['ko', 'en'] as const) {
         };
 
         const task1 = workspace.tasks[second.id];
-        invariant(task1 !== undefined, 'Missing task');
+        assert(task1 !== undefined, 'Missing task');
         const entry = Object.values(workspace.lists).find((list) => list.system === 'inbox');
-        invariant(entry !== undefined, 'Missing entry');
+        assert(entry !== undefined, 'Missing entry');
         task1.location = {
           listId: entry.id,
           parentId: null,
         };
-        invariant(data.habits[0] !== undefined, 'Missing data.habits[0]');
+        assert(data.habits[0] !== undefined, 'Missing data.habits[0]');
 
         const habit = workspace.habits[data.habits[0].id];
-        invariant(habit !== undefined, 'Missing habit');
+        assert(habit !== undefined, 'Missing habit');
         const rule = habit.rules[0];
-        invariant(rule !== undefined, 'Habit fixture requires a rule');
+        assert(rule !== undefined, 'Habit fixture requires a rule');
         rule.goal = 3;
       },
       (workspace) => {
         const task = workspace.tasks[first.id];
-        invariant(task !== undefined, 'Missing task');
+        assert(task !== undefined, 'Missing task');
         task.priority = 3;
         task.schedule = {
           date: '2030-01-31',
@@ -83,17 +83,17 @@ for (const language of ['ko', 'en'] as const) {
           repeat: { frequency: 'weekly', interval: 2, until: null, anchorDay: null },
           reminderMinutes: null,
         };
-        invariant(data.lists[1] !== undefined, 'Missing data.lists[1]');
+        assert(data.lists[1] !== undefined, 'Missing data.lists[1]');
 
         const task2 = workspace.tasks[second.id];
-        invariant(task2 !== undefined, 'Missing task');
+        assert(task2 !== undefined, 'Missing task');
         task2.location = { listId: data.lists[1].id, parentId: null };
-        invariant(data.habits[0] !== undefined, 'Missing data.habits[0]');
+        assert(data.habits[0] !== undefined, 'Missing data.habits[0]');
 
         const habit1 = workspace.habits[data.habits[0].id];
-        invariant(habit1 !== undefined, 'Missing habit');
+        assert(habit1 !== undefined, 'Missing habit');
         const rule = habit1.rules[0];
-        invariant(rule !== undefined, 'Habit fixture requires a rule');
+        assert(rule !== undefined, 'Habit fixture requires a rule');
         rule.goal = 4;
       },
     ]);

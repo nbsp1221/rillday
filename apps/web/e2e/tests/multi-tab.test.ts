@@ -1,8 +1,8 @@
+import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { type Page, test as base, expect } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password, visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { seedArchive, storedRegistry, storedWorkspace } from '../support/storage';
 import { archiveFixture, conflictingArchive } from '../support/workspace-archive';
@@ -156,15 +156,15 @@ test('native concurrent title alternatives persist and resolve across tabs throu
   await page.goto('/');
   await add(page, 'Original title');
   const data = await storedWorkspace(page);
-  invariant(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
+  assert(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
   const taskId = data.tasks[0].id;
   const conflicted = await conflictingArchive(await archiveFixture(data), [
     (workspace) => {
-      invariant(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
+      assert(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
       workspace.tasks[taskId].title = 'First tab title';
     },
     (workspace) => {
-      invariant(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
+      assert(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
       workspace.tasks[taskId].title = 'Second tab title';
     },
   ]);
@@ -188,8 +188,8 @@ test('native concurrent title alternatives persist and resolve across tabs throu
     }),
   );
   expect(boxes).toHaveLength(2);
-  invariant(boxes[1] !== undefined, 'Missing boxes[1]');
-  invariant(boxes[0] !== undefined, 'Missing boxes[0]');
+  assert(boxes[1] !== undefined, 'Missing boxes[1]');
+  assert(boxes[0] !== undefined, 'Missing boxes[0]');
   expect(Math.abs(boxes[0].x - boxes[1].x)).toBeLessThanOrEqual(1);
 
   expect(Math.abs(boxes[0].width - boxes[1].width)).toBeLessThanOrEqual(1);

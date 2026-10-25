@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 import { archiveFixture } from '../support/workspace-archive';
@@ -9,15 +9,19 @@ test('task destinations keep the requested order without a brand row or duplicat
   page,
 }) => {
   await page.goto('/');
-  const destinations = ['list:inbox', 'today', 'next', 'all', 'completed', 'trash'];
+  const destinations = [
+    { value: 'list:inbox', ko: '수집함', en: 'Inbox' },
+    { value: 'today', ko: '오늘', en: 'Today' },
+    { value: 'next', ko: '다음 7일', en: 'Next 7 days' },
+    { value: 'all', ko: '모든 할 일', en: 'All tasks' },
+    { value: 'completed', ko: '완료', en: 'Completed' },
+    { value: 'trash', ko: '휴지통', en: 'Trash' },
+  ];
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await chooseChoice(page, page.getByLabel('Language', { exact: true }), 'ko');
   await page.getByRole('button', { name: '돌아가기', exact: true }).click();
-  for (const language of ['ko', 'en']) {
-    const names =
-      language === 'ko'
-        ? ['수집함', '오늘', '다음 7일', '모든 할 일', '완료', '휴지통']
-        : ['Inbox', 'Today', 'Next 7 days', 'All tasks', 'Completed', 'Trash'];
+  for (const language of ['ko', 'en'] as const) {
+    const names = destinations.map((destination) => destination[language]);
     await expect(page.locator('.smart-lists button > span')).toHaveText(names);
     await expect(page.locator('.sidebar-header, .profile-title')).toHaveCount(0);
     for (const name of names) {
@@ -49,16 +53,11 @@ test('task destinations keep the requested order without a brand row or duplicat
           .getByRole('option')
           .evaluateAll((options) => options.map((option) => option.getAttribute('data-value'))),
       )
-      .toEqual(destinations);
+      .toEqual(destinations.map((destination) => destination.value));
     await page.keyboard.press('Escape');
-    for (let index = 0; index < destinations.length; index++) {
-      const destination = destinations[index];
-      invariant(destination !== undefined, 'Missing destination');
-      await chooseChoice(page, select, destination);
-
-      const name1 = names[index];
-      invariant(name1 !== undefined, 'Missing name');
-      await expect(page.locator('.workspace-header h1')).toHaveText(name1);
+    for (const destination of destinations) {
+      await chooseChoice(page, select, destination.value);
+      await expect(page.locator('.workspace-header h1')).toHaveText(destination[language]);
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     if (language === 'ko') {
@@ -335,7 +334,7 @@ test('rail labels appear beside icons for hover and keyboard, without native tit
   const focused = rail.locator('button:focus-visible');
   await expect(label).toBeVisible();
   const entry1 = await focused.getAttribute('aria-label');
-  invariant(entry1 !== null, 'Missing entry');
+  assert(entry1 !== null, 'Missing entry');
   await expect(label).toContainText(entry1);
   await focused.press('Escape');
   await expect(label).toBeHidden();

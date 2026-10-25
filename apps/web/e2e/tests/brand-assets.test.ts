@@ -1,5 +1,5 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
-import invariant from 'tiny-invariant';
 import { z } from 'zod';
 
 const manifestSchema = z.object({
@@ -51,7 +51,7 @@ test('web identity assets decode at their declared sizes and remain available of
   }, manifest.icons);
   for (const icon of manifest.icons) {
     const asset = assets.find((asset) => asset.src === icon.src);
-    invariant(asset !== undefined, 'Missing asset');
+    assert(asset !== undefined, 'Missing asset');
     expect(`${asset.width}x${asset.height}`).toBe(icon.sizes);
   }
   expect(assets.every((asset) => asset.status === 200 && asset.width > 0)).toBe(true);

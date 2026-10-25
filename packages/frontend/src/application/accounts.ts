@@ -515,17 +515,13 @@ export class AccountCoordinator implements AccountHostPort {
   }
 
   private remote(profile: WorkspaceProfile, token = '') {
-    return profile.server
+    const server = profile.server;
+    return server
       ? {
-          url: profile.server.url,
-          serverId: profile.server.serverId,
+          url: server.url,
+          serverId: server.serverId,
           authorize: async (signal: AbortSignal) => {
-            invariant(profile.server !== undefined, 'Missing profile.server');
-            await this.options.transport.verifyIdentity(
-              profile.server.url,
-              profile.server.serverId,
-              signal,
-            );
+            await this.options.transport.verifyIdentity(server.url, server.serverId, signal);
             return token || this.restoreCredential(profile, signal);
           },
         }

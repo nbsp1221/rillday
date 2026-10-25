@@ -1,4 +1,3 @@
-import invariant from 'tiny-invariant';
 import { canonical } from '../shared-kernel/canonical.ts';
 import { taskDescendants } from '../task-management/tasks/task-hierarchy.ts';
 import type { Workspace } from './workspace.ts';
@@ -137,11 +136,10 @@ export function proposeWorkspaceReview(
       const source: Record<string, object> = previous[target.collection];
       const destination: Record<string, object> = proposal[target.collection];
       const record = source[target.id];
+      const current = destination[target.id];
       if (!record) {
         delete destination[target.id];
-      } else if (fields && destination[target.id]) {
-        const current = destination[target.id];
-        invariant(current !== undefined, 'Missing review destination');
+      } else if (fields && current) {
         for (const field of fields) {
           const value: unknown = Object.entries(record).find(([name]) => name === field)?.[1];
           Object.assign(current, { [field]: structuredClone(value) });

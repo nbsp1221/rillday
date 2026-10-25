@@ -15,7 +15,7 @@ export function WorkspaceToast({
   canUndo,
   undo,
 }: {
-  toast: ToastPrimitive.Root.ToastObject<{ undoRevision?: number }>;
+  toast: ToastPrimitive.Root.ToastObject<{ undoable?: boolean }>;
   canUndo: boolean;
   undo: () => unknown;
 }) {
@@ -47,12 +47,10 @@ export function WorkspaceToast({
 
 export function WorkspaceToastViewport({
   toasts,
-  historyRevision,
   canUndo,
   undo,
 }: {
-  toasts: ToastPrimitive.Root.ToastObject<{ undoRevision?: number }>[];
-  historyRevision: number;
+  toasts: ToastPrimitive.Root.ToastObject<{ undoable?: boolean }>[];
   canUndo: boolean;
   undo: () => unknown;
 }) {
@@ -67,7 +65,7 @@ export function WorkspaceToastViewport({
           <WorkspaceToast
             key={toast.id}
             toast={toast}
-            canUndo={toast.data?.undoRevision === historyRevision && canUndo}
+            canUndo={toast.data?.undoable === true && canUndo}
             undo={undo}
           />
         ))}

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -46,7 +46,7 @@ async function saved(page: Page) {
   const task = (await storedWorkspace(page)).tasks.find(
     (task) => task.id === fixtureId('resize-event'),
   );
-  invariant(task !== undefined, 'Expected a saved fixture value');
+  assert(task !== undefined, 'Expected a saved fixture value');
   return task;
 }
 
@@ -206,7 +206,7 @@ test('the final calendar quarter hour fits inside midnight', async ({ page }) =>
     time: '23:45',
   });
   expect(task).not.toBeNull();
-  invariant(task !== null, 'Missing task');
+  assert(task !== null, 'Missing task');
   data.tasks.push(task);
   await page.goto('/');
   await expect(page.locator('#quick-add-input')).toBeVisible();

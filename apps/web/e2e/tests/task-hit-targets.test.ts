@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -19,15 +19,15 @@ async function fixture(page: Page, area: Area) {
     priority: 3,
     notes: 'Keep notes',
   });
-  invariant(sourceTask !== null, 'Task fixture must have a title');
+  assert(sourceTask !== null, 'Task fixture must have a title');
   const nextTask = createTaskRecord('Next task', data, { id: 'body-next', priority: 3 });
-  invariant(nextTask !== null, 'Task fixture must have a title');
+  assert(nextTask !== null, 'Task fixture must have a title');
   const childTask = createTaskRecord('Subtasks', data, {
     id: 'body-child',
     parentId: 'body-source',
     priority: 3,
   });
-  invariant(childTask !== null, 'Task fixture must have a title');
+  assert(childTask !== null, 'Task fixture must have a title');
   data.tasks = [sourceTask, nextTask, childTask];
   await seedWorkspace(page, data);
   await page.reload();
@@ -240,7 +240,7 @@ test('matrix padding drag uses only the destination highlight and preserves task
   const before = (await storedWorkspace(page)).tasks.find(
     (task) => task.id === fixtureId('body-source'),
   );
-  invariant(before !== undefined, 'Missing before');
+  assert(before !== undefined, 'Missing before');
   await begin(page, row, 'end');
   const box = await visibleBox(target);
 
@@ -251,7 +251,7 @@ test('matrix padding drag uses only the destination highlight and preserves task
   await page.mouse.up();
   await expect(target.locator(`[data-task-id="${before.id}"]`)).toBeVisible();
   const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
-  invariant(after !== undefined, 'Missing after');
+  assert(after !== undefined, 'Missing after');
   expect(after.priority).toBe(2);
   expect({ title: after.title, date: after.date, time: after.time, notes: after.notes }).toEqual({
     title: before.title,

@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
@@ -236,7 +236,7 @@ test('matrix sorts the latest valid date before undated tasks', async ({ page })
   ] as const) {
     const task = createTaskRecord(title, data, { date, priority: 2 });
     expect(task).not.toBeNull();
-    invariant(task !== null, 'Missing task');
+    assert(task !== null, 'Missing task');
     data.tasks.push(task);
   }
   await page.goto('/');

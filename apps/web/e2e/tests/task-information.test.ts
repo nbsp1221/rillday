@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
@@ -391,9 +391,9 @@ test('short task variants center controls while tall content keeps its first-lin
       };
     }),
   );
-  invariant(geometry[0] !== undefined, 'Missing geometry[0]');
+  assert(geometry[0] !== undefined, 'Missing geometry[0]');
   expect(geometry[0].height).toBe(40);
-  invariant(geometry[1] !== undefined, 'Missing geometry[1]');
+  assert(geometry[1] !== undefined, 'Missing geometry[1]');
   expect(geometry[1].height).toBe(56);
   for (const row of geometry) {
     expect(row.titleInset).toBe(56);

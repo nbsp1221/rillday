@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -18,7 +18,7 @@ async function calendar(page: Page, duration = 120) {
     notes: 'Keep details',
     priority: 2,
   });
-  invariant(createdTask !== null, 'Task fixture must have a title');
+  assert(createdTask !== null, 'Task fixture must have a title');
   data.tasks = [createdTask];
   await seedWorkspace(page, data);
   await page.reload();
@@ -37,7 +37,7 @@ async function saved(page: Page) {
   const task = (await storedWorkspace(page)).tasks.find(
     (task) => task.id === fixtureId('calendar-body'),
   );
-  invariant(task !== undefined, 'Expected the saved calendar task');
+  assert(task !== undefined, 'Expected the saved calendar task');
   return task;
 }
 
@@ -79,7 +79,7 @@ test('empty event body moves across days without jumping its time and Escape can
 
     await page.mouse.move(bounds.x + bounds.width / 2, point.y, { steps: 4 });
     const preview = page.locator('.calendar-time-preview');
-    invariant(targetDate !== null, 'Missing targetDate');
+    assert(targetDate !== null, 'Missing targetDate');
     await expect(preview).toHaveAttribute('data-date', targetDate);
     await expect(preview).toHaveAttribute('data-time', '09:00');
     expect(await saved(page)).toEqual(original);

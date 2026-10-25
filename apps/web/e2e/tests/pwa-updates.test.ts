@@ -1,10 +1,10 @@
+import assert from 'node:assert/strict';
 import { cp } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test as base, expect } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, removeOwned, tempDir, visibleBox } from '@repo/test-support';
 import { buildBrowserReleases } from '@repo/test-support/browser-releases';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 
@@ -99,7 +99,7 @@ test('a live release preserves edits in every tab and updates without restarting
   await expect.poll(async () => (await storedWorkspace(other)).tasks.length).toBe(3);
   await notice.getByRole('button', { name: 'Update', exact: true }).click();
   await expect(page.locator('meta[name="test-release"]')).toHaveAttribute('content', 'two');
-  invariant(originalScript !== null, 'Missing originalScript');
+  assert(originalScript !== null, 'Missing originalScript');
   await expect(page.locator('script[type="module"][src]')).not.toHaveAttribute(
     'src',
     originalScript,

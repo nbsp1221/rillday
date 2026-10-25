@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
@@ -221,7 +221,7 @@ for (const scope of ['completed', 'trash']) {
   }) => {
     await seed(page);
     const before = (await storedWorkspace(page)).tasks.find((task) => task.title === 'First');
-    invariant(before !== undefined, 'Missing before');
+    assert(before !== undefined, 'Missing before');
     await start(page, rows(page).first());
     const target = await sidebarOver(page, scope);
     await expect(page.locator('.task-drag-overlay')).toHaveText('First');
@@ -239,7 +239,7 @@ for (const scope of ['completed', 'trash']) {
     await page.mouse.up();
     await expect(titles(page)).toHaveText(['Second', 'Third']);
     const changed = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
-    invariant(changed !== undefined, 'Missing changed');
+    assert(changed !== undefined, 'Missing changed');
     expect(changed.title).toBe(before.title);
     expect(changed.notes).toBe(before.notes);
     expect(changed.listId).toBe(before.listId);
@@ -363,10 +363,10 @@ test('pinned tasks retain their boundary and filtered orders preserve hidden tas
   await expect(titles(page)).toHaveText(['pinned', 'last', 'first']);
   const data = await storedWorkspace(page);
   const afterTask = data.tasks.find((t) => t.id === fixtureId('hidden'));
-  invariant(afterTask !== undefined, 'Missing hidden task after moving');
+  assert(afterTask !== undefined, 'Missing hidden task after moving');
   const { order: afterOrder, ...after } = afterTask;
   const beforeTask = before.tasks.find((t) => t.id === fixtureId('hidden'));
-  invariant(beforeTask !== undefined, 'Missing hidden task before moving');
+  assert(beforeTask !== undefined, 'Missing hidden task before moving');
   const { order: beforeOrder, ...original } = beforeTask;
   expect(after).toEqual(original);
 });

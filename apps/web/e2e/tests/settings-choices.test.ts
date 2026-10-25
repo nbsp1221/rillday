@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { z } from 'zod';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
@@ -267,8 +267,8 @@ for (const lang of ['ko', 'en']) {
           }
           if (section === 0) {
             expect(geometry.controls).toHaveLength(2);
-            invariant(geometry.controls[1] !== undefined, 'Missing geometry.controls[1]');
-            invariant(geometry.controls[0] !== undefined, 'Missing geometry.controls[0]');
+            assert(geometry.controls[1] !== undefined, 'Missing geometry.controls[1]');
+            assert(geometry.controls[0] !== undefined, 'Missing geometry.controls[0]');
             expect(geometry.controls[0].left).toBe(geometry.controls[1].left);
 
             expect(geometry.controls[0].right).toBe(geometry.controls[1].right);
@@ -322,7 +322,7 @@ for (const lang of ['ko', 'en']) {
             }
             await page.keyboard.press('Escape');
             await expect(trigger).toBeFocused();
-            invariant(state !== null, 'Missing state');
+            assert(state !== null, 'Missing state');
             await expect(trigger).toHaveAttribute('data-value', state);
             expect(
               await page.evaluate(

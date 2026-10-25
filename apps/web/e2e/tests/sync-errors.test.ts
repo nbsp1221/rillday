@@ -1,8 +1,8 @@
+import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { type WebSocketRoute, expect, test } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 
 const fixture = createServerFixture(createServer);
@@ -39,7 +39,7 @@ test('sync failures explain the cause, preserve unsent tasks and recover without
     );
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     expect(socket).toBeDefined();
-    invariant(socket !== undefined, 'Missing socket');
+    assert(socket !== undefined, 'Missing socket');
     await socket.close();
     await page.locator('#quick-add-input').fill('Keep this unsent task');
     await page.locator('#quick-add-input').press('Enter');

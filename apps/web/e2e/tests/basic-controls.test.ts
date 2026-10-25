@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { storedPreferences } from '../support/storage';
 
@@ -58,7 +58,7 @@ test('shared switches keep track and thumb geometry while keyboard changes persi
   await expect(control).toHaveAttribute('aria-checked', String(initial !== 'true'));
   await control.focus();
   await control.press('Enter');
-  invariant(initial !== null, 'Missing initial');
+  assert(initial !== null, 'Missing initial');
   await expect(control).toHaveAttribute('aria-checked', initial);
 });
 

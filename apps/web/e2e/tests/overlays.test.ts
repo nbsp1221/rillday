@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
@@ -13,7 +13,7 @@ async function fits(page: Page, surface: Locator) {
   const box = await visibleBox(surface);
 
   const viewport = page.viewportSize();
-  invariant(viewport !== null, 'Missing viewport');
+  assert(viewport !== null, 'Missing viewport');
   const inset = (await surface.getAttribute('role')) === 'menu' ? 5 : 8;
   expect(box.x).toBeGreaterThanOrEqual(inset);
   expect(box.y).toBeGreaterThanOrEqual(inset);
@@ -508,7 +508,7 @@ for (const language of ['ko', 'en']) {
       const data = await read();
       const source =
         '| Item | State |\n| --- | --- |\n| One | Done |\n\n```js\nconst sample = 1;\n```';
-      invariant(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
+      assert(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
       data.tasks[0].notes = source;
       await page.getByLabel(text('설정과 백업', 'Settings and backup'), { exact: true }).click();
       await page.locator('input[type=file]').setInputFiles({

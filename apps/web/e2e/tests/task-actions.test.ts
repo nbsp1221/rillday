@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
@@ -108,7 +108,7 @@ test('row menus fit the viewport, close after action and support contextual tras
   const before = (await storedWorkspace(page)).tasks;
   expect(before).toHaveLength(28);
   const target = before.find((task) => task.title === 'List item 27');
-  invariant(target !== undefined, 'Missing target');
+  assert(target !== undefined, 'Missing target');
   expect(target).toBeDefined();
   const row = page.locator(`.task-row[data-task-id="${target.id}"]`);
   await row.scrollIntoViewIfNeeded();
@@ -208,7 +208,7 @@ test('duplication retains the child tree and undo restores the original workspac
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(4);
   const state = await storedWorkspace(page);
   const copy = state.tasks.find((task) => task.title === 'Parent to duplicate (copy)');
-  invariant(copy !== undefined, 'Missing copy');
+  assert(copy !== undefined, 'Missing copy');
   expect(
     state.tasks.some((task) => task.parentId === copy.id && task.title === 'Child to duplicate'),
   ).toBe(true);

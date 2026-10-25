@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { selectCalendarDate, setPickerTime } from '../support/date-picker';
@@ -93,7 +93,7 @@ test('detail time duration repeat interval and calendar end date persist; cleari
   await expect
     .poll(async () => {
       const task = (await storedWorkspace(page)).tasks[0];
-      invariant(task !== undefined, 'Missing task');
+      assert(task !== undefined, 'Missing task');
       return { date: task.date, time: task.time, duration: task.duration, repeat: task.repeat };
     })
     .toEqual({
@@ -310,7 +310,7 @@ for (const language of ['ko', 'en']) {
       for (const option of axes.options) {
         expect(option.x).toBe(axes.title);
         expect(option.height).toBe(36);
-        invariant(axes.options[0] !== undefined, 'Missing axes.options[0]');
+        assert(axes.options[0] !== undefined, 'Missing axes.options[0]');
         expect(option.radius).toBe(axes.options[0].radius);
       }
       await popup.getByLabel(en ? 'Custom repeat' : '사용자 지정 반복', { exact: true }).click();

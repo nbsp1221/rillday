@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 
 test('capture separates stable text entry from a balanced trailing add action', async ({
   page,
@@ -214,17 +214,17 @@ test('bottom capture suggestions stay above a multiline draft in a short viewpor
   await input.press('ArrowUp');
   const last = suggestions.getByRole('option', { name: 'review5', exact: true });
   const entry1 = await last.getAttribute('id');
-  invariant(entry1 !== null, 'Missing entry');
+  assert(entry1 !== null, 'Missing entry');
   await expect(input).toHaveAttribute('aria-activedescendant', entry1);
   await input.press('Home');
   const entry2 = await suggestions
     .getByRole('option', { name: 'review0', exact: true })
     .getAttribute('id');
-  invariant(entry2 !== null, 'Missing entry');
+  assert(entry2 !== null, 'Missing entry');
   await expect(input).toHaveAttribute('aria-activedescendant', entry2);
   await input.press('End');
   const entry3 = await last.getAttribute('id');
-  invariant(entry3 !== null, 'Missing entry');
+  assert(entry3 !== null, 'Missing entry');
   await expect(input).toHaveAttribute('aria-activedescendant', entry3);
   const selected = await visibleBox(
     suggestions.getByRole('option', { name: 'review5', exact: true }),

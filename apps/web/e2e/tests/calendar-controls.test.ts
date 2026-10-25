@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { selectCalendarDate } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
@@ -311,8 +311,8 @@ test('capture field keeps equal inset, stable bounds and centered icon across wi
         overflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
-    invariant(g.insets[1] !== undefined, 'Missing g.insets[1]');
-    invariant(g.insets[0] !== undefined, 'Missing g.insets[0]');
+    assert(g.insets[1] !== undefined, 'Missing g.insets[1]');
+    assert(g.insets[0] !== undefined, 'Missing g.insets[0]');
     expect(Math.abs(g.insets[0] - g.insets[1])).toBeLessThanOrEqual(1);
     expect(g.size).toEqual([32, 32]);
     expect(g.center).toEqual([0, 0]);

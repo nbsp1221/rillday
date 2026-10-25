@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { selectCalendarDate } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -69,16 +69,13 @@ test('selection changes never paint an old title or a missing description editor
     ['Alpha short', 'Alpha document'],
     ['Beta long title '.repeat(9).trim(), 'Beta document'],
     ['Empty description', ''],
-  ];
+  ] as const;
   for (const [title, body] of tasks) {
-    invariant(title !== undefined, 'Missing title');
     await add(page, title);
     await page.locator('.task-title').filter({ hasText: title }).click();
-    invariant(body !== undefined, 'Missing body');
     await page.getByLabel('Task description', { exact: true }).fill(body);
     await page.getByLabel('Close task details', { exact: true }).click();
   }
-  invariant(tasks[0] !== undefined, 'Missing tasks[0]');
   await page.locator('.task-title').filter({ hasText: tasks[0][0] }).click();
   await page.getByLabel('Task description', { exact: true }).waitFor();
   const observed = page.evaluate(
@@ -125,12 +122,10 @@ test('selection changes never paint an old title or a missing description editor
   );
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-  for (let i = 0; i < 12; i++) {
-    invariant(tasks[i % 3] !== undefined, 'Missing tasks[i % 3]');
-    await page
-      .locator('.task-title')
-      .filter({ hasText: tasks[i % 3]?.[0] })
-      .click({ delay: 80 });
+  for (let repetition = 0; repetition < 4; repetition++) {
+    for (const [title] of tasks) {
+      await page.locator('.task-title').filter({ hasText: title }).click({ delay: 80 });
+    }
   }
   await page.evaluate(() => window.dispatchEvent(new Event('selection-probe-stop')));
   const samples = await observed;
@@ -139,10 +134,9 @@ test('selection changes never paint an old title or a missing description editor
   for (const frame of samples) {
     expect(frame.title).toBe(frame.selected);
     const entry = tasks.find(([title]) => title === frame.selected);
-    invariant(entry !== undefined, 'Missing entry');
+    assert(entry !== undefined, 'Missing entry');
     expect(frame.body).toBe(entry[1]);
-    invariant(samples[0] !== undefined, 'Missing samples[0]');
-    expect(frame.width).toBe(samples[0].width);
+    expect(frame.width).toBe(samples[0]?.width);
   }
 });
 
@@ -155,11 +149,9 @@ test('switching descriptions isolates task content and undo, including identical
     ['Alpha', 'Alpha original'],
     ['Beta', 'Beta original'],
     ['Same', 'Beta original'],
-  ]) {
-    invariant(title !== undefined, 'Missing title');
+  ] as const) {
     await add(page, title);
     await page.locator('.task-title').filter({ hasText: title }).click();
-    invariant(body !== undefined, 'Missing body');
     await notes.fill(body);
     await page.getByLabel('Close task details', { exact: true }).click();
   }
@@ -284,7 +276,7 @@ test('imported Markdown renders tables and unknown-language code without rewriti
   const backup = await storedWorkspace(page);
   const source =
     '## Review content\n\n| Item | Status |\n| --- | --- |\n| research | Complete |\n\n```custom-language caption\nconst sample = "Preserve";\n```\n\n[Reference document](https://example.com)\n\n- [x] Completed item';
-  invariant(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
+  assert(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
   backup.tasks[0].notes = source;
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({
@@ -354,7 +346,7 @@ test('embedded expression syntax stays literal without executing code or rewriti
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(1);
   const backup = await storedWorkspace(page);
   const source = '{globalThis.__rilldayMarkdownExecuted = true}\n\nBody text';
-  invariant(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
+  assert(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
   backup.tasks[0].notes = source;
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({
@@ -449,7 +441,7 @@ test('Markdown checkbox focus follows the small mark while the larger target rem
           await page.getByLabel('Task description', { exact: true }).focus();
           await check.focus();
           await check.press('Space');
-          invariant(before !== null, 'Missing before');
+          assert(before !== null, 'Missing before');
           await expect(check).toHaveAttribute('aria-checked', before);
         }
         const geometry = await check.evaluate((el) => {
@@ -579,7 +571,7 @@ test('unset properties share icon geometry and the date appears only after assig
     for (const button of state) {
       expect(button.size).toEqual([32, 32]);
       expect(button.icon).toEqual([16, 16]);
-      invariant(state[0] !== undefined, 'Missing state[0]');
+      assert(state[0] !== undefined, 'Missing state[0]');
       expect(button.center).toBe(state[0].center);
       expect(button.text).toBe('');
     }

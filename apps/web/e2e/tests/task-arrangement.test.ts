@@ -1,5 +1,5 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
-import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { storedPreferences } from '../support/storage';
 
@@ -113,7 +113,7 @@ test('manual reordering is disabled by grouping or sorting, and list scopes omit
     .last()
     .dragTo(page.locator('.task-row').first(), { targetPosition: { x: 100, y: 4 } });
   const entry = before.at(-1);
-  invariant(entry !== undefined, 'Missing entry');
+  assert(entry !== undefined, 'Missing entry');
   await expect(titles(page).first()).toHaveText(entry);
   await page.getByRole('button', { name: 'Group', exact: true }).click();
   await expect(page.getByRole('menuitemradio', { name: 'Lists', exact: true })).toHaveCount(0);

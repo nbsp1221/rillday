@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import invariant from 'tiny-invariant';
 import { selectCalendarDate, setPickerRepeat, setPickerTime } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -80,7 +80,7 @@ test('a picked monthly rule retains month-end dates and stops after its inclusiv
       (await storedWorkspace(page)).tasks
         .map((task) => ({ date: task.date, completed: task.completedAt !== null }))
         .sort((first, second) => {
-          invariant(
+          assert(
             first.date !== null && second.date !== null,
             'Scheduled task fixture requires dates',
           );
