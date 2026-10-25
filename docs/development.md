@@ -51,10 +51,10 @@ For automatic deployment, connect this repository through Cloudflare Workers Bui
 For the demo Worker, use this build command:
 
 ```sh
-pnpm check && pnpm --filter @repo/demo build && pnpm --filter @repo/demo exec playwright install --with-deps chromium && pnpm --filter @repo/demo test:e2e
+pnpm --filter @repo/demo build
 ```
 
-Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy`. For the landing Worker, replace `@repo/demo` with `@repo/landing` in both commands. Workers Builds deploys after its own checks succeed; the GitHub CI and product release workflows run independently.
+Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy`. For the landing Worker, replace `@repo/demo` with `@repo/landing` in both commands. Workers Builds deploys after the site builds successfully; GitHub CI runs tests independently, and product releases use their separate workflow.
 
 Cloudflare Web Analytics measures visits and page-load performance on the public landing and demo sites. Their content security policies permit the official beacon script and same-origin telemetry endpoint. Demo workspace documents remain in browser storage; analytics does not connect the workspace to a synchronization server.
 
