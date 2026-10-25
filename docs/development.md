@@ -46,7 +46,19 @@ The local sites use ports 4174 and 4175 respectively. Build each with `pnpm --fi
 
 Both sites use Workers Static Assets without a Worker script, database or hosted account service. Their `wrangler.jsonc` files declare the separate custom domains. Run `pnpm --filter @repo/landing exec wrangler deploy --dry-run` and the equivalent demo command to validate packaging locally. Publishing requires an explicit deployment action and Cloudflare access; a build or dry run does not publish a site.
 
-Brand assets are generated with `pnpm build:icons`. Product screenshots live in `apps/landing/public/screenshots` and are shared by the landing page and README. Replacing those images invalidates the landing build cache. No tracking, remote fonts or visitor-time GitHub API calls are included.
+For automatic deployment, connect this repository through Cloudflare Workers Builds. Use the repository root as the root directory, select `main` as the production branch and disable preview builds. The root `package.json` pins the package manager and runtime. Let Cloudflare create and store the build token during setup; GitHub Actions does not need a Cloudflare secret.
+
+For the demo Worker, use this build command:
+
+```sh
+pnpm check && pnpm --filter @repo/demo build && pnpm --filter @repo/demo exec playwright install --with-deps chromium && pnpm --filter @repo/demo test:e2e
+```
+
+Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy`. For the landing Worker, replace `@repo/demo` with `@repo/landing` in both commands. Workers Builds deploys after its own checks succeed; the GitHub CI and product release workflows run independently.
+
+Cloudflare Web Analytics measures visits and page-load performance on the public landing and demo sites. Their content security policies permit the official beacon script and same-origin telemetry endpoint. Demo workspace documents remain in browser storage; analytics does not connect the workspace to a synchronization server.
+
+Brand assets are generated with `pnpm build:icons`. Product screenshots live in `apps/landing/public/screenshots` and are shared by the landing page and README. Replacing those images invalidates the landing build cache. Fonts are bundled locally, and the landing page makes no visitor-time GitHub API calls.
 
 ## Packaging and releases
 
