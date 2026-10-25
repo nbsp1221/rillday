@@ -374,7 +374,7 @@ test.describe(() => {
 
 test('About displays the build version from package metadata', async ({ page }) => {
   const { version } = JSON.parse(
-    readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8'),
+    readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
   ) as { version: string };
   await page.goto('/');
   await page.getByLabel('Settings and backup', { exact: true }).click();

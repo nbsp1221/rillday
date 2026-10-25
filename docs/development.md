@@ -71,9 +71,30 @@ node apps/server/tests/container/smoke.mjs rillday:local
 
 The container check uses a temporary loopback registry, a separate Compose project, synthetic accounts and an isolated volume. It exercises installation, image replacement, online backup, restore and password recovery. It removes its containers and volumes and retains results under `apps/server/.cache/tests/`. Image replacement verifies persistence across container recreation; it does not establish compatibility with future database schema changes.
 
-Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose and version-pinned environment example with `SHA256SUMS`.
+Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose, version-pinned environment example, checksums and release description.
 
-Set the root package version before pushing a matching `vMAJOR.MINOR.PATCH` tag. The release workflow runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+### Versioning
+
+Rillday uses one product version for the web, desktop and server applications. Changesets keeps their package manifests in a fixed group; each application reads its own version. Internal libraries, the landing page and the demo do not have separate product releases. The demo identifies its source by Git commit.
+
+For a user-visible change, run `pnpm changeset`, select the affected applications, choose the version impact and describe the change for users. A patch fixes compatible behavior; a minor release adds functionality. During 0.x development, incompatible changes increase the minor version and must explain any required update steps. From 1.0, incompatible changes increase the major version. Documentation, tests and tooling changes that do not affect the product do not need a changeset.
+
+The Version workflow maintains a pull request containing the next application versions and changelogs. Review and merge that pull request before creating the product tag. It does not publish npm packages, Git tags or releases. If GitHub asks for approval to run CI on the automated pull request, approve those checks before merging.
+
+To prepare the same changes locally, install the native version tool and run:
+
+```sh
+cargo install cargo-edit --version 0.13.14 --locked --no-default-features --features set-version
+pnpm changeset:version
+```
+
+The version command delegates JavaScript manifests and changelogs to Changesets and the native manifest and lockfile to cargo-edit. Do not edit version files independently. `pnpm release:check` validates the application versions, and `pnpm release:notes` prints the current version's changelog entries grouped by application.
+
+### Publication
+
+After the version pull request passes CI and is merged, update the local main branch and push a matching `vMAJOR.MINOR.PATCH` tag using maintainer credentials. The release workflow checks the tag against all three application versions, runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release uses the generated application changelogs and contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+
+A platform-specific correction still produces a product patch release. Supported downloads are built and verified together. Publishing a release does not force installed clients or self-hosted servers to update, and matching version numbers do not replace synchronization compatibility checks. Published versions and their artifacts are not replaced; corrections receive a new version.
 
 If draft preparation fails after creating the GitHub draft, delete the incomplete draft while keeping its Git tag, then rerun the failed job.
 

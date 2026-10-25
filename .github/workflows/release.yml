@@ -22,22 +22,8 @@ env:
   IMAGE: ghcr.io/nbsp1221/rillday
 
 jobs:
-  version:
-    if: github.event_name != 'release'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - name: Validate release version
-        if: github.event_name != 'workflow_dispatch'
-        run: |
-          node --input-type=module -e "import assert from 'node:assert/strict'; import fs from 'node:fs'; const {version}=JSON.parse(fs.readFileSync('package.json')); assert.match(version,/^\d+\.\d+\.\d+$/); assert.equal(process.env.GITHUB_REF_NAME,'v'+version)"
-
   verify:
     if: github.event_name != 'release'
-    needs: version
     uses: ./.github/workflows/ci.yml
 
   images:
@@ -122,7 +108,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$TAG" --verify-tag --draft --generate-notes \
+          gh release create "$TAG" --verify-tag --draft --notes-file release/release-notes.md \
             release/Rillday_windows_x64_setup.exe \
             release/compose.yaml release/example.env release/SHA256SUMS \
             release/image-digest.txt

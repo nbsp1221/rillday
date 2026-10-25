@@ -1,0 +1,45 @@
+name: Version
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: version-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        id: mode
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.mode.outputs.mode == 'version'
+      - name: Install native version manager
+        if: steps.mode.outputs.mode == 'version'
+        run: cargo install cargo-edit --version 0.13.14 --locked --no-default-features --features set-version
+      - uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        if: steps.mode.outputs.mode == 'version'
+        with:
+          script: pnpm changeset:version
+          commit-message: '🔖 Version Rillday'
+          pr-title: '🔖 Version Rillday'
