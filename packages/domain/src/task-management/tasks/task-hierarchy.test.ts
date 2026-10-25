@@ -10,7 +10,9 @@ const context = { now: () => '2026-10-23T10:00:00.000Z', newId: () => crypto.ran
 function tree() {
   const workspace = createWorkspace(context);
   const listId = Object.keys(workspace.lists)[0];
+  expect.assert(listId !== undefined);
   const root = createTask(workspace, context.newId(), taskData(listId, 'Parent'), context);
+
   const child = createTask(
     workspace,
     context.newId(),
@@ -68,7 +70,9 @@ test('permanent removal clears authored content while retaining the task identit
     notes: '',
     purgedAt: context.now(),
   });
-  expect(workspace.tasks[child.id].purgedAt).toBe(context.now());
+
+  expect.assert(workspace.tasks[child.id] !== undefined);
+  expect(workspace.tasks[child.id]?.purgedAt).toBe(context.now());
   expect(() => restoreTask(workspace, root.id, context)).toThrow('not_found');
 });
 

@@ -40,18 +40,24 @@ function fixture(zone = 'Asia/Seoul') {
 
 test('task creation resolves UI list and label names; editing preserves unrelated records and read-model identity', () => {
   const { read, view, apply } = fixture();
-  const first = createTaskRecord('First', view())!;
-  const second = createTaskRecord('Second', view())!;
+  const first = createTaskRecord('First', view());
+  expect.assert(first !== null);
+  const second = createTaskRecord('Second', view());
+  expect.assert(second !== null);
   first.tags = ['Planning'];
   first.order = 0;
   second.order = 1;
   apply({ type: 'task.create', tasks: [first, second] });
   const before = view();
   const originalSecond = read().tasks[second.id];
+  expect.assert(before.tasks[0] !== undefined);
   expect(before.tasks[0].tags).toEqual(['Planning']);
-  expect(read().lists[read().tasks[first.id].location.listId].system).toBe('inbox');
+  const task1 = read().tasks[first.id];
+  expect.assert(task1 !== undefined);
+  expect(read().lists[task1.location.listId]?.system).toBe('inbox');
   apply({ type: 'task.update', id: first.id, patch: { title: 'Edited' } });
   const after = presentWorkspace(read(), 'Asia/Seoul', before);
+  expect.assert(after.tasks[0] !== undefined);
   expect(after.tasks[0].title).toBe('Edited');
   expect(after.tasks[0]).not.toBe(before.tasks[0]);
   expect(after.tasks[1]).toBe(before.tasks[1]);
@@ -74,10 +80,14 @@ test('new lists and habits append in creation order and editing preserves their 
   }
   expect(view().lists.map((list) => list.name)).toEqual(['Inbox', 'List 0', 'List 1']);
   expect(view().habits.map((habit) => habit.name)).toEqual(['Habit 0', 'Habit 1']);
-  apply({ type: 'list.update', list: { ...view().lists[1], name: 'Edited list' } });
+  const list = view().lists[1];
+  const savedHabit = view().habits[0];
+  expect.assert(list !== undefined);
+  expect.assert(savedHabit !== undefined);
+  apply({ type: 'list.update', list: { ...list, name: 'Edited list' } });
   apply({
     type: 'habit.save',
-    habit: { ...view().habits[0], name: 'Edited habit' },
+    habit: { ...savedHabit, name: 'Edited habit' },
     weekStartsOn: 0,
   });
   expect(view().lists.map((list) => list.id)).toEqual(['inbox', ...ids]);
@@ -87,12 +97,14 @@ test('new lists and habits append in creation order and editing preserves their 
 test('task ordering follows rank code points, including upper and lower case ranks', () => {
   const workspace = createWorkspace(context);
   const listId = Object.keys(workspace.lists)[0];
+  expect.assert(listId !== undefined);
   const last = createTask(
     workspace,
     context.newId(),
     taskData(listId, 'Last', { rank: 'a0' }),
     context,
   );
+
   const first = createTask(
     workspace,
     context.newId(),
@@ -107,13 +119,22 @@ test('task ordering follows rank code points, including upper and lower case ran
 
 test('reordering reaches both ends without changing completion or task content', () => {
   const { read, view, apply } = fixture();
-  const tasks = ['First', 'Second', 'Third'].map((title, order) => ({
-    ...createTaskRecord(title, view())!,
-    order,
-  }));
+  const tasks = ['First', 'Second', 'Third'].map((title, order) => {
+    const createdTask1 = createTaskRecord(title, view());
+    expect.assert(createdTask1 !== null);
+    return {
+      ...createdTask1,
+      order,
+    };
+  });
   apply({ type: 'task.create', tasks });
+
+  expect.assert(tasks[0] !== undefined);
+  expect.assert(tasks[2] !== undefined);
   apply({ type: 'task.reorder', from: tasks[0].id, to: tasks[2].id, placement: 'after' });
   expect(view().tasks.map((task) => task.title)).toEqual(['Second', 'Third', 'First']);
+
+  expect.assert(tasks[1] !== undefined);
   apply({ type: 'task.reorder', from: tasks[0].id, to: tasks[1].id, placement: 'before' });
   expect(view().tasks.map((task) => task.title)).toEqual(['First', 'Second', 'Third']);
   expect(Object.values(read().tasks).every((task) => task.completedAt === null)).toBe(true);
@@ -121,10 +142,14 @@ test('reordering reaches both ends without changing completion or task content',
 
 test('batch capture before existing tasks allocates the complete run in requested order', () => {
   const { view, apply } = fixture();
-  apply({ type: 'task.create', tasks: [createTaskRecord('Existing', view())!] });
-  const tasks = ['New first', 'New second'].map((title, index) =>
-    createTaskRecord(title, view(), { order: -2 + index })!,
-  );
+  const createdTask = createTaskRecord('Existing', view());
+  expect.assert(createdTask !== null);
+  apply({ type: 'task.create', tasks: [createdTask] });
+  const tasks = ['New first', 'New second'].map((title, index) => {
+    const createdTask2 = createTaskRecord(title, view(), { order: -2 + index });
+    expect.assert(createdTask2 !== null);
+    return createdTask2;
+  });
   apply({ type: 'task.create', tasks });
   expect(view().tasks.map((task) => task.title)).toEqual(['New first', 'New second', 'Existing']);
 });
@@ -135,8 +160,11 @@ test('reordering between concurrent equal ranks reranks colliding neighbors too'
   const firstId = '00000000-0000-4000-8000-000000000001';
   const secondId = '00000000-0000-4000-8000-000000000002';
   const thirdId = '00000000-0000-4000-8000-000000000003';
+  expect.assert(listId !== undefined);
   createTask(workspace, firstId, taskData(listId, 'First', { rank: 'a0' }), context);
+
   createTask(workspace, secondId, taskData(listId, 'Second', { rank: 'a0' }), context);
+
   createTask(workspace, thirdId, taskData(listId, 'Third', { rank: 'a1' }), context);
   applyWorkspaceIntent(
     workspace,
@@ -156,17 +184,21 @@ test('rank maintenance may include a trashed neighbor without editing its conten
   const listId = Object.keys(workspace.lists)[0];
   const firstId = '00000000-0000-4000-8000-000000000001';
   const secondId = '00000000-0000-4000-8000-000000000002';
+  expect.assert(listId !== undefined);
   createTask(workspace, firstId, taskData(listId, 'First', { rank: 'a0' }), context);
+
   createTask(workspace, secondId, taskData(listId, 'Trashed', { rank: 'a0' }), context);
   trashTask(workspace, secondId, context);
   const view = presentWorkspace(workspace, 'UTC');
-  const task = createTaskRecord('Inserted', view, { order: 0.5 })!;
+  const task = createTaskRecord('Inserted', view, { order: 0.5 });
+  expect.assert(task !== null);
   applyWorkspaceIntent(workspace, { type: 'task.create', tasks: [task] }, context, 'UTC');
   expect(presentWorkspace(workspace, 'UTC').tasks.map((candidate) => candidate.title)).toEqual([
     'First',
     'Inserted',
     'Trashed',
   ]);
+  expect.assert(workspace.tasks[secondId] !== undefined);
   expect(workspace.tasks[secondId].trashedAt).toBe(context.now());
   expect(() => validateWorkspace(workspace)).not.toThrow();
 });
@@ -174,6 +206,7 @@ test('rank maintenance may include a trashed neighbor without editing its conten
 test('editing text in another timezone does not reinterpret a timed schedule', () => {
   const workspace = createWorkspace(context);
   const listId = Object.keys(workspace.lists)[0];
+  expect.assert(listId !== undefined);
   const task = createTask(
     workspace,
     context.newId(),
@@ -201,7 +234,9 @@ test('editing text in another timezone does not reinterpret a timed schedule', (
       'America/New_York',
     ),
   );
-  expect(after.tasks[task.id].schedule).toEqual({ ...task.schedule, durationMinutes: 60 });
+
+  expect.assert(after.tasks[task.id] !== undefined);
+  expect(after.tasks[task.id]?.schedule).toEqual({ ...task.schedule, durationMinutes: 60 });
   expect(presentWorkspace(after, 'America/New_York').tasks[0]).toMatchObject({
     date: '2026-10-19',
     time: '20:00',
@@ -214,8 +249,13 @@ test('editing text in another timezone does not reinterpret a timed schedule', (
       'America/New_York',
     ),
   );
-  expect(rescheduled.tasks[task.id].schedule.zone).toBe('America/New_York');
-  expect(scheduleInstant(rescheduled.tasks[task.id].schedule)).toBe('2026-10-20T01:00:00Z');
+
+  expect.assert(rescheduled.tasks[task.id] !== undefined);
+  expect(rescheduled.tasks[task.id]?.schedule.zone).toBe('America/New_York');
+
+  const task2 = rescheduled.tasks[task.id];
+  expect.assert(task2 !== undefined);
+  expect(scheduleInstant(task2.schedule)).toBe('2026-10-20T01:00:00Z');
   const allDay = produce(after, (draft) =>
     applyWorkspaceIntent(
       draft,
@@ -293,8 +333,10 @@ test.each([
       zone: 'Asia/Seoul',
     };
     apply({ type: 'habit.save', habit, weekStartsOn });
-    apply({ type: 'habit.save', habit: { ...view().habits[0], weeklyTarget: 3 }, weekStartsOn });
-    expect(read().habits[habit.id].rules).toMatchObject([
+    const savedHabit = view().habits[0];
+    expect.assert(savedHabit !== undefined);
+    apply({ type: 'habit.save', habit: { ...savedHabit, weeklyTarget: 3 }, weekStartsOn });
+    expect(read().habits[habit.id]?.rules).toMatchObject([
       { from: '2026-10-12', weeklyTarget: 2 },
       { from: effective, weeklyTarget: 3 },
     ]);

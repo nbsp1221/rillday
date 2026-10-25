@@ -1,5 +1,7 @@
 import { type WorkspaceContents, hash } from '@repo/domain';
 import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
+import invariant from 'tiny-invariant';
+import { z } from 'zod';
 import type { AccountBackup, AccountRegistry } from '#application/account-repository';
 import { type AppPreferences, normalizePreferences } from '#application/preferences';
 import type { WorkspaceRecord as WorkspaceProfile } from '../../application/account-record.ts';
@@ -23,13 +25,58 @@ interface RecoveryRecord {
   drafts?: number;
 }
 
+const registrySchema: z.ZodType<AccountRegistry> = z.object({
+  activeId: z.string(),
+  accounts: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      color: z.string(),
+      generation: z.number().optional(),
+      contentId: z.string().optional(),
+      server: z
+        .object({
+          url: z.string(),
+          serverId: z.string(),
+          userId: z.string(),
+          email: z.string(),
+          role: z.enum(['user', 'admin']),
+        })
+        .optional(),
+    }),
+  ),
+});
+
+const recoverySchema: z.ZodType<RecoveryRecord> = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  createdAt: z.string(),
+  reason: z.enum(['connection', 'draft']),
+  source: z.string(),
+  documentId: z.string(),
+  revision: z.string(),
+  digest: z.string(),
+  scope: z.string().optional(),
+  name: z.string().optional(),
+  drafts: z.number().optional(),
+  contents: z.object({
+    tasks: z.number(),
+    lists: z.number(),
+    labels: z.number(),
+    habits: z.number(),
+    habitLogs: z.number(),
+    settings: z.boolean(),
+    hasData: z.boolean(),
+  }),
+});
+
 export class BrowserWorkspaceRepository {
   private readonly registryKey: string;
-  private database: Promise<IDBPDatabase<WorkspaceDatabase>>;
+  private readonly database: Promise<IDBPDatabase<WorkspaceDatabase>>;
   private preferencesWrite: Promise<void> = Promise.resolve();
   private registryInitialization?: Promise<AccountRegistry>;
-  private registryListeners = new Set<() => void>();
-  private registryChannel: BroadcastChannel | undefined;
+  private readonly registryListeners = new Set<() => void>();
+  private readonly registryChannel: BroadcastChannel | undefined;
 
   constructor({ demo = false }: { demo?: boolean } = {}) {
     this.registryKey = demo ? 'rillday-demo-workspaces' : 'rillday-workspaces';
@@ -128,7 +175,7 @@ export class BrowserWorkspaceRepository {
     const tx = db.transaction('metadata', 'readwrite', { durability: 'strict' });
     const digest = hash(backup.source);
     const key = `recovery:${workspaceId}:${id}`;
-    const existing = (await tx.store.get(key)) as RecoveryRecord | undefined;
+    const existing = recoverySchema.optional().parse(await tx.store.get(key));
     if (existing && existing.digest !== digest) {
       tx.abort();
       await tx.done.catch(() => undefined);
@@ -165,9 +212,10 @@ export class BrowserWorkspaceRepository {
     const entries = await Promise.all(
       keys
         .filter((key) => key.startsWith(`recovery:${workspaceId}:`))
-        .map((key) => db.get('metadata', key) as Promise<RecoveryRecord>),
+        .map(async (key) => recoverySchema.optional().parse(await db.get('metadata', key))),
     );
     return entries
+      .filter((entry) => entry !== undefined)
       .filter((entry) => !entry.scope || entry.scope === scope)
       .map(({ id, createdAt, reason, contents, name, drafts, scope, documentId, revision }) => ({
         id,
@@ -183,9 +231,9 @@ export class BrowserWorkspaceRepository {
   }
 
   async downloadConnectionBackup(id: string, workspaceId: string, scope?: string) {
-    const entry = (await (await this.database).get('metadata', `recovery:${workspaceId}:${id}`)) as
-      | RecoveryRecord
-      | undefined;
+    const entry = recoverySchema
+      .optional()
+      .parse(await (await this.database).get('metadata', `recovery:${workspaceId}:${id}`));
     if (!entry || entry.workspaceId !== workspaceId || (entry.scope && entry.scope !== scope)) {
       throw new Error('backup_missing');
     }
@@ -196,7 +244,7 @@ export class BrowserWorkspaceRepository {
     const tx = (await this.database).transaction('metadata', 'readwrite', { durability: 'strict' });
     for (const key of await tx.store.getAllKeys()) {
       if (key.startsWith(`recovery:${workspaceId}:`)) {
-        const entry = (await tx.store.get(key)) as RecoveryRecord;
+        const entry = recoverySchema.parse(await tx.store.get(key));
         if (entry.scope === scope && entry.reason !== 'draft') {
           await tx.store.delete(key);
         }
@@ -206,18 +254,23 @@ export class BrowserWorkspaceRepository {
   }
 
   private async readRegistryOnce(): Promise<AccountRegistry> {
-    if (!navigator.locks) {
+    // Browser support is optional even though lib.dom declares this property.
+    const locks = navigator.locks as LockManager | undefined;
+    if (!locks) {
       throw new Error('web_locks_required');
     }
-    return navigator.locks.request(`rillday-registry:${this.registryKey}`, () =>
-      this.readRegistryUnlocked(),
-    );
+    return locks.request(`rillday-registry:${this.registryKey}`, () => this.readRegistryUnlocked());
   }
 
   private async readRegistryUnlocked(): Promise<AccountRegistry> {
     const db = await this.database;
-    const stored = (await db.get('metadata', 'profiles')) as AccountRegistry | undefined;
-    if (stored) {
+    const value = await db.get('metadata', 'profiles');
+    if (value) {
+      const parsed = registrySchema.safeParse(value);
+      if (!parsed.success) {
+        throw new Error('profiles.detailsUnreadable');
+      }
+      const stored = parsed.data;
       if (
         !Array.isArray(stored.accounts) ||
         !stored.accounts.length ||
@@ -231,13 +284,14 @@ export class BrowserWorkspaceRepository {
     const accounts: WorkspaceProfile[] = [
       { id: crypto.randomUUID(), name: 'Personal', color: '#7d9cc4' },
     ];
+    invariant(accounts[0] !== undefined, 'Missing accounts[0]');
     return this.saveRegistry({ activeId: accounts[0].id, accounts });
   }
 
   async saveRegistry(registry: AccountRegistry): Promise<AccountRegistry> {
     const db = await this.database;
     const tx = db.transaction('metadata', 'readwrite', { durability: 'strict' });
-    const previous = (await tx.store.get('profiles')) as AccountRegistry | undefined;
+    const previous = registrySchema.optional().parse(await tx.store.get('profiles'));
     const saved = {
       ...registry,
       accounts: [

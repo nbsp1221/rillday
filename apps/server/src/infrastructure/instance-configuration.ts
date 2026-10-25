@@ -17,5 +17,5 @@ export function instanceConfiguration(store: Store) {
     .prepare<{ serverId: string; secret: string }>(
       'SELECT serverId,secret FROM instance_config WHERE id=1',
     )
-    .get()!;
+    .get();
 }

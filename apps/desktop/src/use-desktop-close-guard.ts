@@ -51,7 +51,8 @@ export function useDesktopCloseGuard(
         () => globalThis.dispatchEvent(new Event('rillday-close-save-error')),
       );
 
-      if (stopped) {
+      // Cleanup can change this flag while native registration awaits.
+      if (stopped as boolean) {
         release();
       } else {
         unlisten = release;

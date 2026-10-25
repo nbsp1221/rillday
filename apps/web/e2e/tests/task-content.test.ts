@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 
@@ -6,7 +7,7 @@ async function scope(page: Page, value: string) {
   if ((page.viewportSize()?.width ?? 0) < 900) {
     const actual =
       value === 'list:work'
-        ? `list:${(await storedWorkspace(page)).lists.find((l) => l.name === 'Work and projects')!.id}`
+        ? `list:${(await storedWorkspace(page)).lists.find((l) => l.name === 'Work and projects')?.id}`
         : value;
     await chooseChoice(
       page,
@@ -70,8 +71,16 @@ test('all task scopes share balanced content, row and capture bounds with and wi
       await scope(page, value);
       const geometry = await page.locator('.task-scroll').evaluate((el) => {
         const scroll = el.getBoundingClientRect();
-        const stack = el.querySelector('.task-content-stack')!.getBoundingClientRect();
-        const row = el.querySelector('.task-items > .task-row')!.getBoundingClientRect();
+        const stackElement = el.querySelector('.task-content-stack');
+        if (stackElement === null) {
+          throw new Error("Expected element matching '.task-content-stack'");
+        }
+        const stack = stackElement.getBoundingClientRect();
+        const rowElement = el.querySelector('.task-items > .task-row');
+        if (rowElement === null) {
+          throw new Error("Expected element matching '.task-items > .task-row'");
+        }
+        const row = rowElement.getBoundingClientRect();
         const capture = document.querySelector('.quick-add')?.getBoundingClientRect();
         return {
           left: stack.x - scroll.x,
@@ -113,13 +122,29 @@ test('date and completed sections use one accessible disclosure and preserve tas
     const box = el.getBoundingClientRect();
 
     const center = (selector: string) => {
-      const r = el.querySelector(selector)!.getBoundingClientRect();
+      const rElement = el.querySelector(selector);
+      if (rElement === null) {
+        throw new Error('Expected element matching selector');
+      }
+      const r = rElement.getBoundingClientRect();
       return Math.abs(r.y + r.height / 2 - box.y - box.height / 2);
     };
 
-    const title = getComputedStyle(el.querySelector('.task-section-title')!);
-    const count = getComputedStyle(el.querySelector('.task-section-count')!);
-    const sidebar = getComputedStyle(document.querySelector('.sidebar-entity .entity-count')!);
+    const entry = el.querySelector('.task-section-title');
+    if (entry === null) {
+      throw new Error('Missing entry');
+    }
+    const title = getComputedStyle(entry);
+    const entry1 = el.querySelector('.task-section-count');
+    if (entry1 === null) {
+      throw new Error('Missing entry');
+    }
+    const count = getComputedStyle(entry1);
+    const entry2 = document.querySelector('.sidebar-entity .entity-count');
+    if (entry2 === null) {
+      throw new Error('Missing entry');
+    }
+    const sidebar = getComputedStyle(entry2);
 
     return {
       titleError: center('.task-section-title'),
@@ -174,16 +199,32 @@ test('row More stays absent while balanced spacing, dates and context access rem
       has: page.locator('.task-title', { hasText: 'Choose three priorities for the coming week' }),
     })
     .first();
-  const date = (await row.locator('.row-date').boundingBox())!;
+  const date = await visibleBox(row.locator('.row-date'));
   await row.hover();
   await expect(row.locator('.row-menu-trigger')).toHaveCount(0);
-  expect(await row.locator('.row-date').boundingBox()).toEqual(date);
+  expect(await visibleBox(row.locator('.row-date'))).toEqual(date);
   const edges = await row.evaluate((el) => {
     const box = el.getBoundingClientRect();
-    const left = el.querySelector('.subtask-disclosure')!.getBoundingClientRect();
-    const circle = el.querySelector('.task-check')!.getBoundingClientRect();
-    const ink = getComputedStyle(el.querySelector('.task-check')!, '::before');
-    const date = el.querySelector('.row-date')!.getBoundingClientRect();
+    const leftElement = el.querySelector('.subtask-disclosure');
+    if (leftElement === null) {
+      throw new Error("Expected element matching '.subtask-disclosure'");
+    }
+    const left = leftElement.getBoundingClientRect();
+    const circleElement = el.querySelector('.task-check');
+    if (circleElement === null) {
+      throw new Error("Expected element matching '.task-check'");
+    }
+    const circle = circleElement.getBoundingClientRect();
+    const entry3 = el.querySelector('.task-check');
+    if (entry3 === null) {
+      throw new Error('Missing entry');
+    }
+    const ink = getComputedStyle(entry3, '::before');
+    const dateElement = el.querySelector('.row-date');
+    if (dateElement === null) {
+      throw new Error("Expected element matching '.row-date'");
+    }
+    const date = dateElement.getBoundingClientRect();
     return {
       left: left.x - box.x,
       size: left.width,

@@ -56,7 +56,7 @@ test('the injected local application saves and reopens without a server or DOM',
 
   const reopened = host.create().application;
   await reopened.initialize();
-  expect(reopened.getSnapshot().workspace.getSnapshot().data.tasks[0].title).toBe(
+  expect(reopened.getSnapshot().workspace.getSnapshot().data.tasks[0]?.title).toBe(
     'Keep this local task',
   );
   expect(await reopened.preferences.loadPreferences()).toMatchObject({

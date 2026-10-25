@@ -28,6 +28,7 @@ export function TaskDetailMetadata({
   tagInput: string;
   setTagInput: (value: string) => void;
 }) {
+  const { active, setActive, triggerRef, contentRef, close, open } = popovers;
   const { t, formatDate, formatTime } = useI18n();
   const controlId = useId();
   const dateHandle = useMemo(() => Popover.createHandle(), []);
@@ -58,13 +59,13 @@ export function TaskDetailMetadata({
     }
   };
 
-  const datePopover = popovers.active === 'date' && (
+  const datePopover = active === 'date' && (
     <DatePickerPanel
       handle={dateHandle}
       triggerId={`${controlId}-date`}
       sourceZone={task.zone}
-      panelRef={popovers.contentRef}
-      anchorRef={popovers.triggerRef}
+      panelRef={contentRef}
+      anchorRef={triggerRef}
       className="td-date-panel"
       label={t('dates.taskSettings')}
       calendarLabel={t('dates.taskDate')}
@@ -76,7 +77,7 @@ export function TaskDetailMetadata({
       onDurationChange={(duration) => taskActions.update(task.id, { duration })}
       repeat={task.repeat}
       onRepeatChange={(repeat) => taskActions.setRepeat(task.id, repeat)}
-      close={() => popovers.setActive((current) => (current === 'date' ? null : current))}
+      close={() => setActive((current) => (current === 'date' ? null : current))}
     />
   );
 
@@ -103,8 +104,8 @@ export function TaskDetailMetadata({
                 })
               : t('tasks.setDate')
           }
-          aria-expanded={popovers.active === 'date'}
-          onClick={(event) => popovers.open('date', event.currentTarget)}
+          aria-expanded={active === 'date'}
+          onClick={(event) => open('date', event.currentTarget)}
           disabled={task.deleted}
           className={cn(
             "td-icon-button inline-flex items-center justify-center w-8 h-8 shrink-0 border-0 rounded-sm bg-transparent text-muted-foreground p-0 hover:bg-surface-hover hover:text-foreground td-date-button flex gap-[7px] text-xs whitespace-nowrap max-w-full leading-(--text-xs--line-height) [&_>_span]:overflow-hidden [&_>_span]:text-ellipsis [&_>_svg]:shrink-0 [.task-detail_&:disabled]:opacity-100 task-date [--date-today:var(--link)] [--date-overdue:var(--danger-text)] [--date-neutral:color-mix(in_srgb,_var(--muted-foreground)_90%,_var(--foreground))] [--date-color:var(--date-neutral)] [&[data-date-tone='today']]:[--date-color:var(--date-today)] [&[data-date-tone='overdue']]:[--date-color:var(--date-overdue)] [.task-detail_&]:text-date-color",
@@ -133,7 +134,7 @@ export function TaskDetailMetadata({
               aria-haspopup="menu"
               title={t(`priority.${task.priority}`, { ns: 'labels' })}
               aria-label={t('tasks.setPriority')}
-              aria-expanded={popovers.active === 'priority'}
+              aria-expanded={active === 'priority'}
               disabled={task.deleted}
               className={cn(
                 'td-icon-button inline-flex items-center justify-center w-8 h-8 shrink-0 border-0 rounded-sm bg-transparent text-muted-foreground p-0 hover:bg-surface-hover td-priority-control text-priority-color',
@@ -159,7 +160,7 @@ export function TaskDetailMetadata({
                 key={priority}
                 onClick={() => {
                   taskActions.update(task.id, { priority });
-                  popovers.close();
+                  close();
                 }}
               >
                 <Flag
@@ -180,23 +181,23 @@ export function TaskDetailMetadata({
           aria-haspopup="dialog"
           title={t('labels.add')}
           aria-label={t('labels.add')}
-          aria-expanded={popovers.active === 'tags'}
+          aria-expanded={active === 'tags'}
           disabled={task.deleted}
-          onClick={(event) => popovers.open('tags', event.currentTarget)}
+          onClick={(event) => open('tags', event.currentTarget)}
           className={
             'td-icon-button inline-flex items-center justify-center w-8 h-8 shrink-0 border-0 rounded-sm bg-transparent text-muted-foreground p-0 hover:bg-surface-hover hover:text-foreground'
           }
         >
           <Tag className="size-4 inline-block shrink-0 align-middle" />
         </Popover.Trigger>
-        {popovers.active === 'tags' && (
+        {active === 'tags' && (
           <WorkspacePopover
             handle={tagHandle}
             triggerId={`${controlId}-tags`}
-            anchor={popovers.triggerRef}
-            onClose={() => popovers.setActive((current) => (current === 'tags' ? null : current))}
+            anchor={triggerRef}
+            onClose={() => setActive((current) => (current === 'tags' ? null : current))}
             className="td-popover min-w-47.5 [font-family:var(--font-sans)] text-sm leading-(--text-sm--line-height) [&_select]:[font-family:inherit] [&_input]:[font-family:inherit] [&_button]:[font-family:inherit] [&_button:focus-visible]:[outline:2px_solid_var(--ring)] [&_button:focus-visible]:-outline-offset-2 td-tags-popover w-64 p-3"
-            ref={popovers.contentRef}
+            ref={contentRef}
             role="dialog"
             aria-label={t('labels.edit')}
           >

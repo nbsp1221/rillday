@@ -1,5 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
+import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
@@ -11,23 +12,27 @@ async function fixture(page: Page) {
   const icons = ['circle', 'sparkles', 'coffee', 'sun', 'clover', 'music', 'star', 'diamond', '🧘'];
   const colors = ['#94b781', '#c77f87', '#000000', '#ffffff'];
   const today = (await browserToday(page)).toString();
-  data.habits = icons.map((icon, index) => ({
-    id: `habit-${index}`,
-    name: `Habit ${index}`,
-    icon,
-    color: colors[index % colors.length],
-    kind: 'boolean',
-    goal: 1,
-    unit: 'times',
-    frequency: 'daily',
-    weekdays: [1, 2, 3, 4, 5],
-    weeklyTarget: 3,
-    intervalDays: 1,
-    step: 1,
-    reminderTime: null,
-    archived: false,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  }));
+  data.habits = icons.map((icon, index) => {
+    const color = colors[index % colors.length];
+    invariant(color !== undefined, 'Habit fixture requires a color');
+    return {
+      id: `habit-${index}`,
+      name: `Habit ${index}`,
+      icon,
+      color,
+      kind: 'boolean',
+      goal: 1,
+      unit: 'times',
+      frequency: 'daily',
+      weekdays: [1, 2, 3, 4, 5],
+      weeklyTarget: 3,
+      intervalDays: 1,
+      step: 1,
+      reminderTime: null,
+      archived: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+  });
   data.habitLogs = data.habits.map((habit) => ({
     habitId: habit.id,
     date: today,
@@ -57,7 +62,7 @@ test('preset icons render consistently without rewriting their IDs; imported cus
   );
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  expect((await storedWorkspace(page)).habits[0].icon).toBe('circle');
+  expect((await storedWorkspace(page)).habits[0]?.icon).toBe('circle');
   expect((await storedWorkspace(page)).habitLogs).toEqual(before.habitLogs);
 });
 
@@ -87,7 +92,7 @@ test('icon and color preview together; choosing stays local until Save and survi
   await trigger.click();
   await page.getByRole('radio', { name: 'Reading', exact: true }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(async () => (await storedWorkspace(page)).habits[0].icon).toBe('book-open');
+  await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.icon).toBe('book-open');
   await page.reload();
   await page.getByLabel('Habit', { exact: true }).click();
   await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
@@ -120,8 +125,16 @@ test('icon grid keyboard selection, layered Escape and narrow field axes remain 
   await expect(trigger).toBeFocused();
   await expect(page.locator('.habit-editor')).toBeVisible();
   const axes = await page.locator('.habit-appearance-fields').evaluate((el) => {
-    const icon = el.querySelector('.habit-icon-trigger')!.getBoundingClientRect();
-    const color = el.querySelector('.color-picker-trigger')!.getBoundingClientRect();
+    const iconElement = el.querySelector('.habit-icon-trigger');
+    if (iconElement === null) {
+      throw new Error("Expected element matching '.habit-icon-trigger'");
+    }
+    const icon = iconElement.getBoundingClientRect();
+    const colorElement = el.querySelector('.color-picker-trigger');
+    if (colorElement === null) {
+      throw new Error("Expected element matching '.color-picker-trigger'");
+    }
+    const color = colorElement.getBoundingClientRect();
     return {
       y: icon.y - color.y,
       height: [icon.height, color.height],

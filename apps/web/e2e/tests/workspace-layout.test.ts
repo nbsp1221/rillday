@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 import { archiveFixture } from '../support/workspace-archive';
@@ -30,7 +32,11 @@ test('task destinations keep the requested order without a brand row or duplicat
       .first()
       .evaluate((button) => {
         const row = button.getBoundingClientRect();
-        const header = document.querySelector('.workspace-header')!.getBoundingClientRect();
+        const headerElement = document.querySelector('.workspace-header');
+        if (headerElement === null) {
+          throw new Error("Expected element matching '.workspace-header'");
+        }
+        const header = headerElement.getBoundingClientRect();
         return Math.abs(row.y + row.height / 2 - header.y - header.height / 2);
       });
     expect(alignment).toBeLessThan(1);
@@ -46,8 +52,13 @@ test('task destinations keep the requested order without a brand row or duplicat
       .toEqual(destinations);
     await page.keyboard.press('Escape');
     for (let index = 0; index < destinations.length; index++) {
-      await chooseChoice(page, select, destinations[index]);
-      await expect(page.locator('.workspace-header h1')).toHaveText(names[index]);
+      const destination = destinations[index];
+      invariant(destination !== undefined, 'Missing destination');
+      await chooseChoice(page, select, destination);
+
+      const name1 = names[index];
+      invariant(name1 !== undefined, 'Missing name');
+      await expect(page.locator('.workspace-header h1')).toHaveText(name1);
     }
     await page.setViewportSize({ width: 1280, height: 800 });
     if (language === 'ko') {
@@ -119,7 +130,11 @@ test('empty Lists and Labels use the same aligned creation action and keyboard b
     elements.map((element) => {
       const bounds = element.getBoundingClientRect();
       const style = getComputedStyle(element);
-      const icon = element.querySelector('svg')!.getBoundingClientRect();
+      const iconElement = element.querySelector('svg');
+      if (iconElement === null) {
+        throw new Error("Expected element matching 'svg'");
+      }
+      const icon = iconElement.getBoundingClientRect();
       return {
         x: bounds.x,
         width: bounds.width,
@@ -162,18 +177,22 @@ test('a long grouped mobile scope menu opens with the selected item visible and 
   const trigger = page.getByRole('combobox', { name: 'Choose a list', exact: true });
   await chooseChoice(page, trigger, `tag:${last}`);
   await page.locator('#quick-add-input').fill('Keep this draft');
-  const header = await page.locator('.workspace-header').boundingBox();
-  const triggerBox = (await trigger.boundingBox())!;
-  const actions = (await page.locator('.workspace-actions').boundingBox())!;
+  const header = await visibleBox(page.locator('.workspace-header'));
+  const triggerBox = await visibleBox(trigger);
+
+  const actions = await visibleBox(page.locator('.workspace-actions'));
+
   expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(actions.x - 3.5);
   await trigger.hover();
-  expect(await trigger.boundingBox()).toEqual(triggerBox);
+  expect(await visibleBox(trigger)).toEqual(triggerBox);
   await trigger.click();
   const menu = page.getByRole('listbox', { name: 'Choose a list', exact: true });
   const selected = menu.getByRole('option', { selected: true });
   await expect(selected).toBeFocused();
-  const m = (await menu.boundingBox())!;
-  const s = (await selected.boundingBox())!;
+  const m = await visibleBox(menu);
+
+  const s = await visibleBox(selected);
+
   expect(s.y).toBeGreaterThanOrEqual(m.y);
   expect(s.y + s.height).toBeLessThanOrEqual(m.y + m.height);
   expect(s.height).toBe(32);
@@ -185,7 +204,7 @@ test('a long grouped mobile scope menu opens with the selected item visible and 
   await page.keyboard.press('End');
   await expect(selected).toBeFocused();
   await page.keyboard.press('Escape');
-  expect(await page.locator('.workspace-header').boundingBox()).toEqual(header);
+  expect(await visibleBox(page.locator('.workspace-header'))).toEqual(header);
   await chooseChoice(page, trigger, 'all');
   await chooseChoice(page, trigger, `tag:${last}`);
   await expect(page.locator('#quick-add-input')).toHaveValue('Keep this draft');
@@ -219,16 +238,30 @@ test('rail controls share alignment, hit areas and edge spacing across viewport 
       );
       const top = buttons.slice(0, 4);
       const bottom = buttons.slice(4);
+
+      if (top[0] === undefined) {
+        throw new Error('Missing top[0]');
+      }
+      const entry = bottom.at(-1);
+      if (entry === undefined) {
+        throw new Error('Missing entry');
+      }
       return {
         centers: buttons.map((button) => button.x + button.width / 2),
         sizes: buttons.map((button) => [button.width, button.height]),
         insetTop: top[0].top - bounds.top,
-        insetBottom: bounds.bottom - bottom.at(-1)!.bottom,
+        insetBottom: bounds.bottom - entry.bottom,
         insetLeft: top[0].left - bounds.left,
         insetRight:
           bounds.right - top[0].right - parseFloat(getComputedStyle(rail).borderRightWidth),
         gaps: [top, bottom].flatMap((group) =>
-          group.slice(1).map((button, index) => button.top - group[index].bottom),
+          group.slice(1).map((button, index) => {
+            const previous = group[index];
+            if (previous === undefined) {
+              throw new Error('Missing previous control');
+            }
+            return button.top - previous.bottom;
+          }),
         ),
       };
     });
@@ -287,8 +320,10 @@ test('rail labels appear beside icons for hover and keyboard, without native tit
   await expect(label).toBeHidden();
   await tasks.hover();
   await expect(label).toBeVisible();
-  const buttonBox = (await tasks.boundingBox())!;
-  const labelBox = (await label.boundingBox())!;
+  const buttonBox = await visibleBox(tasks);
+
+  const labelBox = await visibleBox(label);
+
   expect(labelBox.x).toBeGreaterThan(buttonBox.x + buttonBox.width);
   expect(
     Math.abs(labelBox.y + labelBox.height / 2 - buttonBox.y - buttonBox.height / 2),
@@ -299,7 +334,9 @@ test('rail labels appear beside icons for hover and keyboard, without native tit
   await page.keyboard.press('Tab');
   const focused = rail.locator('button:focus-visible');
   await expect(label).toBeVisible();
-  await expect(label).toContainText((await focused.getAttribute('aria-label'))!);
+  const entry1 = await focused.getAttribute('aria-label');
+  invariant(entry1 !== null, 'Missing entry');
+  await expect(label).toContainText(entry1);
   await focused.press('Escape');
   await expect(label).toBeHidden();
   const matrix = rail.getByRole('button', { name: 'Eisenhower Matrix', exact: true });
@@ -422,10 +459,18 @@ test('custom list hover paints one row while keeping the edit action inside its 
     await expect(row.locator('.entity-count')).toHaveCSS('opacity', '0');
     const state = await row.evaluate((element) => {
       const box = element.getBoundingClientRect();
-      const action = element.querySelector('.entity-edit')!.getBoundingClientRect();
+      const actionElement = element.querySelector('.entity-edit');
+      if (actionElement === null) {
+        throw new Error("Expected element matching '.entity-edit'");
+      }
+      const action = actionElement.getBoundingClientRect();
+      const entry2 = element.querySelector('button');
+      if (entry2 === null) {
+        throw new Error('Missing entry');
+      }
       return {
         parentFill: getComputedStyle(element).backgroundColor,
-        childFill: getComputedStyle(element.querySelector('button')!).backgroundColor,
+        childFill: getComputedStyle(entry2).backgroundColor,
         actionInside:
           action.left >= box.left &&
           action.right <= box.right &&
@@ -464,13 +509,16 @@ test('custom list hover paints one row while keeping the edit action inside its 
       ].map(center);
       const gaps = [...sidebar.querySelectorAll('.sidebar-items')].flatMap((group) => {
         const rows = [...group.querySelectorAll('.sidebar-item')];
-        return rows
-          .slice(1)
-          .flatMap((row, index) =>
-            rows[index].nextElementSibling === row
-              ? [row.getBoundingClientRect().top - rows[index].getBoundingClientRect().bottom]
-              : [],
-          );
+
+        return rows.slice(1).flatMap((row, index) => {
+          const previous = rows[index];
+          if (previous === undefined) {
+            throw new Error('Missing previous sidebar row');
+          }
+          return previous.nextElementSibling === row
+            ? [row.getBoundingClientRect().top - previous.getBoundingClientRect().bottom]
+            : [];
+        });
       });
       return { axisSpread: Math.max(...controls) - Math.min(...controls), gaps };
     });

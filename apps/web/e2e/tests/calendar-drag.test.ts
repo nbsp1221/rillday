@@ -1,5 +1,7 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -42,6 +44,7 @@ async function seed(page: Page, scheduled = false, recurring = false) {
     task('block', 'Long event', today, '09:00', 120),
   ];
   if (recurring) {
+    invariant(fixture.tasks[0] !== undefined, 'Missing fixture.tasks[0]');
     fixture.tasks[0].repeat = { frequency: 'daily', interval: 1 };
   }
   await seedWorkspace(page, fixture);
@@ -51,7 +54,9 @@ async function seed(page: Page, scheduled = false, recurring = false) {
 }
 
 async function sourceRecord(page: Page) {
-  return (await storedWorkspace(page)).tasks.find((t) => t.id === fixtureId('source'))!;
+  const task = (await storedWorkspace(page)).tasks.find((t) => t.id === fixtureId('source'));
+  invariant(task !== undefined, 'Expected a saved fixture value');
+  return task;
 }
 
 async function mode(page: Page, name: string) {
@@ -63,7 +68,8 @@ async function start(page: Page, source: Locator) {
   await page.mouse.up();
   const handle = source.locator('.calendar-task-title');
   await handle.scrollIntoViewIfNeeded();
-  const box = (await handle.boundingBox())!;
+  const box = await visibleBox(handle);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 8, box.y + box.height / 2, { steps: 2 });
@@ -74,7 +80,8 @@ async function over(page: Page, target: Locator, point?: { clientX: number; clie
   if (!point) {
     await target.scrollIntoViewIfNeeded();
   }
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   await page.mouse.move(
     point?.clientX ?? box.x + box.width / 2,
     point?.clientY ?? box.y + Math.min(40, box.height / 2),
@@ -98,7 +105,8 @@ test('late events retain their wall-clock position and clip at midnight after re
 }) => {
   await seed(page, true);
   const data = await storedWorkspace(page);
-  const task = data.tasks.find((item) => item.id === fixtureId('source'))!;
+  const task = data.tasks.find((item) => item.id === fixtureId('source'));
+  invariant(task !== undefined, 'Missing task');
 
   task.time = '23:30';
   task.duration = 90;
@@ -137,10 +145,12 @@ test('pointer month drag previews the destination before saving and supports Und
   await seed(page);
   const source = page.locator(`[data-task-id="${fixtureId('source')}"]`);
   const cell = page.locator('.calendar-day').nth(10);
-  const date = (await cell.getAttribute('data-date'))!;
+  const date = await cell.getAttribute('data-date');
   const before = await sourceRecord(page);
-  const a = (await source.boundingBox())!;
-  const b = (await cell.boundingBox())!;
+  const a = await visibleBox(source);
+
+  const b = await visibleBox(cell);
+
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await page.mouse.down();
   await page.mouse.move(b.x + b.width / 2, b.y + 40, { steps: 12 });
@@ -177,7 +187,8 @@ for (const view of ['Day', 'Week']) {
     const source = page.locator(`[data-task-id="${fixtureId('source')}"]`);
     const block = page.locator(`[data-task-id="${fixtureId('block')}"]`);
     const cell = page.locator(`.calendar-hour-cell[data-date="${today}"][data-hour="10"]`);
-    const box = (await cell.boundingBox())!;
+    const box = await visibleBox(cell);
+
     const x = box.x + 20;
     const y = box.y + 33;
     expect(
@@ -188,6 +199,7 @@ for (const view of ['Day', 'Week']) {
       ),
     ).toBe(fixtureId('block'));
     const before = await sourceRecord(page);
+
     await start(page, source);
     await over(page, block, { clientX: x, clientY: y });
     const preview = page.locator('.calendar-time-preview');
@@ -229,6 +241,7 @@ test('all-day clears time and undated announces removal; existing metadata is pr
   const today = await seed(page, true);
   await mode(page, 'Week');
   const before = await sourceRecord(page);
+
   const source = page.locator(`[data-task-id="${fixtureId('source')}"]`);
   const allDay = page.locator(`.calendar-all-day > [data-date="${today}"]`);
   await start(page, source);
@@ -286,7 +299,7 @@ for (const view of ['Year', 'Agenda']) {
     await seed(page);
     await mode(page, view);
     const target = page.locator('[data-calendar-drop="date"]').nth(view === 'Year' ? 35 : 10);
-    const date = (await target.getAttribute('data-date'))!;
+    const date = await target.getAttribute('data-date');
     await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
     await over(page, target);
     await expect(page.locator('[data-drop-active="true"]')).toHaveCount(1);
@@ -312,7 +325,8 @@ test('same-position drop is a no-op, and scrolling updates a pending time withou
   await mode(page, 'Day');
   await page.locator('.calendar-time-scroll').evaluate((el) => (el.scrollTop = 8 * 64));
   const cell = page.locator(`.calendar-hour-cell[data-date="${today}"][data-hour="10"]`);
-  const r = (await cell.boundingBox())!;
+  const r = await visibleBox(cell);
+
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
   await over(page, cell, { clientX: r.x + 30, clientY: r.y + 33 });
   // Timed events preserve the original grab offset when moving and scrolling.
@@ -325,7 +339,8 @@ test('same-position drop is a no-op, and scrolling updates a pending time withou
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
   await page.locator('.calendar-time-scroll').evaluate((el) => (el.scrollTop = el.scrollHeight));
   const last = page.locator(`.calendar-hour-cell[data-date="${today}"][data-hour="23"]`);
-  const end = (await last.boundingBox())!;
+  const end = await visibleBox(last);
+
   await over(page, last, { clientX: end.x + 30, clientY: end.y + 49 });
   await expect(page.locator('.calendar-time-preview')).toHaveAttribute('data-time', '23:30');
   expect(
@@ -409,18 +424,19 @@ for (const view of ['Month', 'Agenda', 'Day']) {
     await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
     await over(page, target);
     const preview = target.locator('.calendar-drop-preview');
-    const before = (await preview.boundingBox())!;
+    const before = await visibleBox(preview);
+
     if (view === 'Month') {
-      const head = (await target.locator('.calendar-day-head').boundingBox())!;
-      const existing = (await target
-        .locator(`[data-task-id="${fixtureId('block')}"]`)
-        .boundingBox())!;
+      const head = await visibleBox(target.locator('.calendar-day-head'));
+
+      const existing = await visibleBox(target.locator(`[data-task-id="${fixtureId('block')}"]`));
+
       expect(before.y).toBe(head.y + head.height + 4);
       expect(before.y + before.height).toBeLessThan(existing.y);
     }
     await drop(page, target);
     await expect.poll(async () => (await sourceRecord(page)).date).toBe(today);
-    expect(await target.locator(`[data-task-id="${fixtureId('source')}"]`).boundingBox()).toEqual(
+    expect(await visibleBox(target.locator(`[data-task-id="${fixtureId('source')}"]`))).toEqual(
       before,
     );
   });
@@ -433,33 +449,40 @@ test('empty month and undated previews follow their content headers instead of t
   const empty = page.locator('.calendar-day').nth(10);
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
   await over(page, empty);
-  const head = (await empty.locator('.calendar-day-head').boundingBox())!;
-  const preview = (await empty.locator('.calendar-drop-preview').boundingBox())!;
+  const head = await visibleBox(empty.locator('.calendar-day-head'));
+
+  const preview = await visibleBox(empty.locator('.calendar-drop-preview'));
+
   expect(preview.y).toBe(head.y + head.height + 4);
   await page.keyboard.press('Escape');
   await start(page, page.locator(`[data-task-id="${fixtureId('block')}"]`));
   const target = page.locator('.calendar-undated');
   await over(page, target);
-  const pending = (await target.locator('.calendar-drop-preview').boundingBox())!;
-  const existing = (await target.locator(`[data-task-id="${fixtureId('source')}"]`).boundingBox())!;
-  const input = (await target.locator('.calendar-task-capture').boundingBox())!;
+  const pending = await visibleBox(target.locator('.calendar-drop-preview'));
+
+  const existing = await visibleBox(target.locator(`[data-task-id="${fixtureId('source')}"]`));
+
+  const input = await visibleBox(target.locator('.calendar-task-capture'));
+
   expect(pending.y).toBeGreaterThanOrEqual(existing.y + existing.height);
   expect(pending.y + pending.height).toBeLessThanOrEqual(input.y);
   await drop(page, target);
-  expect(await target.locator(`[data-task-id="${fixtureId('block')}"]`).boundingBox()).toEqual(
+  expect(await visibleBox(target.locator(`[data-task-id="${fixtureId('block')}"]`))).toEqual(
     pending,
   );
 });
 
 test('rapid pointer dragging updates each date by the next frame', async ({ page }) => {
   await seed(page);
-  const source = (await page.locator(`[data-task-id="${fixtureId('source')}"]`).boundingBox())!;
+  const source = await visibleBox(page.locator(`[data-task-id="${fixtureId('source')}"]`));
+
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
   await page.mouse.down();
   try {
     for (const index of [8, 9, 10, 11, 12, 19, 18, 17, 16, 15, 22, 23, 24, 25, 26]) {
       const cell = page.locator('.calendar-day').nth(index);
-      const r = (await cell.boundingBox())!;
+      const r = await visibleBox(cell);
+
       await page.mouse.move(r.x + r.width / 2, r.y + 45, { steps: 2 });
       await page.evaluate(
         () =>
@@ -505,6 +528,7 @@ test('keyboard movement uses the same destinations and Escape preserves the sour
   await expect
     .poll(async () => {
       const record = await sourceRecord(page);
+
       return { date: record.date, time: record.time };
     })
     .toEqual({ date: expectedDate, time: null });
@@ -516,7 +540,8 @@ test('edge auto-scroll refreshes the pending time under a stationary pointer', a
   const scroll = page.locator('.calendar-time-scroll');
   await scroll.evaluate((el) => (el.scrollTop = 8 * 64));
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
-  const box = (await scroll.boundingBox())!;
+  const box = await visibleBox(scroll);
+
   const before = await scroll.evaluate((el) => el.scrollTop);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height - 4, { steps: 4 });
   await expect(page.locator('.calendar-time-preview')).toHaveCount(1);
@@ -539,9 +564,10 @@ test('touch long-press supports a real drop and touch cancellation never writes'
   await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
 
   const begin = async () => {
-    const box = (await page
-      .locator(`[data-task-id="${fixtureId('source')}"] .calendar-task-title`)
-      .boundingBox())!;
+    const box = await visibleBox(
+      page.locator(`[data-task-id="${fixtureId('source')}"] .calendar-task-title`),
+    );
+
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
@@ -550,7 +576,8 @@ test('touch long-press supports a real drop and touch cancellation never writes'
   };
 
   const target = page.locator('.calendar-day').nth(10);
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   const date = await target.getAttribute('data-date');
   const point = { x: box.x + box.width / 2, y: box.y + 40 };
   await begin();
@@ -571,7 +598,8 @@ test('dense month virtualization keeps every task reachable and retains the drag
 }) => {
   const today = await seed(page);
   const dense = await storedWorkspace(page);
-  const original = dense.tasks.find((task) => task.id === fixtureId('source'))!;
+  const original = dense.tasks.find((task) => task.id === fixtureId('source'));
+  invariant(original !== undefined, 'Missing original');
   original.date = today;
   dense.tasks.push(
     ...Array.from({ length: 100 }, (_, i) => ({

@@ -1,5 +1,7 @@
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
 
 async function newHabit(page: Page) {
@@ -144,7 +146,7 @@ test('quantity goal, unit suggestions and fractional check-in step save exactly 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect
     .poll(async () => {
-      const h = (await storedWorkspace(page))?.habits[0];
+      const h = (await storedWorkspace(page)).habits[0];
       return (
         h && {
           goal: h.goal,
@@ -178,8 +180,10 @@ test('invalid numeric drafts and blank units cannot save; min/max keyboard and b
     ['abc', '0'],
     ['Infinity', '0'],
   ]) {
+    invariant(value !== undefined, 'Missing value');
     await goal.fill(value);
     await save.click();
+    invariant(expected !== undefined, 'Missing expected');
     await expect(goal).toHaveValue(expected);
     await expect(goal).toHaveAttribute('aria-invalid', 'true');
     await expect(page.locator('.habit-editor')).toBeVisible();
@@ -212,7 +216,7 @@ test('invalid numeric drafts and blank units cannot save; min/max keyboard and b
   await expect(interval).toHaveValue('1');
   await interval.fill('3');
   await save.click();
-  await expect.poll(async () => (await storedWorkspace(page))?.habits[0]?.intervalDays).toBe(3);
+  await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.intervalDays).toBe(3);
 });
 
 test('frequency menu dismisses one layer, weekdays follow preferences and empty selections block Save', async ({
@@ -244,7 +248,7 @@ test('frequency menu dismisses one layer, weekdays follow preferences and empty 
   await days.getByRole('button', { name: 'Sun', exact: true }).click();
   await days.getByRole('button', { name: 'Sat', exact: true }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(async () => (await storedWorkspace(page))?.habits[0]?.weekdays).toEqual([0, 6]);
+  await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.weekdays).toEqual([0, 6]);
 });
 
 test('changing editor modes retains local drafts; Cancel and IME never alter existing logs', async ({
@@ -300,8 +304,12 @@ for (const width of [320, 900]) {
           return { width: box.width, border: style.borderColor, color: style.color };
         }),
       );
+    invariant(goalChoices[1] !== undefined, 'Missing goalChoices[1]');
+    invariant(goalChoices[0] !== undefined, 'Missing goalChoices[0]');
     expect(Math.abs(goalChoices[0].width - goalChoices[1].width)).toBeLessThan(1);
+
     expect(goalChoices[1].border).toBe(goalChoices[1].color);
+
     expect(goalChoices[1].border).not.toBe(goalChoices[0].border);
     await frequency(page, 'At regular intervals');
     const geometry = await page.locator('.habit-editor').evaluate((el) => {
@@ -321,16 +329,19 @@ for (const width of [320, 900]) {
     });
     expect(geometry.axes).toHaveLength(4);
     expect(geometry.heights).toHaveLength(4);
+
     expect(
-      geometry.axes.every((r) => r.x === geometry.axes[0].x && r.width === geometry.axes[0].width),
+      geometry.axes.every((r) => r.x === geometry.axes[0]?.x && r.width === geometry.axes[0].width),
     ).toBe(true);
     expect(geometry.heights.every((h) => h === 36)).toBe(true);
     expect(geometry.overflow).toBe(false);
-    const footer = (await page.locator('.modal-footer').boundingBox())!;
+    const footer = await visibleBox(page.locator('.modal-footer'));
+
     expect(footer.y + footer.height).toBeLessThanOrEqual(600 - 8);
     await page.getByRole('combobox', { name: 'Frequency', exact: true }).click();
     await expect(page.locator('.choice-field-panel')).toBeVisible();
-    const menu = (await page.locator('.choice-field-panel').boundingBox())!;
+    const menu = await visibleBox(page.locator('.choice-field-panel'));
+
     expect(menu.x).toBeGreaterThanOrEqual(8);
     expect(menu.x + menu.width).toBeLessThanOrEqual(width - 8);
     await page.keyboard.press('Tab');
@@ -351,16 +362,18 @@ test.describe(() => {
   }) => {
     await newHabit(page);
     await page.getByRole('radio', { name: 'Track amount', exact: true }).click();
-    const footer = (await page.locator('.modal-footer').boundingBox())!;
+    const footer = await visibleBox(page.locator('.modal-footer'));
+
     expect(footer.y + footer.height).toBeLessThanOrEqual(292);
     await page.getByRole('combobox', { name: 'Unit', exact: true }).fill('custom units');
-    const unit = (await page.locator('.habit-unit-panel').boundingBox())!;
+    const unit = await visibleBox(page.locator('.habit-unit-panel'));
+
     expect(unit.y).toBeGreaterThanOrEqual(8);
     expect(unit.y + unit.height).toBeLessThanOrEqual(292);
     await page.keyboard.press('Escape');
     await frequency(page, 'A number of days each week');
     await page.getByRole('textbox', { name: 'Weekly target (days)', exact: true }).fill('7');
-    expect(await page.locator('.modal-footer').boundingBox()).toEqual(footer);
+    expect(await visibleBox(page.locator('.modal-footer'))).toEqual(footer);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.locator('.habit-editor')).toHaveCount(0);
   });

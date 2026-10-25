@@ -33,7 +33,9 @@ async function fixture() {
   try {
     const workspace = createWorkspace(context);
     const listId = Object.keys(workspace.lists)[0];
+    expect.assert(listId !== undefined);
     const first = createTask(workspace, context.newId(), taskData(listId, 'First'), context);
+
     const second = createTask(workspace, context.newId(), taskData(listId, 'Second'), context);
     const before = readWorkspace(store.handle.fullDoc());
     await store.change((doc) => writeWorkspace(doc, before, workspace));
@@ -65,7 +67,8 @@ test('ordinary edits preserve a pending semantic decision; explicit resolution u
     const pending = repository.getSnapshot();
     expect(pending.decisions).toHaveLength(1);
     expect(() => validateWorkspace(pending.workspace)).not.toThrow();
-    const nested = Object.values(pending.workspace.tasks).find((task) => task.location.parentId)!;
+    const nested = Object.values(pending.workspace.tasks).find((task) => task.location.parentId);
+    expect.assert(nested !== undefined);
     expect(() =>
       repository.commit(
         produce(pending.workspace, (draft) =>
@@ -85,12 +88,17 @@ test('ordinary edits preserve a pending semantic decision; explicit resolution u
     ).toBe(true);
     expect(repository.getSnapshot().decisions).toHaveLength(1);
     const decision = repository.getSnapshot().decisions[0];
-    expect(() =>
-      repository.resolve(pending.decisions[0].id, pending.decisions[0].choices[0].id),
-    ).toThrow('edit_conflict');
+    expect.assert(decision !== undefined);
+
+    const pendingDecision = pending.decisions[0];
+    expect.assert(pendingDecision !== undefined);
+    const pendingChoice = pendingDecision.choices[0];
+    expect.assert(pendingChoice !== undefined);
+    expect(() => repository.resolve(pendingDecision.id, pendingChoice.id)).toThrow('edit_conflict');
+    expect.assert(decision.choices[0] !== undefined);
     await repository.resolve(decision.id, decision.choices[0].id);
     expect(repository.getSnapshot().decisions).toHaveLength(0);
-    expect(repository.getSnapshot().workspace.tasks[first.id].title).toBe('Keep this edit');
+    expect(repository.getSnapshot().workspace.tasks[first.id]?.title).toBe('Keep this edit');
     expect(() => validateWorkspace(readWorkspace(store.handle.fullDoc()))).not.toThrow();
     expect(repository.getSnapshot().saved).toBe(true);
   } finally {
@@ -115,8 +123,10 @@ test('the application port exposes product choices and resolves native field con
     );
     store.handle.update((doc) => Automerge.merge(doc, changed));
     const decision = repository.getSnapshot().decisions[0];
+    expect.assert(decision !== undefined);
     expect(decision.targets).toEqual([{ collection: 'tasks', id: first.id }]);
-    expect(decision.choices.map((choice) => choice.workspace.tasks[first.id].title)).toEqual(
+
+    expect(decision.choices.map((choice) => choice.workspace.tasks[first.id]?.title)).toEqual(
       expect.arrayContaining(['Local title', 'Remote title']),
     );
     expect(() =>
@@ -139,13 +149,16 @@ test('the application port exposes product choices and resolves native field con
       ),
     );
     const currentDecision = repository.getSnapshot().decisions[0];
+    expect.assert(currentDecision !== undefined);
+
     const choice = decision.choices.find(
-      (candidate) => candidate.workspace.tasks[first.id].title === 'Remote title',
-    )!;
+      (candidate) => candidate.workspace.tasks[first.id]?.title === 'Remote title',
+    );
+    expect.assert(choice !== undefined);
     await repository.resolve(currentDecision.id, choice.id);
     expect(repository.getSnapshot().decisions).toHaveLength(0);
-    expect(repository.getSnapshot().workspace.tasks[first.id].title).toBe('Remote title');
-    expect(repository.getSnapshot().workspace.tasks[first.id].notes).toBe('An unrelated edit');
+    expect(repository.getSnapshot().workspace.tasks[first.id]?.title).toBe('Remote title');
+    expect(repository.getSnapshot().workspace.tasks[first.id]?.notes).toBe('An unrelated edit');
   } finally {
     Automerge.free(remote);
     await repository.close();
@@ -173,6 +186,8 @@ test('workspace mode changes cannot bypass pending review', async () => {
       }),
     ).toThrow('edit_conflict');
     const decision = repository.getSnapshot().decisions[0];
+    expect.assert(decision !== undefined);
+    expect.assert(decision.choices[0] !== undefined);
     await repository.resolve(decision.id, decision.choices[0].id);
     expect(repository.getSnapshot().decisions).toHaveLength(0);
   } finally {
@@ -238,18 +253,21 @@ test('semantic choices project safe quantities and preserve the independent corr
     }
     const semantic = repository
       .getSnapshot()
-      .decisions.find((decision) => decision.code === 'not_found')!;
-    const retained = semantic.choices.find((choice) => choice.workspace.habits[habitId])!;
+      .decisions.find((decision) => decision.code === 'not_found');
+    expect.assert(semantic !== undefined);
+    const retained = semantic.choices.find((choice) => choice.workspace.habits[habitId]);
+    expect.assert(retained !== undefined);
     const checkIn = Object.values(retained.workspace.checkIns)[0];
+    expect.assert(checkIn !== undefined);
     expect(quantityValue(checkIn.quantity)).toBe(0);
     await repository.resolve(semantic.id, retained.id);
-    expect(
-      quantityValue(Object.values(readWorkspace(store.handle.fullDoc()).checkIns)[0].quantity),
-    ).toBe(-1);
+    const entry = Object.values(readWorkspace(store.handle.fullDoc()).checkIns)[0];
+    expect.assert(entry !== undefined);
+    expect(quantityValue(entry.quantity)).toBe(-1);
     expect(repository.getSnapshot().decisions.length).toBeGreaterThan(0);
-    expect(
-      quantityValue(Object.values(repository.getSnapshot().workspace.checkIns)[0].quantity),
-    ).toBe(0);
+    const entry1 = Object.values(repository.getSnapshot().workspace.checkIns)[0];
+    expect.assert(entry1 !== undefined);
+    expect(quantityValue(entry1.quantity)).toBe(0);
     expect(() =>
       repository.commit(
         produce(repository.getSnapshot().workspace, (draft) =>

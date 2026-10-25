@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
@@ -29,10 +30,16 @@ test('matrix drops change the task without reordering quadrants or repeating chi
   );
   await page.getByLabel('Close task details', { exact: true }).click();
   const counts = await page.locator('.quadrant').evaluateAll((cards) =>
-    cards.map((card) => ({
-      count: Number(card.querySelector('.quadrant-count')!.textContent),
-      rows: card.querySelectorAll('.task-row').length,
-    })),
+    cards.map((card) => {
+      const countsElement = card.querySelector('.quadrant-count');
+      if (countsElement === null) {
+        throw new Error("Expected element matching '.quadrant-count'");
+      }
+      return {
+        count: Number(countsElement.textContent),
+        rows: card.querySelectorAll('.task-row').length,
+      };
+    }),
   );
   expect(counts.every((card) => card.count === card.rows)).toBe(true);
 });
@@ -88,10 +95,26 @@ test('matrix card edges, row spacing and header controls stay aligned across res
     const geometry = await page.locator('.quadrant').evaluateAll((cards) =>
       cards.map((card) => {
         const box = card.getBoundingClientRect();
-        const header = card.querySelector('.quadrant-header')!.getBoundingClientRect();
-        const row = card.querySelector('.task-row')!.getBoundingClientRect();
-        const count = card.querySelector('.quadrant-count')!.getBoundingClientRect();
-        const plus = card.querySelector('.quadrant-add-trigger')!.getBoundingClientRect();
+        const headerElement = card.querySelector('.quadrant-header');
+        if (headerElement === null) {
+          throw new Error("Expected element matching '.quadrant-header'");
+        }
+        const header = headerElement.getBoundingClientRect();
+        const rowElement = card.querySelector('.task-row');
+        if (rowElement === null) {
+          throw new Error("Expected element matching '.task-row'");
+        }
+        const row = rowElement.getBoundingClientRect();
+        const countElement = card.querySelector('.quadrant-count');
+        if (countElement === null) {
+          throw new Error("Expected element matching '.quadrant-count'");
+        }
+        const count = countElement.getBoundingClientRect();
+        const plusElement = card.querySelector('.quadrant-add-trigger');
+        if (plusElement === null) {
+          throw new Error("Expected element matching '.quadrant-add-trigger'");
+        }
+        const plus = plusElement.getBoundingClientRect();
         return {
           left: header.left - box.left,
           right: box.right - header.right,
@@ -116,7 +139,11 @@ test('matrix card edges, row spacing and header controls stay aligned across res
     await page.locator('.quadrant').first().locator('.quadrant-add-trigger').click();
     const composer = await page.locator('.quadrant-add').evaluate((el) => {
       const a = el.getBoundingClientRect();
-      const b = el.closest('.quadrant')!.getBoundingClientRect();
+      const bElement = el.closest('.quadrant');
+      if (bElement === null) {
+        throw new Error("Expected element matching '.quadrant'");
+      }
+      const b = bElement.getBoundingClientRect();
       return [a.left - b.left, b.right - a.right];
     });
     expect(composer).toEqual([16, 16]);
@@ -209,7 +236,8 @@ test('matrix sorts the latest valid date before undated tasks', async ({ page })
   ] as const) {
     const task = createTaskRecord(title, data, { date, priority: 2 });
     expect(task).not.toBeNull();
-    data.tasks.push(task!);
+    invariant(task !== null, 'Missing task');
+    data.tasks.push(task);
   }
   await page.goto('/');
   await expect(page.locator('#quick-add-input')).toBeVisible();

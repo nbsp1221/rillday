@@ -1,4 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { selectCalendarDate } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
@@ -68,7 +70,11 @@ test('narrow calendar keeps display controls reachable and undated tasks usable 
     await mode(page, name);
     const geometry = await page.locator('.calendar-toolbar').evaluate((el) => {
       const box = el.getBoundingClientRect();
-      const button = el.querySelector('.calendar-options-menu button')!.getBoundingClientRect();
+      const buttonElement = el.querySelector('.calendar-options-menu button');
+      if (buttonElement === null) {
+        throw new Error("Expected element matching '.calendar-options-menu button'");
+      }
+      const button = buttonElement.getBoundingClientRect();
       return {
         overflow: document.documentElement.scrollWidth > innerWidth,
         inset: box.right - button.right,
@@ -131,7 +137,7 @@ for (const language of ['ko', 'en']) {
       exact: true,
     });
     const parent = page.locator('.date-picker-panel');
-    const before = await parent.boundingBox();
+    const before = await visibleBox(parent);
     await heading.click();
     await expect(
       page.locator('.calendar-period-grid[data-view="months"] [role="option"]'),
@@ -148,7 +154,7 @@ for (const language of ['ko', 'en']) {
     await page.keyboard.press('Enter');
     await expect(calendar.locator('.calendar-caption')).toHaveAttribute('data-month', '2032-02');
     await expect(heading).toBeFocused();
-    expect(await parent.boundingBox()).toEqual(before);
+    expect(await visibleBox(parent)).toEqual(before);
     await calendar.locator('button[data-date="2032-02-29"]').click();
     await expect(calendar.locator('button[data-selected-single="true"]')).toHaveAttribute(
       'data-date',
@@ -196,7 +202,10 @@ for (const height of [480, 300]) {
       expect(
         await active.evaluate((el) => {
           const a = el.getBoundingClientRect();
-          const b = el.parentElement!.getBoundingClientRect();
+          if (el.parentElement === null) {
+            throw new Error('Missing el.parentElement');
+          }
+          const b = el.parentElement.getBoundingClientRect();
           return a.top >= b.top && a.bottom <= b.bottom;
         }),
       ).toBe(true);
@@ -268,15 +277,26 @@ test('capture field keeps equal inset, stable bounds and centered icon across wi
     const form = page.locator('.calendar-task-capture');
     const input = form.getByRole('textbox');
     await form.scrollIntoViewIfNeeded();
-    const rest = await form.boundingBox();
+    const rest = await visibleBox(form);
     await input.fill('A very long task title '.repeat(12));
     await input.focus();
-    expect(await form.boundingBox()).toEqual(rest);
+    expect(await visibleBox(form)).toEqual(rest);
     const g = await form.evaluate((el) => {
       const r = el.getBoundingClientRect();
-      const b = el.querySelector('button')!.getBoundingClientRect();
-      const icon = el.querySelector('svg')!.getBoundingClientRect();
-      const pane = el.closest('aside')!;
+      const bElement = el.querySelector('button');
+      if (bElement === null) {
+        throw new Error("Expected element matching 'button'");
+      }
+      const b = bElement.getBoundingClientRect();
+      const iconElement = el.querySelector('svg');
+      if (iconElement === null) {
+        throw new Error("Expected element matching 'svg'");
+      }
+      const icon = iconElement.getBoundingClientRect();
+      const pane = el.closest('aside');
+      if (pane === null) {
+        throw new Error('Missing pane');
+      }
       const box = pane.getBoundingClientRect();
       return {
         insets: [
@@ -291,6 +311,8 @@ test('capture field keeps equal inset, stable bounds and centered icon across wi
         overflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
+    invariant(g.insets[1] !== undefined, 'Missing g.insets[1]');
+    invariant(g.insets[0] !== undefined, 'Missing g.insets[0]');
     expect(Math.abs(g.insets[0] - g.insets[1])).toBeLessThanOrEqual(1);
     expect(g.size).toEqual([32, 32]);
     expect(g.center).toEqual([0, 0]);

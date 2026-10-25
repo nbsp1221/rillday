@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { normalizeServerUrl } from './accounts.ts';
+import { normalizeServerUrl } from './server-transport.ts';
 
 test('server addresses normalize origins and reject invalid URLs, credentials and unsupported subpaths', () => {
   expect(normalizeServerUrl(' https://rillday.example.com/ ')).toBe('https://rillday.example.com');

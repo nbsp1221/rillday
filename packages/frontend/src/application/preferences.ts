@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const productAreas = ['tasks', 'matrix', 'calendar', 'habits'] as const;
 
 export type ProductArea = (typeof productAreas)[number];
@@ -53,61 +55,42 @@ export const defaultPreferences: AppPreferences = {
   taskViews: {},
 };
 
-// Validate stored device preferences before applying them.
+const preferenceSchema = z
+  .object({
+    language: z.enum(['ko', 'en']).catch(defaultPreferences.language),
+    theme: z.enum(['light', 'dark', 'system']).catch(defaultPreferences.theme),
+    startupView: z.enum(productAreas).catch(defaultPreferences.startupView),
+    density: z.enum(['comfortable', 'compact']).catch(defaultPreferences.density),
+    weekStartsOn: z.union([z.literal(0), z.literal(1)]).catch(defaultPreferences.weekStartsOn),
+    timeFormat: z.enum(['12h', '24h']).catch(defaultPreferences.timeFormat),
+    showCompleted: z.boolean().catch(defaultPreferences.showCompleted),
+    recognizeDates: z.boolean().catch(defaultPreferences.recognizeDates),
+    removeDateText: z.boolean().catch(defaultPreferences.removeDateText),
+    keepTagText: z.boolean().catch(defaultPreferences.keepTagText),
+    calendarView: z.enum(calendarViews).catch(defaultPreferences.calendarView),
+    calendarShowCompleted: z.boolean().catch(defaultPreferences.calendarShowCompleted),
+    taskViews: z.record(z.string(), z.unknown()).catch({}),
+  })
+  .catch({ ...defaultPreferences, taskViews: {} });
+
+const taskViewSchema = z.object({ sort: z.enum(taskSorts), group: z.enum(taskGroups) });
+
+// Invalid fields fall back independently, preserving other saved preferences.
 export function normalizePreferences(value: unknown): AppPreferences {
-  const saved = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  const result: AppPreferences = { ...defaultPreferences, taskViews: {} };
-  if (saved.language === 'ko' || saved.language === 'en') {
-    result.language = saved.language;
-  }
-  if (saved.theme === 'light' || saved.theme === 'dark' || saved.theme === 'system') {
-    result.theme = saved.theme;
-  }
-  if (['tasks', 'matrix', 'calendar', 'habits'].includes(saved.startupView as string)) {
-    result.startupView = saved.startupView as ProductArea;
-  }
-  if (saved.density === 'compact' || saved.density === 'comfortable') {
-    result.density = saved.density;
-  }
-  if (saved.weekStartsOn === 0 || saved.weekStartsOn === 1) {
-    result.weekStartsOn = saved.weekStartsOn;
-  }
-  if (saved.timeFormat === '12h' || saved.timeFormat === '24h') {
-    result.timeFormat = saved.timeFormat;
-  }
-  if (typeof saved.showCompleted === 'boolean') {
-    result.showCompleted = saved.showCompleted;
-  }
-  for (const key of [
-    'recognizeDates',
-    'removeDateText',
-    'keepTagText',
-    'calendarShowCompleted',
-  ] as const) {
-    if (typeof saved[key] === 'boolean') {
-      result[key] = saved[key];
+  const saved = preferenceSchema.parse(value);
+  const taskViews: AppPreferences['taskViews'] = {};
+  for (const [scope, options] of Object.entries(saved.taskViews)) {
+    if (
+      !['today', 'next', 'all', 'completed', 'trash'].includes(scope) &&
+      !scope.startsWith('list:') &&
+      !scope.startsWith('tag:')
+    ) {
+      continue;
+    }
+    const parsed = taskViewSchema.safeParse(options);
+    if (parsed.success) {
+      taskViews[scope] = parsed.data;
     }
   }
-  if (calendarViews.includes(saved.calendarView as CalendarViewMode)) {
-    result.calendarView = saved.calendarView as CalendarViewMode;
-  }
-  if (saved.taskViews && typeof saved.taskViews === 'object' && !Array.isArray(saved.taskViews)) {
-    for (const [scope, options] of Object.entries(saved.taskViews)) {
-      if (
-        !['today', 'next', 'all', 'completed', 'trash'].includes(scope) &&
-        !scope.startsWith('list:') &&
-        !scope.startsWith('tag:')
-      ) {
-        continue;
-      }
-      if (!options || typeof options !== 'object') {
-        continue;
-      }
-      const { sort, group } = options as TaskViewOptions;
-      if (taskSorts.includes(sort) && taskGroups.includes(group)) {
-        result.taskViews[scope] = { sort, group };
-      }
-    }
-  }
-  return result;
+  return { ...saved, taskViews };
 }

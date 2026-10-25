@@ -28,9 +28,9 @@ export function usePreferences(
 
         // An acknowledgment clears only the changes it saved, never newer edits.
         const remaining = { ...pendingRef.current };
-        for (const key of Object.keys(patch) as (keyof AppPreferences)[]) {
-          if (key !== 'taskViews' && remaining[key] === patch[key]) {
-            delete remaining[key];
+        for (const [key, value] of Object.entries(patch)) {
+          if (key !== 'taskViews' && Reflect.get(remaining, key) === value) {
+            Reflect.deleteProperty(remaining, key);
           }
         }
         const views = { ...remaining.taskViews };

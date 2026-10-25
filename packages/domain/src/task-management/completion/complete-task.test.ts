@@ -11,6 +11,7 @@ const context = { now: () => '2026-01-31T12:00:00.000Z', newId: () => crypto.ran
 function recurringTree() {
   const workspace = createWorkspace(context);
   const listId = Object.keys(workspace.lists)[0];
+  expect.assert(listId !== undefined);
   const root = createTask(
     workspace,
     context.newId(),
@@ -27,6 +28,7 @@ function recurringTree() {
     }),
     context,
   );
+
   const child = createTask(
     workspace,
     context.newId(),
@@ -41,10 +43,12 @@ function recurringTree() {
 test('completion generates one deterministic next tree with its month anchor and Markdown preserved', () => {
   const { workspace, root, child } = recurringTree();
   completeTask(workspace, root.id, true, context);
-  const next = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id)!;
+  const next = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id);
+  expect.assert(next !== undefined);
   const nextChild = Object.values(workspace.tasks).find(
     (task) => task.generatedFromId === child.id,
-  )!;
+  );
+  expect.assert(nextChild !== undefined);
   expect([root.completedAt, child.completedAt]).toEqual([context.now(), context.now()]);
   expect(next.schedule).toMatchObject({
     date: '2026-02-28',
@@ -62,7 +66,8 @@ test('completion generates one deterministic next tree with its month anchor and
 test('reopening and completing again reuses the pristine next occurrence and preserves its creation time', () => {
   const { workspace, root } = recurringTree();
   completeTask(workspace, root.id, true, context);
-  const next = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id)!;
+  const next = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id);
+  expect.assert(next !== undefined);
   completeTask(workspace, root.id, false, context);
   expect(next.voided).toBe(true);
   completeTask(workspace, root.id, true, { ...context, now: () => '2026-02-01T12:00:00.000Z' });
@@ -81,7 +86,8 @@ test('an edited next child blocks reopening before the current tree is changed',
   completeTask(workspace, root.id, true, context);
   const nextChild = Object.values(workspace.tasks).find(
     (task) => task.generatedFromId === child.id,
-  )!;
+  );
+  expect.assert(nextChild !== undefined);
   nextChild.title = 'Keep this change';
   const before = structuredClone(workspace);
   expect(() => completeTask(workspace, root.id, false, context)).toThrow('next_occurrence_edited');
@@ -91,13 +97,15 @@ test('an edited next child blocks reopening before the current tree is changed',
 test('rescheduling after reopening creates an active successor beside the old voided occurrence', () => {
   const { workspace, root } = recurringTree();
   completeTask(workspace, root.id, true, context);
-  const oldNext = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id)!;
+  const oldNext = Object.values(workspace.tasks).find((task) => task.generatedFromId === root.id);
+  expect.assert(oldNext !== undefined);
   completeTask(workspace, root.id, false, context);
   editTask(workspace, root.id, { schedule: { ...root.schedule, date: '2026-03-31' } }, context);
   completeTask(workspace, root.id, true, context);
   const active = Object.values(workspace.tasks).find(
     (task) => task.generatedFromId === root.id && !task.voided,
-  )!;
+  );
+  expect.assert(active !== undefined);
   expect(active.id).not.toBe(oldNext.id);
   expect(active.schedule.date).toBe('2026-04-30');
   expect(() => validateWorkspace(workspace)).not.toThrow();

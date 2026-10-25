@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Button } from '@repo/ui/components/button';
 import { Inbox, Trash2 } from 'lucide-react';
-import { Fragment, type ReactNode, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import type { TaskViewOptions } from '#application';
 import { dateKey, workspaceLabels } from '#application';
 import { useAppPreferences } from '#entities/preferences';
@@ -30,7 +30,7 @@ export function TaskListView({
   const { t, formatDate, locale } = useI18n();
   const { preferences, updatePreferences } = useAppPreferences();
   const { data, taskActions, selectTask } = useWorkspace();
-  const contentBoundaryRef = useRef<HTMLDivElement>(null);
+  const [contentBoundary, setContentBoundary] = useState<HTMLDivElement | null>(null);
   const [showCompleted, setShowCompleted] = useState(preferences.showCompleted);
   const [previousShowCompletedPreference, setPreviousShowCompletedPreference] = useState(
     preferences.showCompleted,
@@ -155,7 +155,7 @@ export function TaskListView({
           )}
         </div>
       </WorkspaceHeader>
-      <div ref={contentBoundaryRef} className="flex min-h-0 flex-1 flex-col">
+      <div ref={setContentBoundary} className="flex min-h-0 flex-1 flex-col">
         <TaskContent>
           {groups
             .filter((group) => group.tasks.length > 0)
@@ -214,7 +214,7 @@ export function TaskListView({
         {!archive && (
           <div className="task-add-area shrink-0 [padding:var(--task-content-inset)_var(--task-content-inset)_max(var(--task-content-inset),_env(safe-area-inset-bottom))] pe-(--task-content-end-inset) bg-background">
             <QuickAdd
-              boundary={contentBoundaryRef}
+              boundary={contentBoundary}
               key={filter}
               draftKey={filter}
               listId={filter.startsWith('list:') ? filter.slice(5) : undefined}

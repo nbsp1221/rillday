@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { type WebSocketRoute, expect, test } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 
 const fixture = createServerFixture(createServer);
@@ -15,6 +16,7 @@ test('sync failures explain the cause, preserve unsent tasks and recover without
   });
   try {
     let socket: WebSocketRoute | undefined;
+
     await page.routeWebSocket('**/v1/workspace/*', (route) => {
       socket = route;
       route.connectToServer();
@@ -37,7 +39,8 @@ test('sync failures explain the cause, preserve unsent tasks and recover without
     );
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     expect(socket).toBeDefined();
-    await socket!.close();
+    invariant(socket !== undefined, 'Missing socket');
+    await socket.close();
     await page.locator('#quick-add-input').fill('Keep this unsent task');
     await page.locator('#quick-add-input').press('Enter');
     await page.locator('.rail-sync').click();

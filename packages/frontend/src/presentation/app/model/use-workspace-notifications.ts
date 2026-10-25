@@ -1,9 +1,15 @@
 import { useToastManager } from '@repo/ui/components/toast';
-import { type RefObject, useCallback, useEffect, useEffectEvent } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useI18n } from '#shared/i18n';
 import { syncError } from '../../shared/lib/operation-errors';
 
-export function useWorkspaceNotifications(error: string, historyRevisionRef: RefObject<number>) {
+export function useWorkspaceNotifications(error: string) {
+  const historyRevisionRef = useRef(0);
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const onAccepted = useCallback(() => {
+    historyRevisionRef.current++;
+    setHistoryRevision(historyRevisionRef.current);
+  }, []);
   const { t } = useI18n();
   const { toasts, add } = useToastManager<{ undoRevision?: number }>();
   const notify = useCallback(
@@ -31,5 +37,5 @@ export function useWorkspaceNotifications(error: string, historyRevisionRef: Ref
     window.addEventListener('rillday-close-save-error', handler);
     return () => window.removeEventListener('rillday-close-save-error', handler);
   }, [notify, t]);
-  return { toasts, notify };
+  return { toasts, notify, historyRevision, onAccepted };
 }

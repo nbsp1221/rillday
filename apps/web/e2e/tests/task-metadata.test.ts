@@ -1,4 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
@@ -29,7 +31,7 @@ test('label color edits propagate to neutral metadata, detail, sidebar and renam
       has: page.locator('.task-title', { hasText: 'Choose three priorities for the coming week' }),
     })
     .first();
-  const height = (await row.boundingBox())!.height;
+  const height = (await visibleBox(row)).height;
   await editLabel(page, 'planning');
   await color(page, '#a855f7');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -77,7 +79,7 @@ test('label color edits propagate to neutral metadata, detail, sidebar and renam
       ).toBeGreaterThanOrEqual(4.5);
     }
     await page.setViewportSize({ width: 1440, height: 900 });
-    expect((await row.boundingBox())!.height).toBe(height);
+    expect((await visibleBox(row)).height).toBe(height);
   }
   await editLabel(page, 'planning');
   await page.getByRole('dialog').getByRole('textbox', { name: 'Name', exact: true }).fill('Focus');
@@ -171,7 +173,7 @@ test('labels keep hashtag capture, filtering and detail edits consistent in both
   ).toBeVisible();
   await expect(page.getByLabel('Add labels', { exact: true })).toBeVisible();
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].tags)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.tags)
     .toEqual(['work', 'Review']);
   await reloadSavedPage(page);
   await expect(page.locator('.task-meta .inline-tag')).toHaveText(['work', 'Review']);
@@ -219,6 +221,7 @@ test('empty labels survive reload and support contextual capture, rename, remova
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);
+      invariant(workspace.tasks[0] !== undefined, 'Missing workspace.tasks[0]');
       return { labels: workspace.labels, tags: workspace.tasks[0].tags };
     })
     .toEqual({ labels: ['organizing'], tags: ['organizing'] });

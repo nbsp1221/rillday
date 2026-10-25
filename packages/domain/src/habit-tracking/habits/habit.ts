@@ -14,7 +14,7 @@ function validHabitRuleHistory(habit: { startDate: string; rules: HabitRule[] })
     }
 
     const previous = habit.rules[index - 1];
-    return rule.from > previous.from;
+    return previous !== undefined && rule.from > previous.from;
   });
 }
 

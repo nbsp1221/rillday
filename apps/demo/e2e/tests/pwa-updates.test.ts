@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { test as base, expect } from '@playwright/test';
 import { removeOwned, tempDir } from '@repo/test-support';
 import { buildBrowserReleases } from '@repo/test-support/browser-releases';
+import invariant from 'tiny-invariant';
 import { preview } from 'vite';
 
 const source = resolve(import.meta.dirname, '../..');
@@ -45,7 +46,8 @@ const test = base.extend<
       try {
         if (server) {
           await new Promise<void>((done, reject) => {
-            server!.httpServer.close((error) => (error ? reject(error) : done()));
+            invariant(server !== undefined, 'Missing server');
+            server.httpServer.close((error) => (error ? reject(error) : done()));
           });
         }
       } finally {
@@ -87,7 +89,8 @@ test('a static demo accepts a genuine release update and retains browser-only ed
   await expect(page.locator('meta[name="test-release"]')).toHaveAttribute('content', 'one');
   await notice.getByRole('button', { name: 'Update', exact: true }).click();
   await expect(page.locator('meta[name="test-release"]')).toHaveAttribute('content', 'two');
-  await expect(page.locator('script[type="module"][src]')).not.toHaveAttribute('src', script!);
+  invariant(script !== null, 'Missing script');
+  await expect(page.locator('script[type="module"][src]')).not.toHaveAttribute('src', script);
   await expect(task).toBeVisible();
   await context.setOffline(true);
   await page.reload();

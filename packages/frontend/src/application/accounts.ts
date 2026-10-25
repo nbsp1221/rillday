@@ -1,9 +1,9 @@
 import { type Workspace, canonical, createWorkspace, workspaceContents } from '@repo/domain';
+import invariant from 'tiny-invariant';
 import type { WorkspaceRecord as WorkspaceProfile } from './account-record.ts';
 import type { AccountRegistry, AccountRepository } from './account-repository.ts';
 import type { CredentialSession } from './host.ts';
 import type { ClientRuntime } from './runtime.ts';
-import type { ServerTransport } from './server-transport.ts';
 import type { OpenWorkspace } from './workspace/documents.ts';
 import type {
   AccountHostPort,
@@ -22,26 +22,8 @@ import {
   serverResponse,
   usersResponse,
 } from './server-responses.ts';
+import { type ServerTransport, normalizeServerUrl } from './server-transport.ts';
 import { WorkspaceSession } from './workspace-session.ts';
-
-export function normalizeServerUrl(input: string) {
-  try {
-    const url = new URL(input.trim());
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash ||
-      url.pathname !== '/'
-    ) {
-      throw new Error('invalid_server_url');
-    }
-    return url.origin;
-  } catch {
-    throw new Error('invalid_server_url');
-  }
-}
 
 const binding = (profile: WorkspaceProfile) =>
   canonical({
@@ -76,7 +58,7 @@ export class AccountCoordinator implements AccountHostPort {
   private readonly runtime: ClientRuntime;
   private readonly options: AccountCoordinatorOptions;
   private registry!: AccountRegistry;
-  private state!: AccountHostState;
+  private state: AccountHostState | undefined;
   private connection: ConnectionState = {
     serverUrl: '',
     server: null,
@@ -142,7 +124,10 @@ export class AccountCoordinator implements AccountHostPort {
     };
   }
 
-  getSnapshot = () => this.state;
+  getSnapshot = () => {
+    invariant(this.state !== undefined, 'Account host must be initialized before reading it');
+    return this.state;
+  };
 
   subscribe = (listener: () => void) => {
     this.hostListeners.add(listener);
@@ -150,7 +135,9 @@ export class AccountCoordinator implements AccountHostPort {
   };
 
   private profile() {
-    return this.registry.accounts.find((a) => a.id === this.registry.activeId)!;
+    const profile = this.registry.accounts.find((a) => a.id === this.registry.activeId);
+    invariant(profile !== undefined, 'The active workspace profile must exist');
+    return profile;
   }
 
   private async saveProfile(profile: WorkspaceProfile) {
@@ -195,6 +182,7 @@ export class AccountCoordinator implements AccountHostPort {
   }
 
   private publishHost(settingsRequest = this.state?.settingsRequest ?? 0) {
+    invariant(this.current !== undefined, 'An active workspace session is required');
     this.state = {
       accounts: this.registry.accounts.map(({ id, name, color, server }) => ({
         id,
@@ -217,7 +205,7 @@ export class AccountCoordinator implements AccountHostPort {
         ':' +
         (this.profile().generation ?? 0),
       activeId: this.registry.activeId,
-      workspace: this.current!,
+      workspace: this.current,
       connection: this.connectionPort,
       settingsRequest,
     };
@@ -299,9 +287,11 @@ export class AccountCoordinator implements AccountHostPort {
     reason: 'connection' | 'draft' = 'connection',
   ) {
     const drafts = this.readDrafts?.() ?? [];
-    const source: unknown = JSON.parse(await this.current!.exportData());
+    invariant(this.current !== undefined, 'Missing this.current');
+    const source: unknown = JSON.parse(await this.current.exportData());
+    invariant(source !== null && typeof source === 'object', 'Invalid workspace archive');
     await this.repository.saveConnectionBackup(crypto.randomUUID(), profile.id, {
-      source: JSON.stringify({ ...(source as Record<string, unknown>), captureDrafts: drafts }),
+      source: JSON.stringify({ ...source, captureDrafts: drafts }),
       documentId: this.document.repository.id,
       revision: this.document.revision(),
       contents: workspaceContents(this.document.repository.getSnapshot().workspace),
@@ -314,11 +304,13 @@ export class AccountCoordinator implements AccountHostPort {
 
   private async applyRegistryChange() {
     const next = await this.repository.readRegistry();
-    const profile = next.accounts.find((account) => account.id === next.activeId)!;
+    const profile = next.accounts.find((account) => account.id === next.activeId);
+    invariant(profile !== undefined, 'Registry changes must identify an active workspace');
     const changed = binding(profile) !== this.activeBinding;
     if (changed) {
       const captured = this.readDrafts?.().length ?? 0;
-      const previous = this.current!;
+      const previous = this.current;
+      invariant(previous !== undefined, 'Missing previous');
       const previousRegistry = this.registry;
       const resumeInput = previous.pause();
       const resumeNetwork = this.document.pause();
@@ -386,7 +378,8 @@ export class AccountCoordinator implements AccountHostPort {
       if (!parsed.success) {
         throw new Error('unsupported_server');
       }
-      if (this.profile().server && this.profile().server!.serverId !== parsed.data.serverId) {
+      const connectedServer = this.profile().server;
+      if (connectedServer && connectedServer.serverId !== parsed.data.serverId) {
         throw new Error('disconnect_first');
       }
       await this.repository.saveServerUrl(url);
@@ -420,7 +413,12 @@ export class AccountCoordinator implements AccountHostPort {
           password: details.password,
         });
       } catch (error) {
-        if ((error as { status?: number }).status === 409) {
+        if (
+          error !== null &&
+          typeof error === 'object' &&
+          'status' in error &&
+          error.status === 409
+        ) {
           this.publishConnection({
             server: serverResponse.parse(
               await this.options.transport.request(this.connection.serverUrl, '/v1/server'),
@@ -444,10 +442,12 @@ export class AccountCoordinator implements AccountHostPort {
       throw new Error('check_server_first');
     }
     const source = this.profile();
+
     if (source.server && source.server.serverId !== server.serverId) {
       throw new Error('disconnect_first');
     }
-    await this.current!.flush();
+    invariant(this.current !== undefined, 'Missing this.current');
+    await this.current.flush();
     await this.options.transport.verifyIdentity(this.connection.serverUrl, server.serverId);
     const { profile, token } = await this.authenticate(
       details,
@@ -520,9 +520,10 @@ export class AccountCoordinator implements AccountHostPort {
           url: profile.server.url,
           serverId: profile.server.serverId,
           authorize: async (signal: AbortSignal) => {
+            invariant(profile.server !== undefined, 'Missing profile.server');
             await this.options.transport.verifyIdentity(
-              profile.server!.url,
-              profile.server!.serverId,
+              profile.server.url,
+              profile.server.serverId,
               signal,
             );
             return token || this.restoreCredential(profile, signal);
@@ -532,7 +533,8 @@ export class AccountCoordinator implements AccountHostPort {
   }
 
   private async serverDocument(profile: WorkspaceProfile, token: string): Promise<OpenWorkspace> {
-    const remote = this.remote(profile, token)!;
+    const remote = this.remote(profile, token);
+    invariant(remote !== undefined, 'Missing remote');
     let { documentId } = connectionResponse.parse(
       await this.options.transport.request(remote.url, '/v1/connection', undefined, token),
     );
@@ -569,17 +571,23 @@ export class AccountCoordinator implements AccountHostPort {
       remoteRevision: revision(document),
     };
     this.publishReview();
-    if (!this.connection.review!.local.hasData && !this.readDrafts?.().length) {
+    invariant(
+      this.connection.review !== undefined && this.connection.review !== null,
+      'Missing this.connection.review',
+    );
+    if (!this.connection.review.local.hasData && !this.readDrafts?.().length) {
       await this.performConnection('server-only');
     }
   }
 
   private publishReview() {
-    const pending = this.pending!;
+    const pending = this.pending;
+    invariant(pending !== undefined, 'Missing pending');
+    invariant(pending.profile.server !== undefined, 'Missing pending.profile.server');
     this.publishConnection({
       review: {
-        serverUrl: pending.profile.server!.url,
-        email: pending.profile.server!.email,
+        serverUrl: pending.profile.server.url,
+        email: pending.profile.server.email,
         name: pending.profile.name,
         local: workspaceContents(this.document.repository.getSnapshot().workspace),
         remote: workspaceContents(pending.document.repository.getSnapshot().workspace),
@@ -596,8 +604,9 @@ export class AccountCoordinator implements AccountHostPort {
       const pending = this.pending;
       await this.clearPending();
       if (pending) {
+        invariant(pending.profile.server !== undefined, 'Missing pending.profile.server');
         await this.options.transport
-          .request(pending.profile.server!.url, '/api/auth/sign-out', {}, pending.token)
+          .request(pending.profile.server.url, '/api/auth/sign-out', {}, pending.token)
           .catch(() => undefined);
       }
       this.publishConnection({ review: null });
@@ -620,8 +629,10 @@ export class AccountCoordinator implements AccountHostPort {
     if (!pending) {
       throw new Error('connection_review_missing');
     }
-    await this.current!.flush();
+    invariant(this.current !== undefined, 'Missing this.current');
+    await this.current.flush();
     const source = this.profile();
+
     await this.runtime.coordination.withWorkspaceLock(source.id, async () => {
       await this.validate(source);
       if (
@@ -640,7 +651,8 @@ export class AccountCoordinator implements AccountHostPort {
         throw new Error('resolve_pending_before_disconnect');
       }
       await this.remember(pending.profile, pending.token, true);
-      const previous = this.current!;
+      const previous = this.current;
+      invariant(previous !== undefined, 'Missing previous');
       const sourceDocument = this.document;
       const resumeInput = previous.pause();
       const resumeSource = sourceDocument.pause();
@@ -701,7 +713,8 @@ export class AccountCoordinator implements AccountHostPort {
   private async remember(profile: WorkspaceProfile, token: string, required = false) {
     this.credentials.set(profile.id, token);
     try {
-      await this.options.credentials.remember(profile.server!, token);
+      invariant(profile.server !== undefined, 'Credentials require a connected server account');
+      await this.options.credentials.remember(profile.server, token);
     } catch {
       if (required) {
         throw new Error('credential_store_unavailable');
@@ -766,14 +779,16 @@ export class AccountCoordinator implements AccountHostPort {
 
   private async restoreLocked(source: string, profile: WorkspaceProfile) {
     await this.validate(profile);
+    const contentId = profile.contentId;
+    invariant(contentId !== undefined, 'An active workspace must have a document ID');
     if (profile.server) {
       await this.saveBackup(profile);
       await this.document.replaceArchive(source);
-      const document = await this.runtime.documents.open(profile.contentId!, this.remote(profile));
+      const document = await this.runtime.documents.open(contentId, this.remote(profile));
       try {
         const next = { ...profile, generation: (profile.generation ?? 0) + 1 };
         await this.saveProfile(next);
-        await this.replaceSession(next, document, undefined, this.state.settingsRequest);
+        await this.replaceSession(next, document, undefined, this.getSnapshot().settingsRequest);
       } finally {
         if (this.document !== document) {
           await document.repository.close();
@@ -790,8 +805,8 @@ export class AccountCoordinator implements AccountHostPort {
         generation: (profile.generation ?? 0) + 1,
       };
       await this.saveProfile(next);
-      await this.replaceSession(next, document, undefined, this.state.settingsRequest, [
-        () => this.runtime.documents.remove(profile.contentId!),
+      await this.replaceSession(next, document, undefined, this.getSnapshot().settingsRequest, [
+        () => this.runtime.documents.remove(contentId),
       ]);
     } finally {
       if (this.document !== document) {
@@ -841,6 +856,7 @@ export class AccountCoordinator implements AccountHostPort {
 
   renameAccount = async (id: string, name: string) => {
     const profile = this.profile();
+
     if (id !== profile.id) {
       throw new Error('active_account_required');
     }
@@ -863,6 +879,7 @@ export class AccountCoordinator implements AccountHostPort {
 
   private async activeRequest(path: string, body?: unknown) {
     const profile = this.profile();
+
     if (!profile.server) {
       throw new Error('login_required');
     }
@@ -879,22 +896,32 @@ export class AccountCoordinator implements AccountHostPort {
       this.exclusive(() =>
         this.transferring(async () => {
           const source = this.profile();
+
           if (!source.server) {
             return;
           }
+          const server = source.server;
+          const contentId = source.contentId;
+          const scope = serverScope(source);
+          invariant(contentId !== undefined, 'A connected workspace must have a document ID');
+          invariant(scope !== undefined, 'A connected workspace must have an account scope');
           if (!choice) {
             throw new Error('disconnect_confirmation_required');
           }
-          await this.current!.flush();
-          if (this.current!.getSnapshot().issues.length) {
+          invariant(this.current !== undefined, 'Missing this.current');
+          await this.current.flush();
+
+          if (this.current.getSnapshot().issues.length) {
             throw new Error('resolve_pending_before_disconnect');
           }
-          if (choice === 'remove' && this.current!.getSnapshot().pending) {
+
+          if (choice === 'remove' && this.current.getSnapshot().pending) {
             throw new Error('sync_before_remove');
           }
+
           const document =
             choice === 'keep'
-              ? await this.runtime.documents.restoreArchive(await this.current!.exportData())
+              ? await this.runtime.documents.restoreArchive(await this.current.exportData())
               : await this.runtime.documents.create(createWorkspace(createDomainContext()));
           try {
             await this.runtime.coordination.withWorkspaceLock(source.id, async () => {
@@ -914,22 +941,22 @@ export class AccountCoordinator implements AccountHostPort {
                 profile,
                 document,
                 { users: [], server: null, review: null },
-                (this.state.settingsRequest ?? 0) + 1,
+                this.getSnapshot().settingsRequest + 1,
                 [
                   async () => {
                     try {
                       const token = await this.restoreCredential(source);
                       await this.options.transport
-                        .request(source.server!.url, '/api/auth/sign-out', {}, token)
+                        .request(server.url, '/api/auth/sign-out', {}, token)
                         .catch(() => this.publishConnection({ error: 'remote_logout_pending' }));
                     } finally {
                       this.credentials.delete(source.id);
                     }
                   },
-                  () => this.options.credentials.forget(source.server!),
-                  () => this.runtime.documents.remove(source.contentId!),
+                  () => this.options.credentials.forget(server),
+                  () => this.runtime.documents.remove(contentId),
                   ...(choice === 'remove'
-                    ? [() => this.repository.removeScopedBackups(source.id, serverScope(source)!)]
+                    ? [() => this.repository.removeScopedBackups(source.id, scope)]
                     : []),
                 ],
               );
@@ -982,10 +1009,11 @@ export class AccountCoordinator implements AccountHostPort {
           revokeOtherSessions: true,
         }),
       );
-      if (typeof result.token === 'string') {
-        await this.remember(this.profile(), result.token);
+      const token = result.token;
+      if (typeof token === 'string') {
+        await this.remember(this.profile(), token);
         await this.exclusive(() =>
-          this.activate(this.profile(), this.state.settingsRequest, result.token!),
+          this.activate(this.profile(), this.getSnapshot().settingsRequest, token),
         );
       }
     });

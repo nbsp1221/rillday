@@ -1,5 +1,6 @@
 import { belongsToQuadrant, placeTaskInQuadrant } from '@repo/domain';
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import type { Quadrant, Task, WorkspaceData } from './model.ts';
 import { dateKey } from './dates.ts';
 
@@ -45,7 +46,10 @@ export function normalizeTaskPatch(task: Task, patch: TaskPatch): TaskPatch {
   return next;
 }
 
-export function calendarTaskPatch(task: Task, target: TaskScheduleTarget): TaskPatch {
+export function calendarTaskPatch(
+  task: Task,
+  target: TaskScheduleTarget,
+): Required<Pick<TaskPatch, 'date' | 'time'>> {
   return {
     date: target.date,
     time: target.date === null ? null : target.time === undefined ? task.time : target.time,
@@ -81,18 +85,23 @@ export function reorderTask(
     .sort((a, b) => a.order - b.order);
   const source = ordered.findIndex((task) => task.id === from);
   const target = ordered.findIndex((task) => task.id === to);
+  const sourceTask = ordered[source];
+  const targetTask = ordered[target];
 
   if (
     from === to ||
     source < 0 ||
     target < 0 ||
-    ordered[source].pinned !== ordered[target].pinned
+    !sourceTask ||
+    !targetTask ||
+    sourceTask.pinned !== targetTask.pinned
   ) {
     return false;
   }
 
   const before = ordered.map((task) => task.id).join();
   const [moved] = ordered.splice(source, 1);
+  invariant(moved !== undefined, 'Reordering requires a source task');
   const at = ordered.findIndex((task) => task.id === to) + (placement === 'after' ? 1 : 0);
   ordered.splice(at, 0, moved);
 

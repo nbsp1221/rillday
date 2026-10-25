@@ -1,4 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { setPickerTime } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
@@ -16,7 +18,7 @@ test('time suggestions and minute-precision entry share capture/detail state and
 }) => {
   await page.goto('/');
   await page.locator('#quick-add-input').fill('Time picker review');
-  const height = (await page.locator('.quick-add').boundingBox())!.height;
+  const height = (await visibleBox(page.locator('.quick-add'))).height;
   await openCapture(page);
   await page.getByRole('option', { name: '09:30', exact: true }).click();
   await expect(page.locator('.date-time-trigger')).toHaveAttribute('data-time', '09:30');
@@ -25,7 +27,7 @@ test('time suggestions and minute-precision entry share capture/detail state and
     .locator('.date-picker-footer')
     .getByRole('button', { name: 'Complete', exact: true })
     .click();
-  expect((await page.locator('.quick-add').boundingBox())!.height).toBe(height);
+  expect((await visibleBox(page.locator('.quick-add'))).height).toBe(height);
   await page.locator('#quick-add-input').press('Enter');
   await page.locator('.task-title').click();
   await page.locator('.td-date-button').click();
@@ -90,8 +92,10 @@ test('keyboard suggestions scroll into view, IME is preserved, and clearing time
   await expect
     .poll(() => list.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(initialScroll);
-  const optionBox = (await option.boundingBox())!;
-  const listBox = (await list.boundingBox())!;
+  const optionBox = await visibleBox(option);
+
+  const listBox = await visibleBox(list);
+
   expect(optionBox.y).toBeGreaterThanOrEqual(listBox.y);
   expect(optionBox.y + optionBox.height).toBeLessThanOrEqual(listBox.y + listBox.height);
   await field(page).dispatchEvent('compositionstart', { data: '한' });
@@ -134,8 +138,10 @@ for (const language of ['ko', 'en']) {
       [en ? '12:00 PM' : '오후 12:00', '12:00'],
       ['23:59', '23:59'],
     ]) {
+      invariant(text !== undefined, 'Missing text');
       await field(page).fill(text);
       await field(page).press('Enter');
+      invariant(value !== undefined, 'Missing value');
       await expect(page.locator('.date-time-trigger')).toHaveAttribute('data-time', value);
       await page.locator('.date-time-trigger').click();
       await expect(field(page)).not.toHaveValue('');
@@ -192,14 +198,15 @@ for (const theme of ['dark', 'light']) {
     await openCapture(page);
     const panel = page.locator('.date-picker-panel');
     const footer = panel.locator('.date-picker-footer');
-    const before = await footer.boundingBox();
+    const before = await visibleBox(footer);
     await page
       .locator('.date-field-popover .time-picker-list')
       .evaluate((el) => (el.scrollTop = el.scrollHeight));
-    expect(await footer.boundingBox()).toEqual(before);
+    expect(await visibleBox(footer)).toEqual(before);
     await page.getByRole('option', { name: '23:30', exact: true }).click();
     await expect(page.locator('.date-time-trigger')).toHaveAttribute('data-time', '23:30');
-    const bounds = (await panel.boundingBox())!;
+    const bounds = await visibleBox(panel);
+
     expect(bounds.x).toBeGreaterThanOrEqual(8);
     expect(bounds.y).toBeGreaterThanOrEqual(8);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(472);
@@ -227,7 +234,11 @@ test.describe(() => {
     await expect(page.locator('.date-time-trigger')).toBeFocused();
     const visible = await page.locator('.date-time-trigger').evaluate((el) => {
       const b = el.getBoundingClientRect();
-      const body = el.closest('.date-picker-body')!.getBoundingClientRect();
+      const bodyElement = el.closest('.date-picker-body');
+      if (bodyElement === null) {
+        throw new Error("Expected element matching '.date-picker-body'");
+      }
+      const body = bodyElement.getBoundingClientRect();
       return b.top >= body.top && b.bottom <= body.bottom;
     });
     expect(visible).toBe(true);

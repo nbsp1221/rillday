@@ -1,8 +1,15 @@
 import { type Page, expect, test } from '@playwright/test';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 
 async function expectViewportHeight(page: Page) {
+  const entry = page.viewportSize();
+  invariant(entry !== null, 'Missing entry');
+  const entry1 = page.viewportSize();
+  invariant(entry1 !== null, 'Missing entry');
+  const entry2 = page.viewportSize();
+  invariant(entry2 !== null, 'Missing entry');
   expect(
     await page.evaluate(() => ({
       viewport: innerHeight,
@@ -11,9 +18,9 @@ async function expectViewportHeight(page: Page) {
       scrollTop: document.documentElement.scrollTop,
     })),
   ).toEqual({
-    viewport: page.viewportSize()!.height,
-    document: page.viewportSize()!.height,
-    body: page.viewportSize()!.height,
+    viewport: entry.height,
+    document: entry1.height,
+    body: entry2.height,
     scrollTop: 0,
   });
 }
@@ -46,7 +53,7 @@ test('detail editor portals never add page height across task scopes, matrix, ca
           page,
           page.locator('.mobile-task-scope'),
           scope === 'list:work'
-            ? `list:${(await storedWorkspace(page)).lists.find((l) => l.name === 'Work and projects')!.id}`
+            ? `list:${(await storedWorkspace(page)).lists.find((l) => l.name === 'Work and projects')?.id}`
             : scope,
         );
       } else {

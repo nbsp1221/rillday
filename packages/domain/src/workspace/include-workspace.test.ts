@@ -14,26 +14,33 @@ const context = { now: () => '2026-10-23T10:00:00.000Z', newId: () => crypto.ran
 test('fresh destinations inherit source settings while populated destinations retain their own settings', () => {
   const source = createWorkspace(context);
   const sourceInbox = Object.values(source.lists)[0];
+  expect.assert(sourceInbox !== undefined);
   sourceInbox.name = 'Capture';
   sourceInbox.color = '#123456';
   source.matrixMode = 'complex';
-  Object.values(source.quadrants)[0].name = 'Focus';
+  const entry = Object.values(source.quadrants)[0];
+  expect.assert(entry !== undefined);
+  entry.name = 'Focus';
   const fresh = createWorkspace(context);
   expect(workspaceContents(fresh)).toMatchObject({ settings: false, hasData: false });
   const included = includeWorkspace(fresh, source, context);
   expect(included.matrixMode).toBe('complex');
+  const entry1 = Object.values(fresh.lists)[0];
+  expect.assert(entry1 !== undefined);
   expect(Object.values(included.lists)[0]).toMatchObject({
-    id: Object.values(fresh.lists)[0].id,
+    id: entry1.id,
     name: 'Capture',
     color: '#123456',
   });
-  expect(Object.values(included.quadrants)[0].name).toBe('Focus');
+  expect(Object.values(included.quadrants)[0]?.name).toBe('Focus');
   expect(workspaceContents(included)).toMatchObject({ settings: true, hasData: true });
-  createTask(fresh, context.newId(), taskData(Object.keys(fresh.lists)[0], 'Existing'), context);
+  const entry2 = Object.keys(fresh.lists)[0];
+  expect.assert(entry2 !== undefined);
+  createTask(fresh, context.newId(), taskData(entry2, 'Existing'), context);
   const populated = includeWorkspace(fresh, source, context);
   expect(populated.matrixMode).toBe('simple');
-  expect(Object.values(populated.lists)[0].name).toBe('Inbox');
-  expect(Object.values(populated.quadrants)[0].name).toBeNull();
+  expect(Object.values(populated.lists)[0]?.name).toBe('Inbox');
+  expect(Object.values(populated.quadrants)[0]?.name).toBeNull();
 });
 
 test('purged records do not require their removed list or label references during inclusion', () => {
@@ -58,6 +65,7 @@ test('purged records do not require their removed list or label references durin
 test('copied recurring trees remain pristine and separately trashed descendants keep their restore groups', () => {
   const source = createWorkspace(context);
   const inbox = Object.keys(source.lists)[0];
+  expect.assert(inbox !== undefined);
   const parent = createTask(
     source,
     context.newId(),
@@ -73,6 +81,7 @@ test('copied recurring trees remain pristine and separately trashed descendants 
     }),
     context,
   );
+
   const child = createTask(
     source,
     context.newId(),
@@ -85,7 +94,8 @@ test('copied recurring trees remain pristine and separately trashed descendants 
   const included = includeWorkspace(createWorkspace(context), source, context);
   const copied = Object.values(included.tasks).find(
     (task) => task.title === 'Daily' && task.completedAt,
-  )!;
+  );
+  expect.assert(copied !== undefined);
   expect(() => completeTask(included, copied.id, false, context)).not.toThrow();
   expect(Object.values(included.tasks).filter((task) => task.voided)).toHaveLength(2);
   trashTask(source, child.id, context);
@@ -93,7 +103,8 @@ test('copied recurring trees remain pristine and separately trashed descendants 
   const trashed = includeWorkspace(createWorkspace(context), source, context);
   const copiedParent = Object.values(trashed.tasks).find(
     (task) => task.title === 'Daily' && task.completedAt,
-  )!;
+  );
+  expect.assert(copiedParent !== undefined);
   restoreTask(trashed, copiedParent.id, context);
   expect(
     Object.values(trashed.tasks).find((task) => task.location.parentId === copiedParent.id)

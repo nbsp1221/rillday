@@ -4,10 +4,12 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import wasm from 'vite-plugin-wasm';
+import { z } from 'zod';
 
-const { version } = JSON.parse(
+const metadata: unknown = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
-) as { version: string };
+);
+const { version } = z.object({ version: z.string() }).parse(metadata);
 const policy = readFileSync(new URL('./public/_headers', import.meta.url), 'utf8').match(
   /^ {2}Content-Security-Policy: (.+)$/m,
 )?.[1];
@@ -27,7 +29,7 @@ export default defineConfig({
         for (const [fileName, source] of [
           ['LICENSE', '../../LICENSE'],
           ['licenses/pretendard-OFL-1.1.txt', '../../packages/ui/LICENSE.pretendard'],
-        ]) {
+        ] as const) {
           this.emitFile({
             type: 'asset',
             fileName,

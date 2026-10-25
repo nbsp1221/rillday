@@ -1,4 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { appearance } from '../support/appearance';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -78,16 +80,17 @@ test('custom popovers validate HEX and provide keyboard color-area and hue contr
   const trigger = dialog.getByRole('button', { name: 'List color', exact: true });
   await custom(page);
   const colorArea = page.locator('.color-controls');
-  const editorBox = await page.locator('.color-custom-editor').boundingBox();
-  const areaBox = await colorArea.boundingBox();
-  expect(areaBox?.width).toBeCloseTo(editorBox!.width, 1);
-  expect(areaBox?.height).toBe(176);
+  const editorBox = await visibleBox(page.locator('.color-custom-editor'));
+
+  const areaBox = await visibleBox(colorArea);
+  expect(areaBox.width).toBeCloseTo(editorBox.width, 1);
+  expect(areaBox.height).toBe(176);
   await expect(colorArea.locator('.color-thumb').first()).toHaveCSS('width', '18px');
   const hex = page.getByLabel('HEX color', { exact: true });
   await hex.fill('oops');
   await expect(hex).toHaveValue('#7D9CC4');
   await expect(dialog).toBeVisible();
-  expect(await hex.evaluate((el) => (el as HTMLInputElement).validity.valid)).toBe(true);
+  expect(await hex.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(true);
   await hex.fill('#abc');
   await hex.press('Enter');
   await expect(trigger).toHaveText('#AABBCC');
@@ -129,10 +132,11 @@ test('matrix color popovers contain Tab and Escape inside their modal and retain
   await page.goto('/?demo=1');
   const dialog = await matrix(page);
   const trigger = dialog.locator('.color-picker-trigger').first();
-  const label = (await trigger.getAttribute('aria-label'))!;
+  const label = await trigger.getAttribute('aria-label');
   await trigger.click();
   const picker = page.locator('.color-picker-panel');
   await expect(picker).toBeVisible();
+  invariant(label !== null, 'Missing label');
   await custom(page, undefined, label);
   await page.getByLabel('HEX color', { exact: true }).fill('#12');
   await page.getByLabel('HEX color', { exact: true }).press('Tab');
@@ -143,6 +147,7 @@ test('matrix color popovers contain Tab and Escape inside their modal and retain
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
   await expect(trigger).toBeFocused();
+
   await custom(page, '#123456', label);
   await expect(picker).toHaveCount(0);
   await expect(trigger.locator('span')).toHaveCSS('background-color', 'rgb(18, 52, 86)');
@@ -165,8 +170,11 @@ test('a continuous custom-color drag commits one matrix undo step', async ({ pag
   const initial = await trigger
     .locator('span')
     .evaluate((el) => getComputedStyle(el).backgroundColor);
-  await custom(page, undefined, (await trigger.getAttribute('aria-label'))!);
-  const area = (await page.locator('.color-area').boundingBox())!;
+  const entry = await trigger.getAttribute('aria-label');
+  invariant(entry !== null, 'Missing entry');
+  await custom(page, undefined, entry);
+  const area = await visibleBox(page.locator('.color-area'));
+
   await page.mouse.move(area.x + area.width * 0.2, area.y + area.height * 0.2);
   await page.mouse.down();
   await page.mouse.move(area.x + area.width * 0.8, area.y + area.height * 0.6, { steps: 12 });
@@ -219,21 +227,22 @@ for (const theme of ['dark', 'light']) {
     await page.setViewportSize({ width: 320, height: 480 });
     await page.getByLabel('Show sidebar', { exact: true }).click();
     const dialog = await editList(page);
-    const before = await dialog.boundingBox();
-    const footer = await dialog.locator('.modal-footer').boundingBox();
+    const before = await visibleBox(dialog);
+    const footer = await visibleBox(dialog.locator('.modal-footer'));
     await page.getByRole('button', { name: 'List color', exact: true }).click();
     const checked = page.locator('.color-picker-panel .color-choice[aria-checked="true"] > span');
     expect((await appearance(checked)).contrast).toBeGreaterThanOrEqual(4.5);
     await custom(page);
     const picker = page.locator('.color-picker-panel');
-    const bounds = (await picker.boundingBox())!;
+    const bounds = await visibleBox(picker);
+
     expect(bounds.x).toBeGreaterThanOrEqual(8);
     expect(bounds.y).toBeGreaterThanOrEqual(8);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(312);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(472);
     expect(await picker.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(false);
-    expect(await dialog.boundingBox()).toEqual(before);
-    expect(await dialog.locator('.modal-footer').boundingBox()).toEqual(footer);
+    expect(await visibleBox(dialog)).toEqual(before);
+    expect(await visibleBox(dialog.locator('.modal-footer'))).toEqual(footer);
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(480);
   });
 }

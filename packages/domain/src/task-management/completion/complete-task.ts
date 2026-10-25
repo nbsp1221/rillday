@@ -1,4 +1,5 @@
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import { v5 as uuidV5 } from 'uuid';
 import type { DomainContext } from '../../shared-kernel/clock.ts';
 import type { Workspace } from '../../workspace/workspace.ts';
@@ -78,7 +79,8 @@ function createNextOccurrence(
   const mapping = new Map(tree.map((task) => [task.id, uuidV5(task.id + ':' + date, uuidV5.URL)]));
   const dayShift = Temporal.PlainDate.from(previousDate).until(Temporal.PlainDate.from(date)).days;
   for (const source of tree) {
-    const id = mapping.get(source.id)!;
+    const id = mapping.get(source.id);
+    invariant(id !== undefined, 'Every occurrence task must have a mapped ID');
     const existing = workspace.tasks[id];
     if (existing && !existing.voided) {
       throw new Fault('next_occurrence_exists', 'conflict');

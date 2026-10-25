@@ -228,7 +228,9 @@ export function CalendarView() {
                           : '',
                       )}
                       onDoubleClick={(event) => {
-                        if ((event.target as HTMLElement).closest('button')) {
+                        if (
+                          event.target instanceof Element ? event.target.closest('button') : null
+                        ) {
                           return;
                         }
 

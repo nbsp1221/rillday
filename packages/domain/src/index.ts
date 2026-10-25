@@ -37,6 +37,7 @@ export {
   inspectWorkspace,
   parseWorkspace,
   validateWorkspace,
+  workspaceCollectionSchema,
 } from './workspace/validate-workspace.ts';
 export type {
   WorkspaceProblem,

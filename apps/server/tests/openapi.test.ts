@@ -22,6 +22,8 @@ test('published OpenAPI describes the account and document connection routes', a
     ['/v1/connection', 'get'],
     ['/v1/connection', 'post'],
   ]) {
+    expect.assert(method !== undefined);
+    expect.assert(path !== undefined);
     expect(document.paths[path]).toHaveProperty(method);
   }
 });

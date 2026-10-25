@@ -1,7 +1,8 @@
 import { resolve } from 'node:path';
 import { type Page, test as base, expect } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
-import { createServerFixture, password } from '@repo/test-support';
+import { createServerFixture, password, visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { reloadSavedPage } from '../support/navigation';
 import { seedArchive, storedRegistry, storedWorkspace } from '../support/storage';
 import { archiveFixture, conflictingArchive } from '../support/workspace-archive';
@@ -155,12 +156,15 @@ test('native concurrent title alternatives persist and resolve across tabs throu
   await page.goto('/');
   await add(page, 'Original title');
   const data = await storedWorkspace(page);
+  invariant(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
   const taskId = data.tasks[0].id;
   const conflicted = await conflictingArchive(await archiveFixture(data), [
     (workspace) => {
+      invariant(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
       workspace.tasks[taskId].title = 'First tab title';
     },
     (workspace) => {
+      invariant(workspace.tasks[taskId] !== undefined, 'Missing workspace.tasks[taskId]');
       workspace.tasks[taskId].title = 'Second tab title';
     },
   ]);
@@ -184,8 +188,12 @@ test('native concurrent title alternatives persist and resolve across tabs throu
     }),
   );
   expect(boxes).toHaveLength(2);
+  invariant(boxes[1] !== undefined, 'Missing boxes[1]');
+  invariant(boxes[0] !== undefined, 'Missing boxes[0]');
   expect(Math.abs(boxes[0].x - boxes[1].x)).toBeLessThanOrEqual(1);
+
   expect(Math.abs(boxes[0].width - boxes[1].width)).toBeLessThanOrEqual(1);
+
   expect(boxes[1].y).toBeGreaterThan(boxes[0].y + boxes[0].height);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 
@@ -301,7 +309,8 @@ test('a workspace transition preserves unfinished capture in accessible desktop 
     const input = dialog.getByLabel('Input 1', { exact: true });
     await expect(input).toHaveValue(draft);
     await expect(input).toHaveAttribute('readonly', '');
-    const box = (await dialog.boundingBox())!;
+    const box = await visibleBox(dialog);
+
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(width);
     expect(await tab.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);

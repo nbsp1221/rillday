@@ -103,8 +103,8 @@ export function SyncLoginForm({
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              autoComplete={state.server?.setupRequired ? 'new-password' : 'current-password'}
-              minLength={state.server?.setupRequired ? 12 : undefined}
+              autoComplete={state.server.setupRequired ? 'new-password' : 'current-password'}
+              minLength={state.server.setupRequired ? 12 : undefined}
               maxLength={128}
               required
               disabled={state.busy}

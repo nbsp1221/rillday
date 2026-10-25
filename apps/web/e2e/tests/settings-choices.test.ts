@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
+import { z } from 'zod';
 import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
@@ -12,7 +15,8 @@ test('Settings choices commit only on activation, retain keyboard focus through 
   await page.getByRole('button', { name: 'Settings and backup', exact: true }).click();
   const language = page.getByRole('combobox', { name: /^(언어|Language)$/ });
   const caption = page.locator('.settings-row > div > label').first();
-  const labelBox = (await caption.boundingBox())!;
+  const labelBox = await visibleBox(caption);
+
   await page.mouse.click(labelBox.x + labelBox.width + 16, labelBox.y + labelBox.height / 2);
   await expect(page.getByRole('listbox')).toHaveCount(0);
   await expect(language).toHaveAccessibleDescription(
@@ -63,7 +67,8 @@ test('Settings choices commit only on activation, retain keyboard focus through 
   await expect(startup).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(language).toBeFocused();
-  const languageBox = (await language.boundingBox())!;
+  const languageBox = await visibleBox(language);
+
   await startup.click();
   await expect(page.getByRole('option', { name: 'Eisenhower Matrix', exact: true })).toBeFocused();
   await page.mouse.click(languageBox.x + 10, languageBox.y + 10);
@@ -181,9 +186,15 @@ for (const lang of ['ko', 'en']) {
         ].entries()) {
           await page.locator('.settings-nav nav > button').nth(section).click();
           const geometry = await page.evaluate(() => {
-            const nav = document.querySelector('.settings-nav')!;
-            const content = document.querySelector('.settings-content')!;
-            const heading = document.querySelector('.settings-header')!;
+            const nav = document.querySelector('.settings-nav');
+            if (nav === null) {
+              throw new Error('Missing nav');
+            }
+            const content = document.querySelector('.settings-content');
+            if (content === null) {
+              throw new Error('Missing content');
+            }
+            const heading = document.querySelector('.settings-header');
 
             const box = (element: Element) => element.getBoundingClientRect();
 
@@ -193,6 +204,12 @@ for (const lang of ['ko', 'en']) {
                 '.settings-row > .choice-field-trigger,.settings-row > input:not([aria-hidden="true"])',
               ),
             ].map((element) => box(element));
+            if (items[0] === undefined) {
+              throw new Error('Missing items[0]');
+            }
+            if (heading === null) {
+              throw new Error('Missing heading');
+            }
             return {
               overflow:
                 document.documentElement.scrollWidth > innerWidth ||
@@ -221,9 +238,11 @@ for (const lang of ['ko', 'en']) {
               name: text('테마', 'Theme'),
               exact: true,
             });
-            const bounds = (await group.boundingBox())!;
+            const bounds = await visibleBox(group);
+
             const description = group.locator('..').locator('.settings-description');
-            const descriptionBounds = (await description.boundingBox())!;
+            const descriptionBounds = await visibleBox(description);
+
             if (width > 760) {
               expect(descriptionBounds.x + descriptionBounds.width).toBeLessThanOrEqual(bounds.x);
               expect(descriptionBounds.height).toBeLessThanOrEqual(32);
@@ -231,7 +250,8 @@ for (const lang of ['ko', 'en']) {
               expect(descriptionBounds.y + descriptionBounds.height).toBeLessThanOrEqual(bounds.y);
             }
             for (const option of await group.getByRole('radio').all()) {
-              const optionBounds = (await option.boundingBox())!;
+              const optionBounds = await visibleBox(option);
+
               expect(optionBounds.x).toBeGreaterThanOrEqual(bounds.x);
               expect(optionBounds.x + optionBounds.width).toBeLessThanOrEqual(
                 bounds.x + bounds.width,
@@ -247,23 +267,28 @@ for (const lang of ['ko', 'en']) {
           }
           if (section === 0) {
             expect(geometry.controls).toHaveLength(2);
+            invariant(geometry.controls[1] !== undefined, 'Missing geometry.controls[1]');
+            invariant(geometry.controls[0] !== undefined, 'Missing geometry.controls[0]');
             expect(geometry.controls[0].left).toBe(geometry.controls[1].left);
+
             expect(geometry.controls[0].right).toBe(geometry.controls[1].right);
           }
 
           for (const name of names) {
             const trigger = page.getByRole('combobox', { name, exact: true });
             await trigger.scrollIntoViewIfNeeded();
-            const box = (await trigger.boundingBox())!;
+            const box = await visibleBox(trigger);
+
             expect([box.width, box.height]).toEqual([200, 36]);
             await trigger.hover();
-            expect(await trigger.boundingBox()).toEqual(box);
+            expect(await visibleBox(trigger)).toEqual(box);
             const state = await trigger.getAttribute('data-value');
             await trigger.click();
             const menu = page.getByRole('listbox', { name, exact: true });
             const surface = page.locator('.choice-field-panel').filter({ has: menu });
             await expect(menu.getByRole('option', { selected: true })).toBeFocused();
-            const bounds = (await surface.boundingBox())!;
+            const bounds = await visibleBox(surface);
+
             expect(bounds.width).toBe(200);
             expect(bounds.x).toBeGreaterThanOrEqual(8);
             expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 8);
@@ -282,7 +307,8 @@ for (const lang of ['ko', 'en']) {
               }),
             ).toEqual(skin);
             for (const option of await menu.getByRole('option').all()) {
-              const before = (await option.boundingBox())!;
+              const before = await visibleBox(option);
+
               expect(before.height).toBe(32);
               expect(
                 await option.evaluate((el) => [
@@ -291,12 +317,13 @@ for (const lang of ['ko', 'en']) {
                 ]),
               ).toEqual(['8px', '32px']);
               await option.hover();
-              expect(await option.boundingBox()).toEqual(before);
+              expect(await visibleBox(option)).toEqual(before);
               expect((await appearance(option)).contrast).toBeGreaterThanOrEqual(4.5);
             }
             await page.keyboard.press('Escape');
             await expect(trigger).toBeFocused();
-            await expect(trigger).toHaveAttribute('data-value', state!);
+            invariant(state !== null, 'Missing state');
+            await expect(trigger).toHaveAttribute('data-value', state);
             expect(
               await page.evaluate(
                 () =>
@@ -373,9 +400,10 @@ test.describe(() => {
 });
 
 test('About displays the build version from package metadata', async ({ page }) => {
-  const { version } = JSON.parse(
+  const metadata: unknown = JSON.parse(
     readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8'),
-  ) as { version: string };
+  );
+  const { version } = z.object({ version: z.string() }).parse(metadata);
   await page.goto('/');
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('.settings-nav').getByRole('button', { name: 'About', exact: true }).click();

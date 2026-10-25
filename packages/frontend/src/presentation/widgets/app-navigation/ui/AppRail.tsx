@@ -147,7 +147,7 @@ export function AppRail({
           <span
             className="avatar [.app-rail_&]:w-7 [.app-rail_&]:h-7 w-[29px] h-[29px] rounded-full bg-[var(--avatar-color,_var(--primary))] text-primary-foreground text-xs font-semibold inline-flex items-center justify-center shrink-0 leading-(--text-xs--line-height) [&[data-guest]]:bg-surface-hover [&[data-guest]]:text-muted-foreground"
             data-guest={!account.server || undefined}
-            style={{ '--avatar-color': account.color } as React.CSSProperties}
+            style={{ '--avatar-color': account.color }}
           >
             {account.server ? (
               initial

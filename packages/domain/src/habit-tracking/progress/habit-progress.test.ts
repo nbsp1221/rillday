@@ -74,7 +74,9 @@ test('weekly totals regroup with the chosen week boundary and use the latest eff
     streak: 0,
   });
 
-  weekly.rules.push({ ...weekly.rules[0], from: '2026-10-18', weeklyTarget: 3 });
+  const firstRule = weekly.rules[0];
+  expect.assert(firstRule !== undefined);
+  weekly.rules.push({ ...firstRule, from: '2026-10-18', weeklyTarget: 3 });
   expect(habitStatistics(weekly, logs, '2026-10-18', 1)).toEqual({
     total: 2,
     week: 2,

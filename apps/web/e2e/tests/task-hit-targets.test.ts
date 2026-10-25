@@ -1,5 +1,7 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -10,21 +12,23 @@ async function fixture(page: Page, area: Area) {
   await page.locator('.quick-add').waitFor();
   const data = emptyWorkspace();
   const date = (await browserToday(page)).toString();
-  data.tasks = [
-    createTaskRecord('Drag the body and its padding', data, {
-      id: 'body-source',
-      date,
-      time: '09:30',
-      priority: 3,
-      notes: 'Keep notes',
-    })!,
-    createTaskRecord('Next task', data, { id: 'body-next', priority: 3 })!,
-    createTaskRecord('Subtasks', data, {
-      id: 'body-child',
-      parentId: 'body-source',
-      priority: 3,
-    })!,
-  ];
+  const sourceTask = createTaskRecord('Drag the body and its padding', data, {
+    id: 'body-source',
+    date,
+    time: '09:30',
+    priority: 3,
+    notes: 'Keep notes',
+  });
+  invariant(sourceTask !== null, 'Task fixture must have a title');
+  const nextTask = createTaskRecord('Next task', data, { id: 'body-next', priority: 3 });
+  invariant(nextTask !== null, 'Task fixture must have a title');
+  const childTask = createTaskRecord('Subtasks', data, {
+    id: 'body-child',
+    parentId: 'body-source',
+    priority: 3,
+  });
+  invariant(childTask !== null, 'Task fixture must have a title');
+  data.tasks = [sourceTask, nextTask, childTask];
   await seedWorkspace(page, data);
   await page.reload();
   if (area === 'matrix') {
@@ -36,7 +40,8 @@ async function fixture(page: Page, area: Area) {
 }
 
 async function begin(page: Page, row: Locator, region: 'top' | 'end' | 'date') {
-  const box = (await (region === 'date' ? row.locator('.row-date') : row).boundingBox())!;
+  const box = await visibleBox(region === 'date' ? row.locator('.row-date') : row);
+
   const point =
     region === 'top'
       ? { x: box.x + box.width / 2, y: box.y + 3 }
@@ -85,8 +90,8 @@ for (const area of ['tasks', 'matrix'] as const) {
     await page.keyboard.press('Escape');
     await expect(handle).toBeFocused();
     expect(
-      (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))!
-        .completedAt,
+      (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))
+        ?.completedAt,
     ).toBeNull();
   });
 
@@ -99,7 +104,8 @@ for (const area of ['tasks', 'matrix'] as const) {
     const input = row.getByRole('textbox');
     await expect(input).toBeFocused();
     await input.fill('Title being edited');
-    const box = (await input.boundingBox())!;
+    const box = await visibleBox(input);
+
     await page.mouse.move(box.x + 20, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(box.x + 60, box.y + box.height / 2, { steps: 3 });
@@ -112,8 +118,8 @@ for (const area of ['tasks', 'matrix'] as const) {
     await expect
       .poll(async () =>
         Boolean(
-          (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))!
-            .completedAt,
+          (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))
+            ?.completedAt,
         ),
       )
       .toBe(true);
@@ -123,7 +129,8 @@ for (const area of ['tasks', 'matrix'] as const) {
     page,
   }) => {
     const row = await fixture(page, area);
-    const box = (await row.boundingBox())!;
+    const box = await visibleBox(row);
+
     await page.mouse.move(box.x + box.width - 5, box.y + box.height / 2);
     expect(await row.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
       'rgba(0, 0, 0, 0)',
@@ -138,15 +145,16 @@ for (const area of ['tasks', 'matrix'] as const) {
 
   test(`${area}: pressing the completion control cannot start a pointer drag`, async ({ page }) => {
     const row = await fixture(page, area);
-    const box = (await row.locator('.task-check').boundingBox())!;
+    const box = await visibleBox(row.locator('.task-check'));
+
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width + 20, box.y + box.height / 2, { steps: 4 });
     await expect(page.locator('.task-drag-overlay')).toBeHidden();
     await page.mouse.up();
     expect(
-      (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))!
-        .completedAt,
+      (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('body-source'))
+        ?.completedAt,
     ).toBeNull();
   });
 
@@ -212,7 +220,8 @@ test('list padding drag reaches the final insertion position and disclosure is i
   await row.getByRole('button', { name: 'Collapse subtasks', exact: true }).click();
   await begin(page, row, 'end');
   const next = page.locator(`.task-row[data-task-id="${fixtureId('body-next')}"]`);
-  const box = (await next.boundingBox())!;
+  const box = await visibleBox(next);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height - 3, { steps: 5 });
   await expect(next).toHaveAttribute('data-drop-edge', 'after');
 
@@ -230,16 +239,19 @@ test('matrix padding drag uses only the destination highlight and preserves task
   const target = page.locator('.quadrant').nth(1);
   const before = (await storedWorkspace(page)).tasks.find(
     (task) => task.id === fixtureId('body-source'),
-  )!;
+  );
+  invariant(before !== undefined, 'Missing before');
   await begin(page, row, 'end');
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   await page.mouse.move(box.x + box.width / 2, box.y + 60, { steps: 5 });
   await expect(target).toHaveAttribute('data-drop-active', 'true');
   await expect(page.locator('.quadrant[data-drop-active]')).toHaveCount(1);
 
   await page.mouse.up();
   await expect(target.locator(`[data-task-id="${before.id}"]`)).toBeVisible();
-  const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id)!;
+  const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
+  invariant(after !== undefined, 'Missing after');
   expect(after.priority).toBe(2);
   expect({ title: after.title, date: after.date, time: after.time, notes: after.notes }).toEqual({
     title: before.title,

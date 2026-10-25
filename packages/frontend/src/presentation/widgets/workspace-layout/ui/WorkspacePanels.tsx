@@ -4,8 +4,16 @@ import {
   ResizablePanelGroup,
 } from '@repo/ui/components/resizable';
 import { cn } from 'cn';
-import { type FocusEvent, type ReactNode, type RefObject, useLayoutEffect, useRef } from 'react';
+import {
+  type FocusEvent,
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { usePanelRef } from 'react-resizable-panels';
+import invariant from 'tiny-invariant';
 import { useI18n } from '#shared/i18n';
 
 const sizes = {
@@ -37,7 +45,10 @@ export function WorkspacePanels({
   const sidebarGroupRef = useRef<HTMLDivElement | null>(null);
   const detailGroupRef = useRef<HTMLDivElement | null>(null);
   const detailElementRef = useRef<HTMLDivElement | null>(null);
-  const widthsRef = useRef({ sidebar: sizes.sidebar.initial, detail: sizes.detail.initial });
+  const [widths, setWidths] = useState({
+    sidebar: sizes.sidebar.initial,
+    detail: sizes.detail.initial,
+  });
   const restoreWidthRef = useRef({ sidebar: false, detail: false });
   const pointerFocusRef = useRef<HTMLElement | null>(null);
   const desktopSidebar = sidebarVisible && !narrow;
@@ -45,14 +56,32 @@ export function WorkspacePanels({
   const previousDetailRef = useRef(desktopDetail);
   const sidebarPresent = Boolean(sidebar);
   const previousSidebarRef = useRef({ visible: desktopSidebar, present: Boolean(sidebar), narrow });
-  const sidebarWidth = widthsRef.current.sidebar;
-  const detailWidth = widthsRef.current.detail;
-  const animateSidebar =
-    Boolean(sidebar) &&
-    previousSidebarRef.current.present &&
-    previousSidebarRef.current.visible !== desktopSidebar &&
-    !previousSidebarRef.current.narrow &&
-    !narrow;
+  const sidebarWidth = widths.sidebar;
+  const detailWidth = widths.detail;
+  const [sidebarRender, setSidebarRender] = useState<{
+    visible: boolean;
+    present: boolean;
+    narrow: boolean;
+    transition?: 'open' | 'closed';
+  }>({ visible: desktopSidebar, present: sidebarPresent, narrow });
+  if (
+    sidebarRender.visible !== desktopSidebar ||
+    sidebarRender.present !== sidebarPresent ||
+    sidebarRender.narrow !== narrow
+  ) {
+    const animate =
+      sidebarPresent &&
+      sidebarRender.present &&
+      sidebarRender.visible !== desktopSidebar &&
+      !sidebarRender.narrow &&
+      !narrow;
+    setSidebarRender({
+      visible: desktopSidebar,
+      present: sidebarPresent,
+      narrow,
+      transition: animate ? (desktopSidebar ? 'open' : 'closed') : undefined,
+    });
+  }
 
   useLayoutEffect(() => {
     if (
@@ -90,7 +119,7 @@ export function WorkspacePanels({
     // The committed layout is available before the panel's DOM measurement catches up.
     const width = Math.round(((group.current?.clientWidth ?? 0) * percentage) / 100);
     if (width >= sizes[pane].min) {
-      widthsRef.current[pane] = width;
+      setWidths((current) => (current[pane] === width ? current : { ...current, [pane]: width }));
     }
   }
 
@@ -115,21 +144,26 @@ export function WorkspacePanels({
       disabled={narrow}
       onLayoutChange={(layout) => {
         // The logical layout is the target width, not an intermediate animation frame.
+        invariant(
+          layout['workspace-sidebar-panel'] !== undefined,
+          "Missing layout['workspace-sidebar-panel']",
+        );
         previewWidth(
           'sidebar',
           ((sidebarGroupRef.current?.clientWidth ?? 0) * layout['workspace-sidebar-panel']) / 100,
         );
       }}
       onLayoutChanged={(layout, { isUserInteraction }) => {
-        if (isUserInteraction) {
-          rememberWidth('sidebar', layout['workspace-sidebar-panel']);
+        const percentage = layout['workspace-sidebar-panel'];
+        if (isUserInteraction && percentage !== undefined) {
+          rememberWidth('sidebar', percentage);
         }
       }}
       onPointerDownCapture={preservePointerFocus}
-      data-sidebar-transition={animateSidebar ? (desktopSidebar ? 'open' : 'closed') : undefined}
+      data-sidebar-transition={sidebarRender.transition}
       onTransitionEnd={(event) => {
         if (event.propertyName === 'flex-grow') {
-          event.currentTarget.removeAttribute('data-sidebar-transition');
+          setSidebarRender((current) => ({ ...current, transition: undefined }));
         }
       }}
     >
@@ -176,8 +210,9 @@ export function WorkspacePanels({
           orientation="horizontal"
           disabled={narrow}
           onLayoutChanged={(layout, { isUserInteraction }) => {
-            if (isUserInteraction) {
-              rememberWidth('detail', layout['workspace-detail-panel']);
+            const percentage = layout['workspace-detail-panel'];
+            if (isUserInteraction && percentage !== undefined) {
+              rememberWidth('detail', percentage);
             }
           }}
         >

@@ -1,7 +1,8 @@
 import { type Locator, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 
 async function width(panel: Locator) {
-  return (await panel.boundingBox())!.width;
+  return (await visibleBox(panel)).width;
 }
 
 test('navigation restores preferred sidebar pixels after a hidden viewport change', async ({
@@ -48,7 +49,8 @@ test('pointer resize preference survives viewport constraints and reopening', as
   await page.locator('.task-title').click();
   const sidebar = page.locator('.task-sidebar');
   const separator = page.getByRole('separator', { name: 'Content sidebar width', exact: true });
-  const bounds = (await separator.boundingBox())!;
+  const bounds = await visibleBox(separator);
+
   await page.mouse.move(bounds.x, 420);
   await page.mouse.down();
   await page.mouse.move(bounds.x + 258, 420, { steps: 10 });
@@ -80,7 +82,8 @@ test('sidebar resizing shares space proportionally and restores expanded prefere
   await expect.poll(() => width(detail)).toBe(360);
   const originalRatio = (await width(main)) / (await width(detail));
   const separator = page.getByRole('separator', { name: 'Content sidebar width', exact: true });
-  const bounds = (await separator.boundingBox())!;
+  const bounds = await visibleBox(separator);
+
   await page.mouse.move(bounds.x, 420);
   await page.mouse.down();
   await page.mouse.move(bounds.x + 40, 420);
@@ -114,8 +117,17 @@ test('each sidebar toggle animates the workspace, including repeated cycles', as
   for (let cycle = 0; cycle < 2; cycle++) {
     for (const expanded of [false, true]) {
       const animated = await sidebar.evaluate(async () => {
-        document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle')!.click();
-        const panel = document.querySelector('#workspace-sidebar-panel')!;
+        const matchedElement = document.querySelector<HTMLButtonElement>(
+          '.workspace-sidebar-toggle',
+        );
+        if (matchedElement === null) {
+          throw new Error("Expected element matching '.workspace-sidebar-toggle'");
+        }
+        matchedElement.click();
+        const panel = document.querySelector('#workspace-sidebar-panel');
+        if (panel === null) {
+          throw new Error('Missing panel');
+        }
         for (let frame = 0; frame < 60; frame++) {
           if (panel.getAnimations().some((animation) => animation.playState === 'running')) {
             return true;
@@ -193,7 +205,8 @@ test('pointer cancellation, blur and touch release preserve drafts and stop resi
   const separator = page.getByRole('separator', { name: 'Content sidebar width', exact: true });
 
   for (const end of ['cancel', 'blur'] as const) {
-    const bounds = (await separator.boundingBox())!;
+    const bounds = await visibleBox(separator);
+
     await page.mouse.move(bounds.x, 420);
     await page.mouse.down();
     await page.mouse.move(bounds.x + 35, 420);
@@ -213,7 +226,8 @@ test('pointer cancellation, blur and touch release preserve drafts and stop resi
   }
 
   await expect(input).toBeFocused();
-  const bounds = (await separator.boundingBox())!;
+  const bounds = await visibleBox(separator);
+
   const start = await width(sidebar);
   const cdp = await context.newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent', {
@@ -255,15 +269,27 @@ test('sidebar contents and workspace edge stay aligned during opening and rapid 
     if (target === 480) {
       await separator.press('End');
     }
-    await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(target);
+    await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(target);
     for (const reverse of [false, true]) {
       await page.getByLabel('Hide sidebar', { exact: true }).click();
-      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(0);
+      await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(0);
       const frames = await sidebar.evaluate(async (element, reverse) => {
-        const panel = document.querySelector('#workspace-sidebar-panel')!;
-        const content = document.querySelector('#workspace-content-panel')!;
-        const inner = element.querySelector('.collapsible-sidebar-inner')!;
-        const toggle = document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle')!;
+        const panel = document.querySelector('#workspace-sidebar-panel');
+        if (panel === null) {
+          throw new Error('Missing panel');
+        }
+        const content = document.querySelector('#workspace-content-panel');
+        if (content === null) {
+          throw new Error('Missing content');
+        }
+        const inner = element.querySelector('.collapsible-sidebar-inner');
+        if (inner === null) {
+          throw new Error('Missing inner');
+        }
+        const toggle = document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle');
+        if (toggle === null) {
+          throw new Error('Missing toggle');
+        }
         toggle.click();
         const frames = [];
         for (let frame = 0; frame < 40; frame++) {
@@ -290,7 +316,7 @@ test('sidebar contents and workspace edge stay aligned during opening and rapid 
       ).toBeLessThan(1);
       expect(Math.max(...frames.map((frame) => Math.abs(frame.inner - target)))).toBeLessThan(1);
       expect(Math.max(...frames.map((frame) => Math.abs(frame.workspaceGap)))).toBeLessThan(1);
-      await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(target);
+      await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(target);
     }
   }
 });
@@ -307,17 +333,21 @@ test('both resize boundaries show the native resize cursor throughout the hit ta
 
   for (const name of ['Content sidebar width', 'Main content width']) {
     const separator = page.getByRole('separator', { name, exact: true });
-    const box = (await separator.boundingBox())!;
+    const box = await visibleBox(separator);
+
     const center = box.x + box.width / 2;
     for (const offset of [-4, 0, 4]) {
       const point = { x: center + offset, y: 420 };
       await page.mouse.move(point.x, point.y);
       await expect
         .poll(() =>
-          page.evaluate(
-            ({ x, y }) => getComputedStyle(document.elementFromPoint(x, y)!).cursor,
-            point,
-          ),
+          page.evaluate(({ x, y }) => {
+            const target = document.elementFromPoint(x, y);
+            if (target === null) {
+              throw new Error('Missing resize target');
+            }
+            return getComputedStyle(target).cursor;
+          }, point),
         )
         .toMatch(/^(col|ew)-resize$/);
     }
@@ -329,7 +359,13 @@ test('both resize boundaries show the native resize cursor throughout the hit ta
     await page.mouse.move(700, 200);
     await expect
       .poll(() =>
-        page.evaluate(() => getComputedStyle(document.elementFromPoint(700, 200)!).cursor),
+        page.evaluate(() => {
+          const target = document.elementFromPoint(700, 200);
+          if (target === null) {
+            throw new Error('Missing resize target');
+          }
+          return getComputedStyle(target).cursor;
+        }),
       )
       .not.toMatch(/^(col|ew)-resize$/);
     await expect(separator).not.toHaveAttribute('data-separator', 'active');
@@ -348,7 +384,10 @@ test('detail card fills its panel throughout opening, resizing and repeated clos
     const card = page.locator('.task-detail');
     await expect(card).toBeVisible();
     const gaps = await card.evaluate(async (element) => {
-      const parent = element.parentElement!;
+      const parent = element.parentElement;
+      if (parent === null) {
+        throw new Error('Missing parent');
+      }
       const gaps = [];
       for (let frame = 0; frame < 20; frame++) {
         await new Promise(requestAnimationFrame);

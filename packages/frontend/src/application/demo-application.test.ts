@@ -53,7 +53,8 @@ test('demo seed covers tasks, dates, repeating tasks, matrix and habits without 
   expect(data.tasks.some((task) => task.repeat)).toBe(true);
   expect(data.tasks.some((task) => task.priority === 3)).toBe(true);
   expect(data.habits.length).toBeGreaterThan(0);
-  const item = createTaskRecord('A browser-only edit', data)!;
+  const item = createTaskRecord('A browser-only edit', data);
+  expect.assert(item !== null);
   app.getSnapshot().workspace.apply({ type: 'task.create', tasks: [item] });
   await app.flushForExit();
   const second = await demoFixture(false);
@@ -87,13 +88,15 @@ test('reset uses the regular archive flow and leaves the normal browser workspac
   const ordinary = createTaskRecord(
     'Keep my normal workspace',
     normal.getSnapshot().workspace.getSnapshot().data,
-  )!;
+  );
+  expect.assert(ordinary !== null);
   normal.getSnapshot().workspace.apply({ type: 'task.create', tasks: [ordinary] });
   await normal.flushForExit();
   const item = createTaskRecord(
     'Replace this demo edit',
     app.getSnapshot().workspace.getSnapshot().data,
-  )!;
+  );
+  expect.assert(item !== null);
   app.getSnapshot().workspace.apply({ type: 'task.create', tasks: [item] });
   await app.flushForExit();
   const before = app.getSnapshot().resetIdentity;
@@ -117,8 +120,10 @@ test('a stored server binding and a direct remote document open are refused in d
   const { app, storage } = await demoFixture();
   const registry = await storage.accounts.readRegistry();
   const profile = registry.accounts[0];
+  expect.assert(profile !== undefined);
+  expect.assert(profile.contentId !== undefined);
   await expect(
-    storage.documents.open(profile.contentId!, {
+    storage.documents.open(profile.contentId, {
       url: 'https://server.example.invalid',
       serverId: 'example-server',
       authorize: () => Promise.resolve('never-used'),

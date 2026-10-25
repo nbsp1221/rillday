@@ -142,9 +142,9 @@ function AppearanceSettings() {
           className="setting-options flex w-fit min-h-(--control-height) items-center gap-[3px] p-[3px] rounded-md bg-secondary shrink-0 [&_button]:h-[calc(var(--control-height)-6px)] [&_button]:min-h-0 [&_button]:inline-flex [&_button]:items-center [&_button]:justify-center [&_button]:gap-1.5 [&_button]:py-0 [&_button]:px-[11px] [&_button]:text-sm [&_button]:rounded-sm [&_button]:text-muted-foreground [&_button]:whitespace-nowrap [&_button]:leading-(--text-sm--line-height) [&_button[data-checked]]:bg-background [&_button[data-checked]]:text-foreground [&_button[data-checked]]:shadow-[0_1px_3px_var(--shadow)] [@media(max-width:_560px)]:max-w-full [@media(max-width:_560px)]:flex-wrap"
           aria-label={t('settings.theme')}
           value={preferences.theme}
-          onValueChange={(theme) => {
-            if (theme) {
-              updatePreferences({ theme: theme as typeof preferences.theme });
+          onValueChange={(theme: unknown) => {
+            if (theme === 'light' || theme === 'dark' || theme === 'system') {
+              updatePreferences({ theme });
             }
           }}
         >

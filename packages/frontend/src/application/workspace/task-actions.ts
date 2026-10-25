@@ -87,7 +87,7 @@ export function createTaskActions(
 
     if (
       Object.entries(normalized).every(
-        ([key, value]) => JSON.stringify(task[key as keyof Task]) === JSON.stringify(value),
+        ([key, value]) => JSON.stringify(Reflect.get(task, key)) === JSON.stringify(value),
       )
     ) {
       return unchanged;
@@ -101,7 +101,7 @@ export function createTaskActions(
     return applied(undefined);
   }
 
-  function createMany(items: TaskCreation[]): TaskActionResult<Task[]> {
+  function createMany(items: TaskCreation[]): TaskActionResult<[Task, ...Task[]]> {
     return attempt(() => {
       const data = current();
       const order = -Date.now();
@@ -120,13 +120,14 @@ export function createTaskActions(
         return task ? [task] : [];
       });
 
-      if (!created.length) {
+      const [first, ...remaining] = created;
+      if (!first) {
         return { status: 'failed', code: 'task_title_required' };
       }
 
       workspace.apply({ type: 'task.create', tasks: created });
 
-      return applied(created);
+      return applied<[Task, ...Task[]]>([first, ...remaining]);
     });
   }
 
@@ -282,7 +283,7 @@ export function createTaskActions(
         const result = editTask(id, patch);
 
         return result.status === 'applied'
-          ? applied({ date: patch.date!, time: patch.time })
+          ? applied({ date: patch.date, time: patch.time })
           : result;
       });
     },

@@ -1,6 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import type axe from 'axe-core';
 import { type Locator, type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+
+declare global {
+  interface Window {
+    axe: typeof axe;
+  }
+}
+
 const require = createRequire(import.meta.url);
 
 async function ready(page: Page) {
@@ -247,20 +256,24 @@ test('demo navigation keeps the full-height product layout and consistent rail g
     await page.setViewportSize({ width, height: 844 });
     const trigger = page.getByRole('button', { name: 'Demo', exact: true });
     const search = page.getByRole('button', { name: 'Search all', exact: true });
-    const demoBox = (await trigger.boundingBox())!;
-    const searchBox = (await search.boundingBox())!;
+    const demoBox = await visibleBox(trigger);
+
+    const searchBox = await visibleBox(search);
+
     expect(demoBox.x).toBe(searchBox.x);
     expect(demoBox.width).toBe(searchBox.width);
     expect(demoBox.height).toBe(searchBox.height);
     for (const area of ['Calendar', 'Eisenhower Matrix', 'Habit', 'Tasks']) {
       await page.getByRole('button', { name: area, exact: true }).click();
-      const bounds = (await page.locator('.rillday-app').boundingBox())!;
+      const bounds = await visibleBox(page.locator('.rillday-app'));
+
       expect(bounds.y).toBe(0);
       expect(bounds.height).toBe(844);
       await trigger.click();
       const menu = page.getByRole('menu', { name: 'Demo workspace' });
       await settleAnimations(menu);
-      const box = (await menu.boundingBox())!;
+      const box = await visibleBox(menu);
+
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       expect(box.y).toBeGreaterThanOrEqual(0);
@@ -281,11 +294,7 @@ test('demo menu and reset dialog have no automated accessibility violations', as
 
   const check = () =>
     page.evaluate(async () => {
-      const axe = (
-        window as typeof window & {
-          axe: { run: (context: unknown) => Promise<{ violations: { id: string }[] }> };
-        }
-      ).axe;
+      const axe = window.axe;
       return (
         await axe.run({ include: [['.app-rail'], ['[role="menu"]'], ['[role="dialog"]']] })
       ).violations.map((violation) => violation.id);

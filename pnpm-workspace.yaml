@@ -11,3 +11,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - miniflare@5.20261019.2-beta
   - wrangler@4.152.0
+  - '@retn0/eslint-config-oxlint@0.2.0'
+  - '@retn0/eslint-config@2.2.0'
+  - '@retn0/oxfmt-config@0.3.0'
+  - '@retn0/oxlint-config@3.0.0'

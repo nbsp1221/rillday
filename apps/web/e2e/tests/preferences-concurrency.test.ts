@@ -94,7 +94,7 @@ test('retry saves only failed preference changes after another tab commits a dif
       ) {
         throw new DOMException('Synthetic preference failure', 'QuotaExceededError');
       }
-      return original.call(this, value, key!);
+      return original.call(this, value, key);
     };
   });
   await chooseChoice(page, page.getByRole('combobox', { name: 'Language', exact: true }), 'ko');

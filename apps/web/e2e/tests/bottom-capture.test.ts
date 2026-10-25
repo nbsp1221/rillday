@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 
 test('capture separates stable text entry from a balanced trailing add action', async ({
   page,
@@ -16,20 +18,35 @@ test('capture separates stable text entry from a balanced trailing add action', 
           requestAnimationFrame(() => requestAnimationFrame(resolve));
         }),
     );
-    const before = (await input.boundingBox())!;
+    const before = await visibleBox(input);
+
     await input.focus();
     await input.fill('Review ordering');
-    const after = (await input.boundingBox())!;
+    const after = await visibleBox(input);
+
     expect(after.x).toBe(before.x);
     expect(after.y).toBe(before.y);
     const geometry = await add.evaluate((button) => {
-      const icon = button.querySelector('svg')!.getBoundingClientRect();
+      const iconElement = button.querySelector('svg');
+      if (iconElement === null) {
+        throw new Error("Expected element matching 'svg'");
+      }
+      const icon = iconElement.getBoundingClientRect();
       const box = button.getBoundingClientRect();
-      const line = button.closest('.quick-add-line')!.getBoundingClientRect();
-      const input = button
-        .closest('.quick-add-line')!
-        .querySelector('textarea')!
-        .getBoundingClientRect();
+      const lineElement = button.closest('.quick-add-line');
+      if (lineElement === null) {
+        throw new Error("Expected element matching '.quick-add-line'");
+      }
+      const line = lineElement.getBoundingClientRect();
+      const inputElement = button.closest('.quick-add-line');
+      if (inputElement === null) {
+        throw new Error("Expected element matching '.quick-add-line'");
+      }
+      const inputElement3 = inputElement.querySelector('textarea');
+      if (inputElement3 === null) {
+        throw new Error("Expected element matching 'textarea'");
+      }
+      const input = inputElement3.getBoundingClientRect();
       return {
         size: [box.width, box.height],
         center: [
@@ -75,17 +92,28 @@ test('capture icons stay in a stable centered input line without an expanding to
 }) => {
   await page.goto('/');
   const input = page.getByLabel('Quick add task', { exact: true });
-  const before = (await input.boundingBox())!;
-  const capture = (await page.locator('.quick-add').boundingBox())!;
+  const before = await visibleBox(input);
+
+  const capture = await visibleBox(page.locator('.quick-add'));
+
   await input.click();
   await input.fill('Check capture position #review tomorrow');
-  const after = (await input.boundingBox())!;
+  const after = await visibleBox(input);
+
   expect(after.y).toBe(before.y);
   expect(after.height).toBe(before.height);
   const geometry = await page.locator('.quick-add-line').evaluate((element) => {
     const line = element.getBoundingClientRect();
-    const icon = element.querySelector('svg')!.getBoundingClientRect();
-    const input = element.querySelector('textarea')!.getBoundingClientRect();
+    const iconElement2 = element.querySelector('svg');
+    if (iconElement2 === null) {
+      throw new Error("Expected element matching 'svg'");
+    }
+    const icon = iconElement2.getBoundingClientRect();
+    const inputElement2 = element.querySelector('textarea');
+    if (inputElement2 === null) {
+      throw new Error("Expected element matching 'textarea'");
+    }
+    const input = inputElement2.getBoundingClientRect();
     return {
       icon: Math.abs(icon.y + icon.height / 2 - line.y - line.height / 2),
       input: Math.abs(input.y + input.height / 2 - line.y - line.height / 2),
@@ -93,7 +121,7 @@ test('capture icons stay in a stable centered input line without an expanding to
   });
   expect(geometry.icon).toBeLessThan(0.5);
   expect(geometry.input).toBeLessThan(0.5);
-  expect((await page.locator('.quick-add').boundingBox())!.height).toBe(capture.height);
+  expect((await visibleBox(page.locator('.quick-add'))).height).toBe(capture.height);
 });
 
 test('capture stays below the scrolling list with balanced workspace insets', async ({ page }) => {
@@ -106,15 +134,31 @@ test('capture stays below the scrolling list with balanced workspace insets', as
     await page.setViewportSize({ width, height: width === 320 ? 480 : 800 });
     const geometry = await page.locator('.task-view').evaluate((element) => {
       const view = element.getBoundingClientRect();
-      const scroll = element.querySelector('.task-scroll')!.getBoundingClientRect();
-      const footer = element.querySelector('.task-add-area')!.getBoundingClientRect();
-      const capture = element.querySelector('.quick-add')!.getBoundingClientRect();
+      const scrollElement = element.querySelector('.task-scroll');
+      if (scrollElement === null) {
+        throw new Error("Expected element matching '.task-scroll'");
+      }
+      const scroll = scrollElement.getBoundingClientRect();
+      const footerElement = element.querySelector('.task-add-area');
+      if (footerElement === null) {
+        throw new Error("Expected element matching '.task-add-area'");
+      }
+      const footer = footerElement.getBoundingClientRect();
+      const captureElement = element.querySelector('.quick-add');
+      if (captureElement === null) {
+        throw new Error("Expected element matching '.quick-add'");
+      }
+      const capture = captureElement.getBoundingClientRect();
+      const entry = element.querySelector('.task-add-area');
+      if (entry === null) {
+        throw new Error('Missing entry');
+      }
       return {
         bottom: Math.abs(view.bottom - footer.bottom),
         scrollClear: scroll.bottom <= footer.top + 0.5,
         left: capture.left - view.left,
         right: view.right - capture.right,
-        inset: getComputedStyle(element.querySelector('.task-add-area')!).paddingBottom,
+        inset: getComputedStyle(entry).paddingBottom,
         captureY: capture.y,
       };
     });
@@ -124,7 +168,7 @@ test('capture stays below the scrolling list with balanced workspace insets', as
     expect(geometry.right).toBe(geometry.left);
     expect(geometry.inset).toBe(`${geometry.left}px`);
     await page.locator('.task-row').last().scrollIntoViewIfNeeded();
-    expect((await page.locator('.quick-add').boundingBox())!.y).toBe(geometry.captureY);
+    expect((await visibleBox(page.locator('.quick-add'))).y).toBe(geometry.captureY);
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
       false,
     );
@@ -151,8 +195,10 @@ test('bottom capture suggestions stay above a multiline draft in a short viewpor
   expect(tools.content).toBeLessThanOrEqual(tools.width);
   const suggestions = page.getByRole('listbox', { name: 'Label suggestions' });
   await expect(suggestions).toBeVisible();
-  const box = (await suggestions.boundingBox())!;
-  const capture = (await page.locator('.quick-add').boundingBox())!;
+  const box = await visibleBox(suggestions);
+
+  const capture = await visibleBox(page.locator('.quick-add'));
+
   expect(box.y).toBeGreaterThanOrEqual(64);
   expect(box.y + box.height).toBeLessThanOrEqual(capture.y - 7);
   expect(box.x).toBeGreaterThanOrEqual(8);
@@ -167,17 +213,23 @@ test('bottom capture suggestions stay above a multiline draft in a short viewpor
   ).toBe(true);
   await input.press('ArrowUp');
   const last = suggestions.getByRole('option', { name: 'review5', exact: true });
-  await expect(input).toHaveAttribute('aria-activedescendant', (await last.getAttribute('id'))!);
+  const entry1 = await last.getAttribute('id');
+  invariant(entry1 !== null, 'Missing entry');
+  await expect(input).toHaveAttribute('aria-activedescendant', entry1);
   await input.press('Home');
-  await expect(input).toHaveAttribute(
-    'aria-activedescendant',
-    (await suggestions.getByRole('option', { name: 'review0', exact: true }).getAttribute('id'))!,
-  );
+  const entry2 = await suggestions
+    .getByRole('option', { name: 'review0', exact: true })
+    .getAttribute('id');
+  invariant(entry2 !== null, 'Missing entry');
+  await expect(input).toHaveAttribute('aria-activedescendant', entry2);
   await input.press('End');
-  await expect(input).toHaveAttribute('aria-activedescendant', (await last.getAttribute('id'))!);
-  const selected = (await suggestions
-    .getByRole('option', { name: 'review5', exact: true })
-    .boundingBox())!;
+  const entry3 = await last.getAttribute('id');
+  invariant(entry3 !== null, 'Missing entry');
+  await expect(input).toHaveAttribute('aria-activedescendant', entry3);
+  const selected = await visibleBox(
+    suggestions.getByRole('option', { name: 'review5', exact: true }),
+  );
+
   expect(selected.y).toBeGreaterThanOrEqual(box.y);
   expect(selected.y + selected.height).toBeLessThanOrEqual(box.y + box.height);
   await input.press('Enter');

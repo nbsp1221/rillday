@@ -1,7 +1,6 @@
 import {
   type DomainContext,
   type Workspace,
-  type WorkspaceCollection,
   completeTask,
   duplicateTask,
   editLabel,
@@ -13,6 +12,7 @@ import {
   restoreTask,
   trashTask,
   validateWorkspace,
+  workspaceCollectionSchema,
 } from '@repo/domain';
 import { produce } from 'immer';
 import type { WorkspaceIntent } from './workspace-intents.ts';
@@ -53,7 +53,7 @@ export interface WorkspaceSessionOptions {
 }
 
 export class WorkspaceSession implements WorkspacePort {
-  private state!: WorkspaceSnapshot;
+  private state: WorkspaceSnapshot;
   private readonly repository: WorkspaceRepository;
   private readonly options: WorkspaceSessionOptions;
   private readonly context: DomainContext;
@@ -76,11 +76,11 @@ export class WorkspaceSession implements WorkspacePort {
         repository.version(
           collection === 'matrixMode'
             ? { collection: 'workspace', id: 'matrixMode' }
-            : { collection: collection as WorkspaceCollection, id: String(id) },
+            : { collection: workspaceCollectionSchema.parse(collection), id: String(id) },
         ),
       validateWorkspace,
     );
-    this.publish();
+    this.state = this.readSnapshot();
     this.unsubscribe = [repository.subscribe(this.publish)];
     if (options.synchronization) {
       this.unsubscribe.push(options.synchronization.subscribe(this.publish));
@@ -94,15 +94,12 @@ export class WorkspaceSession implements WorkspacePort {
     return () => this.listeners.delete(listener);
   };
 
-  private publish = () => {
-    if (this.closed || this.committing) {
-      return;
-    }
+  private readSnapshot(previous?: WorkspaceSnapshot['data']): WorkspaceSnapshot {
     const saved = this.repository.getSnapshot();
     const network = this.options.synchronization?.getSnapshot();
     const issues = workspaceDecisions(saved.decisions);
-    this.state = {
-      data: presentWorkspace(saved.workspace, this.zone, this.state?.data),
+    return {
+      data: presentWorkspace(saved.workspace, this.zone, previous),
       saveState: saved.error ? 'error' : saved.saved ? 'saved' : 'saving',
       error:
         saved.error instanceof Error && saved.error.name === 'QuotaExceededError'
@@ -116,12 +113,19 @@ export class WorkspaceSession implements WorkspacePort {
       canUndo: this.history.canUndo,
       canRedo: this.history.canRedo,
     };
+  }
+
+  private readonly publish = () => {
+    if (this.closed || this.committing) {
+      return;
+    }
+    this.state = this.readSnapshot(this.state.data);
     for (const listener of this.listeners) {
       listener();
     }
   };
 
-  private commit = (workspace: Workspace) => {
+  private readonly commit = (workspace: Workspace) => {
     // Publish local data only after its synchronous history transition completes.
     this.committing = true;
     try {

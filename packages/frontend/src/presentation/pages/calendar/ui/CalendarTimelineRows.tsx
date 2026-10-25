@@ -31,6 +31,7 @@ export const CalendarTimelineRows = memo(function CalendarTimelineRows({
   compose: (date: string, time: string) => void;
 }) {
   const { t, formatDate, formatTime } = useI18n();
+  // oxlint-disable-next-line react/incompatible-library -- No React Compiler; TanStack/virtual#1119 tracks compatibility.
   const hours = useVirtualizer({
     count: 24,
     getScrollElement: () => scroller,
@@ -79,7 +80,9 @@ export const CalendarTimelineRows = memo(function CalendarTimelineRows({
                 data-hour={hour}
                 key={date}
                 onDoubleClick={(event) => {
-                  if ((event.target as HTMLElement).closest('.calendar-task')) {
+                  if (
+                    event.target instanceof Element ? event.target.closest('.calendar-task') : null
+                  ) {
                     return;
                   }
 

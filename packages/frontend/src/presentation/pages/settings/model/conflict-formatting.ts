@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import invariant from 'tiny-invariant';
 import type { WorkspaceChange, WorkspaceLabel } from '#application';
 
 const changeFields = new Set([
@@ -48,7 +49,9 @@ export function formatLabel(
     return value;
   }
   if (value.system === 'weekday') {
-    return weekdays[value.value];
+    const name = weekdays[value.value];
+    invariant(name !== undefined, 'Conflict weekday must have a localized name');
+    return name;
   }
   const key = 'value' in value ? `${value.system}.${value.value}` : value.system;
   return t(key, { ns: 'labels' });

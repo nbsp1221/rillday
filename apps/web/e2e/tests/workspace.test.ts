@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import {
@@ -36,9 +37,9 @@ test('pending writes warn before navigation; staying retains the edit until dura
 }) => {
   await ready(page);
   const registry = await storedRegistry(page);
-  const workspaceId = registry.accounts.find(
-    (account) => account.id === registry.activeId,
-  )!.contentId;
+  const entry1 = registry.accounts.find((account) => account.id === registry.activeId);
+  invariant(entry1 !== undefined, 'Missing entry');
+  const workspaceId = entry1.contentId;
   const blocker = await context.newPage();
   await ready(blocker);
   try {
@@ -110,6 +111,7 @@ test('quick capture, metadata editing, checklist and reload persistence', async 
     .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('- [x] Check documents');
   const before = (await storedWorkspace(page)).tasks[0];
+  invariant(before !== undefined, 'Missing before');
   expect(before.tags).toEqual(['work', 'planning']);
   expect(before.priority).toBe(3);
   expect(before.time).toBe('15:00');
@@ -170,7 +172,9 @@ test('matrix drag changes priority and calendar date drag updates the same task'
   await ready(page);
   await add(page, 'Task being connected !1');
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(1);
-  const taskId = (await storedWorkspace(page)).tasks[0].id;
+  const task1 = (await storedWorkspace(page)).tasks[0];
+  invariant(task1 !== undefined, 'Missing task');
+  const taskId = task1.id;
   await page.getByLabel('Eisenhower Matrix', { exact: true }).click();
   const quadrants = page.locator('.quadrant');
   await page
@@ -308,7 +312,7 @@ test('backup export/import works and malformed imports preserve the workspace', 
     buffer: Buffer.from(JSON.stringify({ schemaVersion: 1, tasks: [null] })),
   });
   await expect(page.locator('.toast')).toContainText('backup format is unsupported');
-  expect((await storedWorkspace(page)).tasks[0].title).toBe('Task to back up');
+  expect((await storedWorkspace(page)).tasks[0]?.title).toBe('Task to back up');
   exportedTask.title = 'Restored task';
   await page.locator('input[type=file]').setInputFiles({
     name: 'backup.json',
@@ -432,6 +436,7 @@ test('recognition preferences control real task capture and persist across reloa
     .poll(async () => (await storedWorkspace(page)).tasks[0]?.title)
     .toBe('Keep authored text tomorrow 3pm #work');
   const task = (await storedWorkspace(page)).tasks[0];
+  invariant(task !== undefined, 'Missing task');
   expect(task.date).toBeNull();
   expect(task.time).toBeNull();
   expect(task.tags).toEqual(['work']);
@@ -609,7 +614,8 @@ for (const language of ['ko', 'en']) {
       await page.getByRole('button', { name: text('돌아가기', 'Back'), exact: true }).click();
       await expect(page.locator('.task-title')).toHaveText('Flow item');
       const snapshot = await storedWorkspace(page);
-      expect(snapshot.habitLogs.find((log) => log.habitId === snapshot.habits[0].id)?.value).toBe(
+
+      expect(snapshot.habitLogs.find((log) => log.habitId === snapshot.habits[0]?.id)?.value).toBe(
         2,
       );
 
@@ -640,7 +646,8 @@ test('a downloaded backup above 10MiB restores through the file picker', async (
       notes: randomBytes(786432).toString('base64'),
     });
     expect(task).not.toBeNull();
-    return task!;
+    invariant(task !== null, 'Task fixture must have a title');
+    return task;
   });
   await page.goto('/');
   await expect(page.locator('#quick-add-input')).toBeVisible();

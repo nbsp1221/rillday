@@ -27,7 +27,8 @@ export async function restoreDatabase(backup: string, destination: string) {
     output.pragma('foreign_keys=ON');
     output
       .transaction(() => {
-        if ((output.pragma('foreign_key_check') as unknown[]).length) {
+        const references: unknown = output.pragma('foreign_key_check');
+        if (!Array.isArray(references) || references.length) {
           throw new Error('Invalid backup references');
         }
       })

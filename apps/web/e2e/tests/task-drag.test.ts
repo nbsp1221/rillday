@@ -1,5 +1,7 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
+import invariant from 'tiny-invariant';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
@@ -17,7 +19,8 @@ async function seed(page: Page) {
 
 async function start(page: Page, row: Locator) {
   const handle = row.locator('.task-content');
-  const box = (await handle.boundingBox())!;
+  const box = await visibleBox(handle);
+
   await page.mouse.move(box.x + Math.min(60, box.width / 2), box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + Math.min(60, box.width / 2) + 8, box.y + box.height / 2, {
@@ -28,7 +31,8 @@ async function start(page: Page, row: Locator) {
 }
 
 async function over(page: Page, row: Locator, edge: 'before' | 'after') {
-  const box = (await row.boundingBox())!;
+  const box = await visibleBox(row);
+
   await page.mouse.move(box.x + 100, box.y + (edge === 'before' ? 4 : box.height - 4), {
     steps: 4,
   });
@@ -36,7 +40,8 @@ async function over(page: Page, row: Locator, edge: 'before' | 'after') {
 
 async function sidebarOver(page: Page, scope: string) {
   const target = page.locator(`[data-task-drop="${scope}"]`);
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
   await expect(target).toHaveAttribute('data-drop-active', 'true');
   return target;
@@ -101,7 +106,7 @@ test('drag preview fits a short title and truncates a long title on one line', a
     task('long', { title: 'Long title '.repeat(40), order: 1 }),
   ]);
   await start(page, rows(page).first());
-  expect((await page.locator('.task-drag-overlay').boundingBox())!.width).toBeLessThan(160);
+  expect((await visibleBox(page.locator('.task-drag-overlay'))).width).toBeLessThan(160);
   await page.keyboard.press('Escape');
   await page.mouse.up();
   await start(page, rows(page).last());
@@ -130,7 +135,8 @@ test('sidebar list drop moves the task while preserving its contents', async ({ 
   await expect(rows(page)).toHaveCount(3);
   await start(page, rows(page).first());
   const target = page.locator('.sidebar-list').filter({ hasText: 'Destination list' });
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 6 });
   await expect(target).toHaveAttribute('data-drop-active', 'true');
   await page.mouse.up();
@@ -143,13 +149,13 @@ test('both row halves and the tail show the exact insertion edge without moving 
   page,
 }) => {
   await seed(page);
-  const first = await rows(page).first().boundingBox();
-  const last = await rows(page).last().boundingBox();
+  const first = await visibleBox(rows(page).first());
+  const last = await visibleBox(rows(page).last());
   await start(page, rows(page).first());
   await over(page, rows(page).last(), 'after');
   await expect(rows(page).last()).toHaveAttribute('data-drop-edge', 'after');
-  expect(await rows(page).first().boundingBox()).toEqual(first);
-  expect(await rows(page).last().boundingBox()).toEqual(last);
+  expect(await visibleBox(rows(page).first())).toEqual(first);
+  expect(await visibleBox(rows(page).last())).toEqual(last);
 
   await page.keyboard.press('Escape');
   await page.mouse.up();
@@ -161,7 +167,8 @@ test('both row halves and the tail show the exact insertion edge without moving 
   await page.mouse.up();
   await expect(titles(page)).toHaveText(['Third', 'First', 'Second']);
   await start(page, rows(page).first());
-  const end = (await rows(page).last().boundingBox())!;
+  const end = await visibleBox(rows(page).last());
+
   await page.mouse.move(end.x + 100, end.y + end.height + 6, { steps: 4 });
   await expect(rows(page).last()).toHaveAttribute('data-drop-edge', 'after');
   await page.mouse.up();
@@ -213,7 +220,8 @@ for (const scope of ['completed', 'trash']) {
     page,
   }) => {
     await seed(page);
-    const before = (await storedWorkspace(page)).tasks.find((task) => task.title === 'First')!;
+    const before = (await storedWorkspace(page)).tasks.find((task) => task.title === 'First');
+    invariant(before !== undefined, 'Missing before');
     await start(page, rows(page).first());
     const target = await sidebarOver(page, scope);
     await expect(page.locator('.task-drag-overlay')).toHaveText('First');
@@ -221,14 +229,17 @@ for (const scope of ['completed', 'trash']) {
       'aria-description',
       scope === 'trash' ? 'Drop to move to Trash' : 'Drop to complete',
     );
-    const targetBox = (await target.boundingBox())!;
-    const previewBox = (await page.locator('.task-drag-overlay').boundingBox())!;
+    const targetBox = await visibleBox(target);
+
+    const previewBox = await visibleBox(page.locator('.task-drag-overlay'));
+
     expect(previewBox.x).toBeGreaterThan(targetBox.x + targetBox.width / 2);
     expect(previewBox.y).toBeGreaterThan(targetBox.y + targetBox.height / 2);
 
     await page.mouse.up();
     await expect(titles(page)).toHaveText(['Second', 'Third']);
-    const changed = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id)!;
+    const changed = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
+    invariant(changed !== undefined, 'Missing changed');
     expect(changed.title).toBe(before.title);
     expect(changed.notes).toBe(before.notes);
     expect(changed.listId).toBe(before.listId);
@@ -294,7 +305,8 @@ test('same list, unsupported smart lists and canceled destructive drops are harm
   const before = await storedWorkspace(page);
   await start(page, rows(page).first());
   const inbox = page.locator('[data-task-drop="list:inbox"]');
-  const box = (await inbox.boundingBox())!;
+  const box = await visibleBox(inbox);
+
   await page.mouse.move(box.x + 80, box.y + 18, { steps: 4 });
   await expect(inbox).not.toHaveAttribute('data-drop-active');
   await expect(page.locator('.task-drag-destination')).toHaveCount(0);
@@ -322,7 +334,8 @@ test('sidebar actions remain available when manual reordering is disabled by sor
   await expect(titles(page)).toHaveText(['last']);
   await start(page, rows(page).first());
   const unsupported = page.locator('.smart-lists>button').nth(1);
-  const box = (await unsupported.boundingBox())!;
+  const box = await visibleBox(unsupported);
+
   await page.mouse.move(box.x + 80, box.y + box.height / 2, { steps: 4 });
   await expect(page.locator('.task-drag-destination')).toHaveCount(0);
   await page.mouse.up();
@@ -349,10 +362,12 @@ test('pinned tasks retain their boundary and filtered orders preserve hidden tas
   await page.mouse.up();
   await expect(titles(page)).toHaveText(['pinned', 'last', 'first']);
   const data = await storedWorkspace(page);
-  const { order: afterOrder, ...after } = data.tasks.find((t) => t.id === fixtureId('hidden'))!;
-  const { order: beforeOrder, ...original } = before.tasks.find(
-    (t) => t.id === fixtureId('hidden'),
-  )!;
+  const afterTask = data.tasks.find((t) => t.id === fixtureId('hidden'));
+  invariant(afterTask !== undefined, 'Missing hidden task after moving');
+  const { order: afterOrder, ...after } = afterTask;
+  const beforeTask = before.tasks.find((t) => t.id === fixtureId('hidden'));
+  invariant(beforeTask !== undefined, 'Missing hidden task before moving');
+  const { order: beforeOrder, ...original } = beforeTask;
   expect(after).toEqual(original);
 });
 
@@ -366,7 +381,8 @@ test('long list auto-scroll reaches the tail while the source stays mounted', as
   const source = page.locator(`.task-row[data-task-id="${sourceId}"]`);
   await start(page, source);
   const scroll = page.locator('.task-scroll');
-  const box = (await scroll.boundingBox())!;
+  const box = await visibleBox(scroll);
+
   await page.mouse.move(box.x + 130, box.y + box.height - 8, { steps: 5 });
   await expect
     .poll(() => scroll.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop), {
@@ -388,7 +404,8 @@ test('touch long-press reorders on a narrow screen and touch cancellation does n
   await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
 
   async function begin() {
-    const box = (await rows(page).first().locator('.task-content').boundingBox())!;
+    const box = await visibleBox(rows(page).first().locator('.task-content'));
+
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x: box.x + 60, y: box.y + box.height / 2 }],
@@ -396,7 +413,8 @@ test('touch long-press reorders on a narrow screen and touch cancellation does n
     await page.waitForTimeout(280);
   }
 
-  const box = (await rows(page).last().boundingBox())!;
+  const box = await visibleBox(rows(page).last());
+
   const point = { x: box.x + 100, y: box.y + box.height - 4 };
   await begin();
   await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
@@ -437,11 +455,11 @@ for (const language of ['ko', 'en']) {
       for (const width of [1440, 900]) {
         await page.setViewportSize({ width, height: 800 });
         await expect(rows(page)).toHaveCount(2);
-        const before = await rows(page).last().boundingBox();
+        const before = await visibleBox(rows(page).last());
         await start(page, rows(page).first());
         await over(page, rows(page).last(), 'after');
         await expect(rows(page).last()).toHaveAttribute('data-drop-edge', 'after');
-        expect(await rows(page).last().boundingBox()).toEqual(before);
+        expect(await visibleBox(rows(page).last())).toEqual(before);
         const line = await rows(page)
           .last()
           .evaluate((el) => {
@@ -461,9 +479,9 @@ for (const language of ['ko', 'en']) {
         expect(line.lineColor).not.toBe('rgba(0, 0, 0, 0)');
 
         const target = page.locator(`[data-task-drop="list:${fixtureId('destination')}"]`);
-        const box = await target.boundingBox();
+        const box = await visibleBox(target);
         await sidebarOver(page, `list:${fixtureId('destination')}`);
-        expect(await target.boundingBox()).toEqual(box);
+        expect(await visibleBox(target)).toEqual(box);
         await expect(page.locator('.task-drag-overlay')).toHaveText('Task to drag');
         const cue = await target.evaluate((el) => ({
           shadow: getComputedStyle(el).boxShadow,
