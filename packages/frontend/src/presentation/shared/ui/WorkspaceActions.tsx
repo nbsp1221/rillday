@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode, RefObject } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import {
   ContextMenu,
@@ -117,12 +117,10 @@ export function WorkspaceActions({
 export function WorkspaceContextActions({
   label,
   items,
-  anchor,
   children,
 }: {
   label: string;
   items: WorkspaceAction[];
-  anchor: RefObject<HTMLElement | null>;
   children: ReactElement;
 }) {
   return (
@@ -132,7 +130,6 @@ export function WorkspaceContextActions({
         className="rillday-action-menu w-[min(224px,calc(100vw-16px))] bg-popover"
         data-rillday-menu
         aria-label={label}
-        finalFocus={anchor}
         onClick={(event) => event.stopPropagation()}
       >
         {items.map((item) => (

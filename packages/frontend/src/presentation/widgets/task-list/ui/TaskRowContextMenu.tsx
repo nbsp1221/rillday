@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react';
-import { type ReactElement, type RefObject, useState } from 'react';
+import { type ReactElement, useState } from 'react';
 import type { Task } from '#application';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
@@ -24,12 +24,10 @@ interface TaskRowMovement {
 
 export function TaskRowContextMenu({
   task,
-  anchor,
   reorder,
   children,
 }: {
   task: Task;
-  anchor: RefObject<HTMLDivElement | null>;
   reorder?: TaskRowMovement;
   children: ReactElement;
 }) {
@@ -115,11 +113,7 @@ export function TaskRowContextMenu({
 
   return (
     <>
-      <WorkspaceContextActions
-        label={t('tasks.namedMenu', { v0: task.title })}
-        items={items}
-        anchor={anchor}
-      >
+      <WorkspaceContextActions label={t('tasks.namedMenu', { v0: task.title })} items={items}>
         {children}
       </WorkspaceContextActions>
       {confirmDelete && (

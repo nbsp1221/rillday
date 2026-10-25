@@ -168,7 +168,6 @@ export function TaskRow({
     <>
       <TaskRowContextMenu
         task={task}
-        anchor={rowRef}
         reorder={reorder ? { position, count: peers.length, move: moveBy } : undefined}
       >
         <div
