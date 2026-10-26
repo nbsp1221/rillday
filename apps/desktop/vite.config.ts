@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
 
 const { version } = JSON.parse(
-  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 ) as { version: string };
 export default defineConfig({
   define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(version) },

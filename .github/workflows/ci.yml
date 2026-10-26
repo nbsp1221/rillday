@@ -31,6 +31,8 @@ jobs:
           git diff --exit-code -- apps/web/public apps/desktop/public apps/demo/public apps/landing/public
       - run: pnpm check
       - run: pnpm test
+      - uses: dtolnay/rust-toolchain@stable
+      - run: pnpm release:check
 
   browser:
     needs: checks

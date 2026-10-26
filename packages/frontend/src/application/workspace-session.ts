@@ -256,7 +256,7 @@ export class WorkspaceSession implements WorkspacePort {
     const habit = this.state.data.habits.find((candidate) => candidate.id === habitId);
     if (
       !habit ||
-      !canEditHabitLog(habit, date, this.state.data.habitLogs) ||
+      !canEditHabitLog(habit, date, this.state.data.habitLogs, this.context.now()) ||
       (patch.value !== undefined && !Number.isFinite(patch.value))
     ) {
       return;
@@ -279,7 +279,7 @@ export class WorkspaceSession implements WorkspacePort {
 
   changeHabitCheckin = (habitId: string, date: string, action: HabitCheckinAction) => {
     const habit = this.state.data.habits.find((candidate) => candidate.id === habitId);
-    if (!habit || !canEditHabitLog(habit, date, this.state.data.habitLogs)) {
+    if (!habit || !canEditHabitLog(habit, date, this.state.data.habitLogs, this.context.now())) {
       return;
     }
     const rule = habitAt(habit, date);
@@ -318,7 +318,7 @@ export class WorkspaceSession implements WorkspacePort {
     const habit = this.state.data.habits.find((candidate) => candidate.id === habitId);
     if (
       !habit ||
-      !canEditHabitLog(habit, date, this.state.data.habitLogs) ||
+      !canEditHabitLog(habit, date, this.state.data.habitLogs, this.context.now()) ||
       !habitScheduled(habit, date)
     ) {
       return null;

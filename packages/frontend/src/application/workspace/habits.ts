@@ -55,12 +55,17 @@ function progressSource(habit: Habit): HabitProgressSource {
   };
 }
 
-export function canEditHabitLog(habit: Habit, date: string, logs: HabitLog[]): boolean {
+export function canEditHabitLog(
+  habit: Habit,
+  date: string,
+  logs: HabitLog[],
+  now: string,
+): boolean {
   return (
     checkInRestriction(
       progressSource(habit),
       date,
-      habitToday(habit),
+      habitToday(habit, now),
       Boolean(habitLogFor(logs, habit.id, date)),
     ) === null
   );

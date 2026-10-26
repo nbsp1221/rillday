@@ -46,7 +46,7 @@ The local sites use ports 4174 and 4175 respectively. Build each with `pnpm --fi
 
 Both sites use Workers Static Assets without a Worker script, database or hosted account service. Their `wrangler.jsonc` files declare the separate custom domains. Run `pnpm --filter @repo/landing exec wrangler deploy --dry-run` and the equivalent demo command to validate packaging locally. Publishing requires an explicit deployment action and Cloudflare access; a build or dry run does not publish a site.
 
-For automatic deployment, connect this repository through Cloudflare Workers Builds. Use the repository root as the root directory, select `main` as the production branch and disable preview builds. The root `package.json` pins the package manager and runtime. Let Cloudflare create and store the build token during setup; GitHub Actions does not need a Cloudflare secret.
+For automatic deployment, connect this repository through Cloudflare Workers Builds. Use the repository root as the root directory and select `main` as the production branch. Enable preview builds to review pull requests at separate URLs without updating the production sites. The root `package.json` pins the package manager and runtime. Let Cloudflare create and store the build token during setup; GitHub Actions does not need a Cloudflare secret.
 
 For the demo Worker, use this build command:
 
@@ -54,7 +54,7 @@ For the demo Worker, use this build command:
 pnpm --filter @repo/demo build
 ```
 
-Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy`. For the landing Worker, replace `@repo/demo` with `@repo/landing` in both commands. Workers Builds deploys after the site builds successfully; GitHub CI runs tests independently, and product releases use their separate workflow.
+Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy` and its preview command to `pnpm --filter @repo/demo exec wrangler preview`. Use the same build command for production and previews. For the landing Worker, replace `@repo/demo` with `@repo/landing` in all three commands. The Wrangler files enable `workers.dev` Preview URLs while keeping the production `workers.dev` endpoint disabled. Their empty `previews` blocks enable static-asset previews without production routes or server bindings. Workers Builds deploys after the site builds successfully; GitHub CI runs tests independently, and product releases use their separate workflow.
 
 Cloudflare Web Analytics measures visits and page-load performance on the public landing and demo sites. Their content security policies permit the official beacon script and same-origin telemetry endpoint. Demo workspace documents remain in browser storage; analytics does not connect the workspace to a synchronization server.
 
@@ -71,9 +71,30 @@ node apps/server/tests/container/smoke.mjs rillday:local
 
 The container check uses a temporary loopback registry, a separate Compose project, synthetic accounts and an isolated volume. It exercises installation, image replacement, online backup, restore and password recovery. It removes its containers and volumes and retains results under `apps/server/.cache/tests/`. Image replacement verifies persistence across container recreation; it does not establish compatibility with future database schema changes.
 
-Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose and version-pinned environment example with `SHA256SUMS`.
+Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose, version-pinned environment example, checksums and release description.
 
-Set the root package version before pushing a matching `vMAJOR.MINOR.PATCH` tag. The release workflow runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+### Versioning
+
+Rillday uses one product version for the web, desktop and server applications. Changesets keeps their package manifests in a fixed group; each application reads its own version. Internal libraries, the landing page and the demo do not have separate product releases. The demo identifies its source by Git commit.
+
+For a user-visible change, run `pnpm changeset`, select the affected applications, choose the version impact and describe the change for users. A patch fixes compatible behavior; a minor release adds functionality. During 0.x development, incompatible changes increase the minor version and must explain any required update steps. From 1.0, incompatible changes increase the major version. Documentation, tests and tooling changes that do not affect the product do not need a changeset.
+
+The Version workflow maintains a pull request containing the next application versions and changelogs. Review and merge that pull request before creating the product tag. It does not publish npm packages, Git tags or releases. If GitHub asks for approval to run CI on the automated pull request, approve those checks before merging.
+
+To prepare the same changes locally, install the native version tool and run:
+
+```sh
+cargo install cargo-edit --version 0.13.14 --locked --no-default-features --features set-version
+pnpm changeset:version
+```
+
+The version command delegates JavaScript manifests and changelogs to Changesets and the native manifest and lockfile to cargo-edit. Do not edit version files independently. `pnpm release:check` validates the application versions, and `pnpm release:notes` prints the current version's changelog entries grouped by application.
+
+### Publication
+
+After the version pull request passes CI and is merged, update the local main branch and push a matching `vMAJOR.MINOR.PATCH` tag using maintainer credentials. The release workflow checks the tag against all three application versions, runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release uses the generated application changelogs and contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+
+A platform-specific correction still produces a product patch release. Supported downloads are built and verified together. Publishing a release does not force installed clients or self-hosted servers to update, and matching version numbers do not replace synchronization compatibility checks. Published versions and their artifacts are not replaced; corrections receive a new version.
 
 If draft preparation fails after creating the GitHub draft, delete the incomplete draft while keeping its Git tag, then rerun the failed job.
 
