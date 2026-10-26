@@ -505,6 +505,11 @@ test('quantity check-in owns step and unskip semantics while preserving the note
 });
 
 test('future and unscheduled check-ins leave history and logs unchanged', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime('2026-10-30T12:00:00.000Z');
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
   const habit = {
     ...createHabitDraft('checks'),
     name: 'Monday review',
@@ -517,8 +522,11 @@ test('future and unscheduled check-ins leave history and logs unchanged', async 
   onTestFinished(() => session.close());
   session.apply({ type: 'habit.save', habit, weekStartsOn: 0 });
   const unchanged = session.getSnapshot();
-  expect(session.toggleHabit(habit.id, '2026-10-23')).toBeNull();
-  expect(session.toggleHabit(habit.id, '2026-10-26')).toBeNull();
+  for (const date of ['2026-10-23', '2026-10-26']) {
+    expect(session.toggleHabit(habit.id, date)).toBeNull();
+    session.setHabitLog(habit.id, date, { value: 1 });
+    session.changeHabitCheckin(habit.id, date, { type: 'note', text: 'Unavailable' });
+  }
   await session.flush();
   expect(session.getSnapshot().data.habitLogs).toEqual([]);
   expect(session.getSnapshot().data).toEqual(unchanged.data);
