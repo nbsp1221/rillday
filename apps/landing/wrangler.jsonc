@@ -5,4 +5,5 @@
   "workers_dev": false,
   "routes": [{ "pattern": "rillday.retn0.dev", "custom_domain": true }],
   "assets": { "directory": "./dist" },
+  "previews": {},
 }

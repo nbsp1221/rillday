@@ -64,6 +64,7 @@
       "outputs": ["dist/**"]
     },
     "@repo/demo#build": {
+      "cache": false,
       "dependsOn": ["^build", "^transit"],
       "inputs": [
         "$TURBO_DEFAULT$",

@@ -46,7 +46,7 @@ The local sites use ports 4174 and 4175 respectively. Build each with `pnpm --fi
 
 Both sites use Workers Static Assets without a Worker script, database or hosted account service. Their `wrangler.jsonc` files declare the separate custom domains. Run `pnpm --filter @repo/landing exec wrangler deploy --dry-run` and the equivalent demo command to validate packaging locally. Publishing requires an explicit deployment action and Cloudflare access; a build or dry run does not publish a site.
 
-For automatic deployment, connect this repository through Cloudflare Workers Builds. Use the repository root as the root directory, select `main` as the production branch and disable preview builds. The root `package.json` pins the package manager and runtime. Let Cloudflare create and store the build token during setup; GitHub Actions does not need a Cloudflare secret.
+For automatic deployment, connect this repository through Cloudflare Workers Builds. Use the repository root as the root directory and select `main` as the production branch. Enable preview builds to review pull requests at separate URLs without updating the production sites. The root `package.json` pins the package manager and runtime. Let Cloudflare create and store the build token during setup; GitHub Actions does not need a Cloudflare secret.
 
 For the demo Worker, use this build command:
 
@@ -54,7 +54,7 @@ For the demo Worker, use this build command:
 pnpm --filter @repo/demo build
 ```
 
-Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy`. For the landing Worker, replace `@repo/demo` with `@repo/landing` in both commands. Workers Builds deploys after the site builds successfully; GitHub CI runs tests independently, and product releases use their separate workflow.
+Set its deploy command to `pnpm --filter @repo/demo exec wrangler deploy` and its preview command to `pnpm --filter @repo/demo exec wrangler preview`. Use the same build command for production and previews. For the landing Worker, replace `@repo/demo` with `@repo/landing` in all three commands. The empty `previews` blocks in the Wrangler files enable static-asset previews without production routes or server bindings. Workers Builds deploys after the site builds successfully; GitHub CI runs tests independently, and product releases use their separate workflow.
 
 Cloudflare Web Analytics measures visits and page-load performance on the public landing and demo sites. Their content security policies permit the official beacon script and same-origin telemetry endpoint. Demo workspace documents remain in browser storage; analytics does not connect the workspace to a synchronization server.
 
