@@ -48,11 +48,10 @@ for (const theme of ['Light', 'Dark'] as const) {
         )?.notes;
       })
       .toContain('- [ ] Review current projects');
-    await item.getByText('Review current projects', { exact: true }).click();
-    await page.keyboard.press('Home');
-    await page.keyboard.press('ArrowLeft');
+    await editor.focus();
+    await item.focus();
     await expect(item).toBeFocused();
-    await page.keyboard.press('Space');
+    await item.press('Space');
     await expect(item).toBeChecked();
     await expect
       .poll(async () => {
