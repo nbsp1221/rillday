@@ -38,8 +38,20 @@ jobs:
         if: steps.mode.outputs.mode == 'version'
         run: cargo install cargo-edit --version 0.13.14 --locked --no-default-features --features set-version
       - uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        id: version
         if: steps.mode.outputs.mode == 'version'
         with:
           script: pnpm changeset:version
-          commit-message: '🔖 Version Rillday'
-          pr-title: '🔖 Version Rillday'
+          commit-message: '🔖 Version Packages'
+          pr-title: '🔖 Version Packages'
+      - name: Describe release preparation
+        if: steps.version.outputs.pr-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.version.outputs.pr-number }}
+        run: |
+          gh pr view "$PR_NUMBER" --json body --jq \
+            '.body | sub("^[^\n]+"; "This PR prepares package versions and changelogs. After merging, push the matching version tag to prepare a draft release. Review the draft, then publish it.")' \
+            > "$RUNNER_TEMP/version-pr-body.md"
+          gh pr edit "$PR_NUMBER" --body-file "$RUNNER_TEMP/version-pr-body.md"
