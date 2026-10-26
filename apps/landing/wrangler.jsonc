@@ -3,6 +3,7 @@
   "name": "rillday",
   "compatibility_date": "2026-10-23",
   "workers_dev": false,
+  "preview_urls": true,
   "routes": [{ "pattern": "rillday.retn0.dev", "custom_domain": true }],
   "assets": { "directory": "./dist" },
   "previews": {},
