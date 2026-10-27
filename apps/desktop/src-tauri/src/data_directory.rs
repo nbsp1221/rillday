@@ -48,7 +48,10 @@ impl DataDirectory {
         };
         let path = match fs::read_to_string(&location_file) {
             Ok(value) => {
-                let value = value.trim();
+                let value = value
+                    .strip_suffix("\r\n")
+                    .or_else(|| value.strip_suffix('\n'))
+                    .unwrap_or(&value);
                 if value.is_empty() {
                     return Err(io::Error::other("The data directory setting is empty"));
                 }
@@ -230,6 +233,45 @@ mod tests {
             fs::write(executable.join(LOCATION), setting).unwrap();
             assert!(DataDirectory::load_from(executable, configuration, data.clone()).is_err());
             assert!(!data.exists());
+        }
+    }
+
+    #[test]
+    fn selected_folder_name_whitespace_round_trips_after_restart() {
+        for ending in ["\n", "\r\n"] {
+            let (_root, executable, configuration, data) = fixture();
+            let selected = executable.join(" selected");
+            fs::create_dir(&selected).unwrap();
+            let directory =
+                DataDirectory::load_from(executable.clone(), configuration.clone(), data.clone())
+                    .unwrap();
+            directory.select(&selected).unwrap();
+            assert_eq!(
+                fs::read_to_string(&directory.location_file).unwrap(),
+                " selected\n"
+            );
+            fs::write(&directory.location_file, format!(" selected{ending}")).unwrap();
+            let reopened = DataDirectory::load_from(executable, configuration, data).unwrap();
+            assert_eq!(reopened.path, dunce::canonicalize(selected).unwrap());
+        }
+    }
+
+    #[test]
+    fn selected_folder_name_whitespace_does_not_open_trimmed_sibling() {
+        for ending in ["\n", "\r\n"] {
+            let (_root, executable, configuration, data) = fixture();
+            let selected = executable.join(" selected");
+            let sibling = executable.join("selected");
+            fs::create_dir(&selected).unwrap();
+            fs::create_dir(&sibling).unwrap();
+            fs::write(sibling.join(MARKER), SIGNATURE).unwrap();
+            let directory =
+                DataDirectory::load_from(executable.clone(), configuration.clone(), data.clone())
+                    .unwrap();
+            directory.select(&selected).unwrap();
+            fs::write(&directory.location_file, format!(" selected{ending}")).unwrap();
+            let reopened = DataDirectory::load_from(executable, configuration, data).unwrap();
+            assert_eq!(reopened.path, dunce::canonicalize(selected).unwrap());
         }
     }
 

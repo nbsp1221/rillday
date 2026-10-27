@@ -147,7 +147,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
 
     const moved = resolve(fixture, 'moved');
     await cp(unpacked, moved, { recursive: true, errorOnExist: true, force: false });
-    const selected = resolve(fixture, '선택한 자료');
+    const selected = resolve(moved, ' 선택한 자료');
     await cp(resolve(unpacked, 'data'), selected, {
       recursive: true,
       errorOnExist: true,
@@ -244,9 +244,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
       path: testInfo.outputPath('data-folder-korean.png'),
       animations: 'disabled',
     });
-    expect((await readFile(resolve(moved, 'rillday-data-directory'), 'utf8')).trim()).toBe(
-      selected,
-    );
+    expect(await readFile(resolve(moved, 'rillday-data-directory'), 'utf8')).toBe(' 선택한 자료\n');
     await writeFile(
       testInfo.outputPath('native.json'),
       JSON.stringify(
