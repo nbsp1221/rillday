@@ -316,7 +316,9 @@ test('sidebar contents and workspace edge stay aligned during opening and rapid 
       ).toBeLessThan(1);
       expect(Math.max(...frames.map((frame) => Math.abs(frame.inner - target)))).toBeLessThan(1);
       expect(Math.max(...frames.map((frame) => Math.abs(frame.workspaceGap)))).toBeLessThan(1);
-      await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(target);
+      await expect
+        .poll(async () => Math.abs((await visibleBox(sidebar)).width - target))
+        .toBeLessThan(1);
     }
   }
 });

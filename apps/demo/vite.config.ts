@@ -1,15 +1,14 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import wasm from 'vite-plugin-wasm';
-import { z } from 'zod';
 
-const metadata: unknown = JSON.parse(
-  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
-);
-const { version } = z.object({ version: z.string() }).parse(metadata);
+const version = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+  encoding: 'utf8',
+}).trim();
 const policy = readFileSync(new URL('./public/_headers', import.meta.url), 'utf8').match(
   /^ {2}Content-Security-Policy: (.+)$/m,
 )?.[1];

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [["@repo/web", "@repo/desktop", "@repo/server"]],
+  "linked": [],
+  "access": "restricted",
+  "baseBranch": "main",
+  "privatePackages": { "version": true, "tag": false },
+  "ignore": [
+    "@repo/demo",
+    "@repo/landing",
+    "@repo/domain",
+    "@repo/frontend",
+    "@repo/test-support",
+    "@repo/typescript-config",
+    "@repo/ui"
+  ]
+}

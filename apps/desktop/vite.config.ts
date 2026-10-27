@@ -6,7 +6,7 @@ import wasm from 'vite-plugin-wasm';
 import { z } from 'zod';
 
 const metadata: unknown = JSON.parse(
-  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 );
 const { version } = z.object({ version: z.string() }).parse(metadata);
 export default defineConfig({
