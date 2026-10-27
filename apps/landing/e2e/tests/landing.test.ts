@@ -113,6 +113,10 @@ test('theme, native FAQ keyboard interaction and all primary destinations work',
     'href',
     'https://github.com/nbsp1221/rillday/blob/main/docs/self-hosting.md',
   );
+  await expect(page.getByRole('link', { name: 'Portable ZIP', exact: true })).toHaveAttribute(
+    'href',
+    'https://github.com/nbsp1221/rillday/releases/latest/download/Rillday_windows_x64_portable.zip',
+  );
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
     'https://rillday.retn0.dev/',

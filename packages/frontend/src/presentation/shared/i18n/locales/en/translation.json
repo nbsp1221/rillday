@@ -1,4 +1,12 @@
 {
+  "dataDirectory.title": "Data folder",
+  "dataDirectory.current": "Current data folder",
+  "dataDirectory.description": "Choose an empty folder or open an existing Rillday data folder. Close Rillday before copying or moving its data folder.",
+  "dataDirectory.choose": "Choose folder…",
+  "dataDirectory.confirm": "Use this data folder?",
+  "dataDirectory.confirmDescription": "Rillday will save and restart using the selected folder. Existing data stays in the current folder and is not moved or merged. An empty folder starts a new local workspace.",
+  "dataDirectory.restart": "Save and restart",
+  "dataDirectory.failed": "Could not use this folder. Choose an empty, writable folder or an existing Rillday data folder. Your current data is preserved.",
   "calendar.view": "Calendar view",
   "calendar.displayOptions": "Calendar display options",
   "navigation.previousPeriod": "Previous period",

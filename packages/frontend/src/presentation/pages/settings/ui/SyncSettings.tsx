@@ -4,6 +4,7 @@ import { Input } from '@repo/ui/components/input';
 import { Cloud, LogOut, RefreshCw, UserRound } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort, WorkspacePort, WorkspaceProfile } from '#application';
+import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useI18n } from '#shared/i18n';
 import { syncError } from '../../../shared/lib/operation-errors';
 import { preventComposition } from '../model/sync-forms';
@@ -15,10 +16,12 @@ export function SyncSettings({
   connection,
   workspace,
   account,
+  runtime,
 }: {
   connection: ConnectionPort;
   workspace: WorkspacePort;
   account: WorkspaceProfile;
+  runtime: HostRuntime;
 }) {
   const { t } = useI18n();
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
@@ -241,7 +244,7 @@ export function SyncSettings({
           )}
           <div className="settings-actions [.settings-card_&]:mt-4 flex flex-wrap gap-2 [.sync-settings_&]:flex-wrap">
             <Button
-              variant={state.runtime === 'desktop' ? 'default' : 'outline'}
+              variant={runtime === 'desktop' ? 'default' : 'outline'}
               disabled={state.busy}
               onClick={() =>
                 void run(async () => {
@@ -256,7 +259,7 @@ export function SyncSettings({
               {t('connection.keepAndDisconnect')}
             </Button>
             <Button
-              variant={state.runtime === 'desktop' ? 'outline' : 'destructive'}
+              variant={runtime === 'desktop' ? 'outline' : 'destructive'}
               disabled={state.busy || sync.pending > 0}
               onClick={() =>
                 void run(async () => {
@@ -265,7 +268,7 @@ export function SyncSettings({
                 }, t('connection.disconnectedRemoved'))
               }
               className={
-                state.runtime === 'desktop'
+                runtime === 'desktop'
                   ? 'h-(--control-height) border-danger-text bg-transparent text-danger-text hover:bg-danger-surface'
                   : 'h-(--control-height) bg-button-destructive text-destructive-foreground hover:bg-button-destructive-hover'
               }

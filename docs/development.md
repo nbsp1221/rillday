@@ -71,7 +71,13 @@ node apps/server/tests/container/smoke.mjs rillday:local
 
 The container check uses a temporary loopback registry, a separate Compose project, synthetic accounts and an isolated volume. It exercises installation, image replacement, online backup, restore and password recovery. It removes its containers and volumes and retains results under `apps/server/.cache/tests/`. Image replacement verifies persistence across container recreation; it does not establish compatibility with future database schema changes.
 
-Windows builds produce an NSIS installer. Run `apps/desktop/tests/installer.ps1` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation and reinstallation there. `scripts/prepare-release.mjs INSTALLER OUTPUT_DIRECTORY` prepares the installer, Compose, version-pinned environment example, checksums and release description.
+Windows builds produce one application binary and an NSIS installer. `scripts/prepare-release.mjs INSTALLER EXECUTABLE OUTPUT_DIRECTORY` packages the same binary as a portable ZIP and prepares both downloads, Compose, a version-pinned environment example, checksums and release notes. ZIP creation uses fflate; Tauri owns the application data paths through `appDirectoriesOverride`.
+
+The build uses Tauri's `--no-binary-patching` option so both downloads contain the identical executable. Rillday does not use Tauri's updater plugin; per-installer-format updater metadata is unnecessary.
+
+Run `apps/desktop/tests/installer.ps1 -Installer INSTALLER -Portable ZIP -OutputDirectory OUTPUT` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation, reinstallation, and binary equality between installed and portable applications.
+
+On a signed-in Windows desktop with Python 3 and WebView2, set `RILLDAY_PORTABLE_ZIP` to the prepared archive and run `pnpm --filter @repo/desktop test:native`. This local test uses a separate Win32 desktop and synthetic data without switching user input. It verifies offline persistence, folder relocation, rejected selections and native restart; screenshots and results remain in `apps/desktop/.cache/tests/native-results/`.
 
 ### Versioning
 
@@ -92,7 +98,7 @@ The version command delegates JavaScript manifests and changelogs to Changesets 
 
 ### Publication
 
-After the version pull request passes CI and is merged, update the local main branch and push a matching `vMAJOR.MINOR.PATCH` tag using maintainer credentials. The release workflow checks the tag against all three application versions, runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release uses the generated application changelogs and contains the installer, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
+After the version pull request passes CI and is merged, update the local main branch and push a matching `vMAJOR.MINOR.PATCH` tag using maintainer credentials. The release workflow checks the tag against all three application versions, runs complete CI, uses Docker's official reusable builder to build the AMD64/ARM64 candidate image, then tests that image on both architectures by digest. The draft GitHub release uses the generated application changelogs and contains the Windows installer and portable ZIP, Compose files, checksums and `image-digest.txt`, a single-line record of the tested image. Candidate tags do not update the regular version or `latest` image tags; candidates can be visible when the GHCR package is public.
 
 A platform-specific correction still produces a product patch release. Supported downloads are built and verified together. Publishing a release does not force installed clients or self-hosted servers to update, and matching version numbers do not replace synchronization compatibility checks. Published versions and their artifacts are not replaced; corrections receive a new version.
 

@@ -20,7 +20,6 @@ const application = createApplication({
   transport: createFetchServerTransport(),
   storage: createIndexedDbStorage({ demo }),
   coordination: { withWorkspaceLock },
-  runtime: 'web',
   credentials: createBrowserCredentialSession(),
   demo,
 });

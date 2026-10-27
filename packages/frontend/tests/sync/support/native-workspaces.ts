@@ -42,7 +42,6 @@ export function application(token: string, { reset = true } = {}) {
     transport: createFetchServerTransport(),
     storage,
     coordination: { withWorkspaceLock },
-    runtime: 'web',
     credentials,
   });
   onTestFinished(() => app.dispose());

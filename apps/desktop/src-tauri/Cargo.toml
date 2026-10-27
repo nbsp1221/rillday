@@ -11,3 +11,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 keyring = "=4.2.0"
+dirs = "7"
+dunce = "1"
+tempfile = "3"
+rfd = "0.17"

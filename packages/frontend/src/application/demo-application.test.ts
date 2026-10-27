@@ -72,7 +72,6 @@ test('reset uses the regular archive flow and leaves the normal browser workspac
     transport: createFetchServerTransport(),
     storage: normalStorage,
     coordination: { withWorkspaceLock },
-    runtime: 'web',
     credentials: {
       restore: () => Promise.resolve(null),
       remember: () => Promise.resolve(),

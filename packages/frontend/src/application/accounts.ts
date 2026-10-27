@@ -55,7 +55,6 @@ export interface AccountCoordinatorOptions {
   seedGuest?: () => Workspace;
   credentials: CredentialSession;
   transport: ServerTransport;
-  runtime?: 'web' | 'desktop';
 }
 
 interface PendingConnection {
@@ -111,7 +110,6 @@ export class AccountCoordinator implements AccountHostPort {
     this.repository = repository;
     this.runtime = runtime;
     this.options = options;
-    this.connection.runtime = options.runtime ?? 'web';
     this.connectionPort = {
       registerDrafts: (read) => {
         this.readDrafts = read;

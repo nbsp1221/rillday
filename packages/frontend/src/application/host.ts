@@ -1,4 +1,8 @@
-export type HostRuntime = 'web' | 'desktop';
+export interface DataDirectoryPort {
+  current(): Promise<string>;
+  choose(title: string): Promise<string | null>;
+  activate(path: string): Promise<void>;
+}
 
 export interface CredentialAccount {
   url: string;

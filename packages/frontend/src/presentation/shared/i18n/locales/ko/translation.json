@@ -1,4 +1,12 @@
 {
+  "dataDirectory.title": "자료 폴더",
+  "dataDirectory.current": "현재 자료 폴더",
+  "dataDirectory.description": "빈 폴더를 선택하거나 기존 Rillday 자료 폴더를 열 수 있어요. 자료 폴더를 복사하거나 옮기기 전에는 Rillday를 종료해 주세요.",
+  "dataDirectory.choose": "폴더 선택…",
+  "dataDirectory.confirm": "이 자료 폴더를 사용할까요?",
+  "dataDirectory.confirmDescription": "저장 후 선택한 폴더로 다시 시작해요. 기존 자료는 현재 폴더에 남으며 이동하거나 합치지 않아요. 빈 폴더를 선택하면 새 로컬 작업 공간으로 시작해요.",
+  "dataDirectory.restart": "저장 후 다시 시작",
+  "dataDirectory.failed": "이 폴더를 사용할 수 없어요. 쓰기 가능한 빈 폴더나 기존 Rillday 자료 폴더를 선택해 주세요. 현재 자료는 유지돼요.",
   "calendar.view": "캘린더 보기",
   "calendar.displayOptions": "캘린더 표시 옵션",
   "navigation.previousPeriod": "이전 기간",

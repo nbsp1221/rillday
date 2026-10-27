@@ -35,6 +35,8 @@ The dotted edge is a network connection, not a source dependency. Frontend integ
 
 `@repo/frontend/application` exposes the application factory, capability contracts and product actions/read models without React, DOM or concrete storage imports. `@repo/frontend` exposes `RilldayApplication`, which receives that application. Hosts explicitly select `@repo/frontend/storage/indexeddb` and their credential adapter.
 
+Host identity is presentation configuration, passed from each app through React props. It does not belong to application dependencies or connection state. Native capabilities use injected ports; a host without a capability omits it instead of supplying a no-op implementation.
+
 The domain is organized by product concept: `task-management/{tasks,completion,scheduling,lists,labels}`, `habit-tracking/{habits,rules,check-ins}`, `matrix`, and whole-collection rules in `workspace`. Its public API names business actions such as `completeTask` and `recordCheckIn`. It has no generic command, transaction, receipt or delivery model.
 
 An application action applies those rules to a typed workspace. The repository accepts the whole action synchronously and reports durable completion separately. Read models preserve unchanged record identity; React observes them through `useSyncExternalStore`. Forms own unsubmitted drafts. Views do not read storage keys, native handles or network frames.

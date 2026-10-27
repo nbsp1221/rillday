@@ -59,7 +59,6 @@ export interface ConnectionState {
   users: ServerUser[];
   review?: ConnectionReview | null;
   backups?: ConnectionBackup[];
-  runtime?: 'web' | 'desktop';
 }
 
 export interface ConnectionPort {
