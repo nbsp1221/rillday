@@ -130,7 +130,6 @@ test('a late durable source edit is recoverable after restart without modifying 
     storage: reopenedStorage,
     coordination: { withWorkspaceLock },
     credentials,
-    runtime: 'web',
   });
   onTestFinished(() => reopened.dispose());
   await reopened.initialize();

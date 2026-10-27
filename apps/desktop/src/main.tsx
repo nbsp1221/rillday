@@ -6,6 +6,7 @@ import '@repo/ui/styles/fonts/desktop.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { desktopCredentials } from './credentials';
+import { desktopDataDirectory } from './data-directory';
 import { useDesktopCloseGuard } from './use-desktop-close-guard';
 
 function DesktopLifecycle({ application, reportError }: HostLifecycleProps) {
@@ -22,7 +23,6 @@ const application = createApplication({
   transport: createFetchServerTransport(),
   storage: createIndexedDbStorage({ demo }),
   coordination: { withWorkspaceLock },
-  runtime: 'desktop',
   credentials: desktopCredentials,
   demo,
 });
@@ -33,6 +33,7 @@ createRoot(root).render(
       runtime="desktop"
       version={import.meta.env.VITE_APP_VERSION}
       Lifecycle={DesktopLifecycle}
+      dataDirectory={desktopDataDirectory(application)}
     />
   </StrictMode>,
 );

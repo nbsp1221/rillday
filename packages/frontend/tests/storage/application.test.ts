@@ -27,7 +27,6 @@ const test = base.extend('host', ({}, { onCleanup }) => {
         transport: createFetchServerTransport(),
         storage,
         coordination: { withWorkspaceLock },
-        runtime: 'web',
         credentials: createBrowserCredentialSession(),
       });
       resources.defer(() => application.dispose());

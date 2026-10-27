@@ -1,6 +1,6 @@
 import type { AccountRepository } from './account-repository.ts';
 import type { WorkspaceCoordination } from './coordination.ts';
-import type { CredentialSession, HostRuntime } from './host.ts';
+import type { CredentialSession } from './host.ts';
 import type { AppPreferences } from './preferences.ts';
 import type { ClientRuntime } from './runtime.ts';
 import type { ServerTransport } from './server-transport.ts';
@@ -25,7 +25,6 @@ export interface ApplicationStorage {
 export interface ApplicationDependencies {
   storage: ApplicationStorage;
   coordination: WorkspaceCoordination;
-  runtime: HostRuntime;
   credentials: CredentialSession;
   transport: ServerTransport;
   demo?: boolean;
@@ -46,7 +45,6 @@ export function createApplication(dependencies: ApplicationDependencies): Applic
     documents: storage.documents,
   };
   const coordinator = new AccountCoordinator(storage.accounts, runtime, {
-    runtime: dependencies.runtime,
     credentials: dependencies.credentials,
     transport: dependencies.transport,
     ...(dependencies.demo ? { seedGuest: createDemoWorkspace } : {}),

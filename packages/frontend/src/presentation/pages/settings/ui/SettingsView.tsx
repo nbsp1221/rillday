@@ -22,11 +22,18 @@ import {
   Upload,
 } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
-import type { ConnectionPort, HostRuntime, WorkspacePort, WorkspaceProfile } from '#application';
+import type {
+  ConnectionPort,
+  DataDirectoryPort,
+  WorkspacePort,
+  WorkspaceProfile,
+} from '#application';
+import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useAppPreferences } from '#entities/preferences';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceChoice, type WorkspaceChoiceProps } from '#shared/ui/WorkspaceChoice';
 import { WorkspaceHeader } from '../../../shared/ui/WorkspaceHeader';
+import { DataDirectorySettings } from './DataDirectorySettings';
 import { SyncSettings } from './SyncSettings';
 
 function SettingsRow({
@@ -95,6 +102,7 @@ interface SettingsViewProps {
   close: () => void;
   runtime: HostRuntime;
   version: string;
+  dataDirectory?: DataDirectoryPort;
 }
 
 function GeneralSettings() {
@@ -312,9 +320,10 @@ function DataSettings({
   renameProfile,
   exportData,
   importData,
+  dataDirectory,
 }: Pick<
   SettingsViewProps,
-  'account' | 'profileName' | 'renameProfile' | 'exportData' | 'importData'
+  'account' | 'profileName' | 'renameProfile' | 'exportData' | 'importData' | 'dataDirectory'
 >) {
   const { t } = useI18n();
 
@@ -336,6 +345,7 @@ function DataSettings({
           className={'h-(--control-height) border-control-border bg-card px-[9px] py-[7px] text-sm'}
         />
       </SettingsRow>
+      {dataDirectory && <DataDirectorySettings directory={dataDirectory} />}
       <div className="settings-card p-(--layout-card-inset) rounded-lg bg-surface-inset [&_>_h3]:[margin:0_0_8px] [&_>_h3]:text-base [&_>_h3]:font-medium [&_>_h3]:leading-(--text-base--line-height) [&_>_p:not(.settings-description)]:m-0 [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [.settings-card_+_&]:mt-(--layout-section-gap) [.settings-row_+_&]:mt-(--layout-section-gap) [.sync-settings_&]:m-0">
         <h3>{t('backup.title')}</h3>
         <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
@@ -417,6 +427,7 @@ export function SettingsView({
   close,
   runtime,
   version,
+  dataDirectory,
 }: SettingsViewProps) {
   const { t } = useI18n();
   const { preferenceSaveState, retryPreferences } = useAppPreferences();
@@ -525,6 +536,7 @@ export function SettingsView({
             connection={connection}
             workspace={workspace}
             account={account}
+            runtime={runtime}
           />
         )}
         {section === 'general' && <GeneralSettings />}
@@ -538,6 +550,7 @@ export function SettingsView({
             renameProfile={renameProfile}
             exportData={exportData}
             importData={importData}
+            dataDirectory={dataDirectory}
           />
         )}
         {section === 'shortcuts' && <ShortcutSettings />}

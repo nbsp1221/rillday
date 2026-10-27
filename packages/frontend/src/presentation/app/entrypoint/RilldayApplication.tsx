@@ -1,6 +1,7 @@
 import { Button } from '@repo/ui/components/button';
 import { type ComponentType, type ReactNode, useMemo, useSyncExternalStore } from 'react';
-import type { Application, HostRuntime } from '#application';
+import type { Application, DataDirectoryPort } from '#application';
+import type { HostRuntime } from '#shared/lib/host-runtime';
 import { PreferencesProvider } from '../../entities/preferences';
 import { createTranslations } from '../../shared/i18n';
 import { useConnectionFocus } from '../model/use-connection-focus';
@@ -12,11 +13,13 @@ function ConnectedApp({
   runtime,
   version,
   navigationFooter,
+  dataDirectory,
 }: {
   application: Application;
   runtime: HostRuntime;
   version: string;
   navigationFooter?: ReactNode;
+  dataDirectory?: DataDirectoryPort;
 }) {
   const state = useSyncExternalStore(application.subscribe, application.getSnapshot);
   return (
@@ -30,6 +33,7 @@ function ConnectedApp({
       runtime={runtime}
       version={version}
       navigationFooter={navigationFooter}
+      dataDirectory={dataDirectory}
       renameAccount={application.renameAccount}
     />
   );
@@ -47,6 +51,7 @@ export function RilldayApplication({
   Lifecycle,
   children,
   navigationFooter,
+  dataDirectory,
 }: {
   runtime: HostRuntime;
   version: string;
@@ -54,6 +59,7 @@ export function RilldayApplication({
   Lifecycle?: ComponentType<HostLifecycleProps>;
   children?: (application: Application) => ReactNode;
   navigationFooter?: ReactNode;
+  dataDirectory?: DataDirectoryPort;
 }) {
   const { ready, error, language, reportError, persistPreferences } =
     useApplicationStartup(application);
@@ -100,6 +106,7 @@ export function RilldayApplication({
           runtime={runtime}
           version={version}
           navigationFooter={navigationFooter}
+          dataDirectory={dataDirectory}
         />
         {children?.(ready.application)}
       </PreferencesProvider>

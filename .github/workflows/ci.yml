@@ -103,6 +103,7 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: .
         run: pnpm build:desktop
+      - run: cargo test --locked -j 2
       - name: Prepare Windows release files
         if: runner.os == 'Windows'
         working-directory: .
@@ -110,12 +111,18 @@ jobs:
         run: |
           $installers = @(Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected one Windows installer' }
-          node scripts/prepare-release.mjs $installers[0].FullName release
+          node scripts/prepare-release.mjs $installers[0].FullName apps/desktop/src-tauri/target/release/rillday-desktop.exe release
       - name: Verify Windows installation and reinstallation
         if: runner.os == 'Windows'
         working-directory: .
         shell: pwsh
-        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -OutputDirectory apps/desktop/.cache/tests/installer
+        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -Portable release/Rillday_windows_x64_portable.zip -OutputDirectory apps/desktop/.cache/tests/installer
+      - uses: actions/upload-artifact@v5
+        if: failure() && runner.os == 'Windows'
+        with:
+          name: windows-test-results
+          path: apps/desktop/.cache/tests/installer/result.json
+          retention-days: 7
       - uses: actions/upload-artifact@v5
         if: runner.os == 'Windows'
         with:
