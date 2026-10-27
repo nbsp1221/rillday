@@ -68,6 +68,27 @@ def checked(value):
     return value
 
 
+def check_test_binary(executable):
+    version = c.WinDLL("version", use_last_error=True)
+    version.GetFileVersionInfoSizeW.argtypes = [w.LPCWSTR, c.POINTER(w.DWORD)]
+    version.GetFileVersionInfoW.argtypes = [w.LPCWSTR, w.DWORD, w.DWORD, c.c_void_p]
+    version.VerQueryValueW.argtypes = [c.c_void_p, w.LPCWSTR, c.POINTER(c.c_void_p), c.POINTER(w.UINT)]
+    unused = w.DWORD()
+    size = checked(version.GetFileVersionInfoSizeW(str(executable), c.byref(unused)))
+    data = c.create_string_buffer(size)
+    checked(version.GetFileVersionInfoW(str(executable), 0, size, data))
+    pointer = c.c_void_p()
+    length = w.UINT()
+    checked(version.VerQueryValueW(data, "\\VarFileInfo\\Translation", c.byref(pointer), c.byref(length)))
+    translations = c.cast(pointer, c.POINTER(c.c_ushort))
+    for index in range(0, length.value // 2, 2):
+        key = f"\\StringFileInfo\\{translations[index]:04x}{translations[index + 1]:04x}\\ProductName"
+        if version.VerQueryValueW(data, key, c.byref(pointer), c.byref(length)):
+            if c.wstring_at(pointer) == "Rillday Test":
+                return
+    raise RuntimeError("Native verification requires a Rillday Test executable")
+
+
 def input_desktop():
     handle = checked(u.OpenInputDesktop(0, False, 1))
     try:
@@ -118,14 +139,15 @@ try:
         assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
         terminate_owned(request["pid"], exe)
     elif request["action"] == "start":
+        root = Path(__file__).resolve().parents[2] / ".cache" / "tests" / "native"
+        exe = Path(request["exe"]).resolve()
+        assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
+        check_test_binary(exe)
         existing = u.OpenDesktopW(name, 0, False, 0xC7)
         if existing:
             u.CloseDesktop(existing)
             raise RuntimeError("Preserve an existing desktop")
         desktop = checked(u.CreateDesktopW(name, None, None, 0, 0xC7, None))
-        root = Path(__file__).resolve().parents[2] / ".cache" / "tests" / "native"
-        exe = Path(request["exe"]).resolve()
-        assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
         env = dict(os.environ)
         env.update(request["env"])
         block = c.create_unicode_buffer("\0".join(f"{key}={value}" for key, value in sorted(env.items(), key=lambda pair: pair[0].upper())) + "\0\0")
@@ -196,6 +218,8 @@ try:
                         checked(u.SendMessageW(edits[0], 0x0C, 0, c.addressof(value)))
                         u.SendMessageW(buttons[0], 0xF5, 0, 0)
                     if request["action"] == "close":
+                        checked(u.PostMessageW(hwnd, 0x10, 0, 0))
+                    if request["action"] == "cancel" and title.value == "Choose folder…":
                         checked(u.PostMessageW(hwnd, 0x10, 0, 0))
                 return True
 

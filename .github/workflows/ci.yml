@@ -116,7 +116,7 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: .
         shell: pwsh
-        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -Portable release/Rillday_windows_x64_portable.zip -OutputDirectory apps/desktop/.cache/tests/installer
+        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -Archive release/Rillday_windows_x64.zip -OutputDirectory apps/desktop/.cache/tests/installer
       - uses: actions/upload-artifact@v5
         if: failure() && runner.os == 'Windows'
         with:

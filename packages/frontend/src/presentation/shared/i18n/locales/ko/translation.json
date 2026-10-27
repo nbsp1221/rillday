@@ -1,4 +1,8 @@
 {
+  "dataDirectory.setupTitle": "자료를 보관할 위치를 선택하세요",
+  "dataDirectory.setupDescription": "할 일과 습관은 이 기기에 저장돼요. 기본 위치를 사용하거나 빈 폴더 또는 기존 Rillday 자료 폴더를 선택하세요.",
+  "dataDirectory.setupOpen": "Rillday 시작하기",
+  "dataDirectory.setupNote": "위치는 나중에 설정에서 변경할 수 있어요. 폴더를 열어도 기존 자료를 옮기거나 합치지 않아요.",
   "dataDirectory.title": "자료 폴더",
   "dataDirectory.current": "현재 자료 폴더",
   "dataDirectory.description": "빈 폴더를 선택하거나 기존 Rillday 자료 폴더를 열 수 있어요. 자료 폴더를 복사하거나 옮기기 전에는 Rillday를 종료해 주세요.",

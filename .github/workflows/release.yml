@@ -110,7 +110,7 @@ jobs:
         run: |
           gh release create "$TAG" --verify-tag --draft --notes-file release/release-notes.md \
             release/Rillday_windows_x64_setup.exe \
-            release/Rillday_windows_x64_portable.zip \
+            release/Rillday_windows_x64.zip \
             release/compose.yaml release/example.env release/SHA256SUMS \
             release/image-digest.txt
 
