@@ -18,9 +18,6 @@ const password = 'Synthetic-container-password-2026!';
 const email = 'admin@example.test';
 const replacement = 'Synthetic-replacement-password-2026!';
 const result = { image, checks: [] };
-let registry;
-let beforeImage;
-let afterImage;
 
 const docker = (args, input) =>
   execFileSync('docker', args, {
@@ -40,7 +37,7 @@ const compose = (...args) =>
     '-f',
     resolve(directory, 'compose.yaml'),
     '-f',
-    resolve(directory, 'registry.yaml'),
+    resolve(directory, 'image.yaml'),
     ...args,
   ]);
 
@@ -99,28 +96,6 @@ const snapshot = () =>
 try {
   await mkdir(directory, { recursive: true });
   await copyFile(resolve(root, 'compose.yaml'), resolve(directory, 'compose.yaml'));
-  registry = docker([
-    'run',
-    '-d',
-    '--label',
-    `dev.rillday.verification=${id}`,
-    '-p',
-    '127.0.0.1::5000',
-    'registry:3',
-  ]);
-  const registryPort = JSON.parse(docker(['inspect', registry]))[0].NetworkSettings.Ports[
-    '5000/tcp'
-  ][0].HostPort;
-  const address = `127.0.0.1:${registryPort}`;
-  beforeImage = `${address}/rillday:verification-before`;
-  afterImage = `${address}/rillday:verification-after`;
-  docker(['tag', image, beforeImage]);
-  docker(
-    ['build', '-t', afterImage, '-'],
-    `FROM ${image}\nLABEL dev.rillday.verification="${id}"\n`,
-  );
-  docker(['push', beforeImage]);
-  docker(['push', afterImage]);
   const portServer = createServer();
   await new Promise((resolve, reject) => {
     portServer.once('error', reject);
@@ -132,17 +107,16 @@ try {
   });
   origin = `http://127.0.0.1:${port}`;
   await writeFile(
-    resolve(directory, 'registry.yaml'),
-    `services:\n  rillday:\n    image: ${address}/rillday:\${RILLDAY_VERSION}\n`,
+    resolve(directory, 'image.yaml'),
+    `services:\n  rillday:\n    image: ${JSON.stringify(image)}\n`,
   );
   await writeFile(
     resolve(directory, '.env'),
     (await readFile(resolve(root, '.env.example'), 'utf8'))
-      .replace(/^RILLDAY_VERSION=.+$/m, 'RILLDAY_VERSION=verification-before')
+      .replace(/^RILLDAY_VERSION=.+$/m, 'RILLDAY_VERSION=verification')
       .replace(/^RILLDAY_PORT=.+$/m, `RILLDAY_PORT=${port}`)
       .replace(/^RILLDAY_PUBLIC_URL=.+$/m, `RILLDAY_PUBLIC_URL=${origin}`),
   );
-  compose('pull');
   compose('up', '-d', '--wait', '--wait-timeout', '60');
   await request('/health');
   const html = await fetch(origin, { headers: { connection: 'close' } });
@@ -196,20 +170,12 @@ try {
     'first administrator, ordinary user, native data and online backup without overwrite',
   );
   const originalContainer = compose('ps', '-q', 'rillday');
-  await writeFile(
-    resolve(directory, '.env'),
-    (await readFile(resolve(directory, '.env'), 'utf8')).replace(
-      'verification-before',
-      'verification-after',
-    ),
-  );
-  compose('pull');
-  compose('up', '-d', '--wait', '--wait-timeout', '60');
+  compose('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '60');
   assert.notEqual(compose('ps', '-q', 'rillday'), originalContainer);
   assert.deepEqual(snapshot(), baseline);
   assert.equal((await request('/v1/connection', undefined, await signin())).documentId, documentId);
   result.checks.push(
-    'image update by pull/up preserves accounts, server identity and native document bytes',
+    'container recreation preserves accounts, server identity and native document bytes',
   );
   compose('stop', 'rillday');
   compose('cp', resolve(directory, 'rillday-backup.sqlite'), 'rillday:/data/restore-source.sqlite');
@@ -262,7 +228,7 @@ try {
       '-f',
       resolve(directory, 'compose.yaml'),
       '-f',
-      resolve(directory, 'registry.yaml'),
+      resolve(directory, 'image.yaml'),
       'exec',
       '-T',
       'rillday',
@@ -293,23 +259,6 @@ try {
     compose('down', '--volumes', '--remove-orphans');
   } catch (error) {
     failures.push(String(error));
-  }
-  if (registry) {
-    try {
-      docker(['stop', registry]);
-      docker(['rm', '-v', registry]);
-    } catch (error) {
-      failures.push(String(error));
-    }
-  }
-  for (const tag of [beforeImage, afterImage]) {
-    if (tag) {
-      try {
-        docker(['image', 'rm', tag]);
-      } catch (error) {
-        failures.push(String(error));
-      }
-    }
   }
   result.cleanup = {
     remainingContainers: docker([

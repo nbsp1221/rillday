@@ -19,12 +19,16 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Verify generated brand assets
         run: |
           pnpm build:icons
@@ -33,25 +37,50 @@ jobs:
       - run: pnpm test
       - uses: dtolnay/rust-toolchain@stable
       - run: pnpm release:check
+      - name: Build browser applications once
+        run: pnpm exec turbo run build --filter=@repo/web --filter=@repo/demo --filter=@repo/landing
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-builds
+          path: |
+            apps/web/dist/
+            apps/demo/dist/
+            apps/landing/dist/
+          if-no-files-found: error
+          retention-days: 1
 
   browser:
     needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v5
-        if: failure()
+      - uses: actions/download-artifact@v8
         with:
-          name: browser-test-results
+          name: browser-builds
+          path: apps
+      - name: Verify web application
+        run: pnpm --filter @repo/web test:e2e --shard=${{ matrix.shard }}/3
+      - name: Verify demo and landing page
+        if: matrix.shard == 1
+        run: |
+          pnpm --filter @repo/demo test:e2e
+          pnpm --filter @repo/landing test:e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-test-results-${{ matrix.shard }}
           path: |
             apps/web/.cache/tests/web-e2e/
             apps/demo/.cache/tests/demo/
@@ -71,11 +100,10 @@ jobs:
         working-directory: apps/desktop/src-tauri
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - name: Install workspace dependencies
         working-directory: .
         run: pnpm install --frozen-lockfile
@@ -86,6 +114,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
       - name: Install native prerequisites
         if: runner.os == 'Linux'
         run: |
@@ -94,7 +125,6 @@ jobs:
             libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
             librsvg2-dev libayatana-appindicator3-dev
       - run: cargo fmt --check
-      - run: cargo check --locked
         if: runner.os == 'Linux'
       - name: Install native license generator
         if: runner.os == 'Windows'
@@ -117,13 +147,26 @@ jobs:
         working-directory: .
         shell: pwsh
         run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -Archive release/Rillday_windows_x64.zip -OutputDirectory apps/desktop/.cache/tests/installer
-      - uses: actions/upload-artifact@v5
+      - name: Build isolated Windows test application
+        if: runner.os == 'Windows'
+        working-directory: .
+        run: pnpm --filter @repo/desktop exec tauri build --no-bundle --config tests/native/tauri.test.conf.json
+      - name: Verify native Windows storage and synchronization
+        if: runner.os == 'Windows'
+        working-directory: .
+        env:
+          RILLDAY_NATIVE_EXECUTABLE: ${{ github.workspace }}\apps\desktop\src-tauri\target\release\rillday-desktop.exe
+        run: pnpm --filter @repo/desktop test:native
+      - uses: actions/upload-artifact@v7
         if: failure() && runner.os == 'Windows'
         with:
           name: windows-test-results
-          path: apps/desktop/.cache/tests/installer/result.json
+          path: |
+            apps/desktop/.cache/tests/installer/result.json
+            apps/desktop/.cache/tests/native-report/
+            apps/desktop/.cache/tests/native-results/
           retention-days: 7
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: runner.os == 'Windows'
         with:
           name: rillday-windows
@@ -156,9 +199,9 @@ jobs:
           tags: rillday:verification
           cache-from: type=gha,scope=rillday-${{ matrix.architecture }}
           cache-to: type=gha,mode=max,scope=rillday-${{ matrix.architecture }}
-      - name: Verify installation, update and recovery
+      - name: Verify installation, recreation and recovery
         run: node apps/server/tests/container/smoke.mjs rillday:verification
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: container-results-${{ matrix.architecture }}

@@ -69,7 +69,7 @@ docker build -t rillday:local .
 node apps/server/tests/container/smoke.mjs rillday:local
 ```
 
-The container check uses a temporary loopback registry, a separate Compose project, synthetic accounts and an isolated volume. It exercises installation, image replacement, online backup, restore and password recovery. It removes its containers and volumes and retains results under `apps/server/.cache/tests/`. Image replacement verifies persistence across container recreation; it does not establish compatibility with future database schema changes.
+The container check uses the supplied image, a separate Compose project, synthetic accounts and an isolated volume. It exercises installation, container recreation, online backup, restore and password recovery. It removes its containers and volumes and retains results under `apps/server/.cache/tests/`. Recreation verifies persistence with the same application version; it does not establish compatibility between different release versions.
 
 Windows builds produce one application binary and an NSIS installer. `scripts/prepare-release.mjs INSTALLER EXECUTABLE OUTPUT_DIRECTORY` packages the same binary as a Windows ZIP and prepares both downloads, Compose, a version-pinned environment example, checksums and release notes. ZIP creation uses fflate; Tauri owns the application data paths through `appDirectoriesOverride`. Both downloads share an OS-standard default and the same first-run folder selection.
 
@@ -168,11 +168,15 @@ Run one owner with `pnpm --filter @repo/domain test` or `pnpm --filter @repo/fro
 
 `apps/web/playwright.config.ts` and `apps/web/e2e/` own browser cases and browser-only support. `packages/test-support` provides synthetic accounts, artifact cleanup and an injected server fixture; production modules never import it. The fixture accepts its consumer's server factory to avoid a dependency cycle.
 
-Turbo caches deterministic local suites using their dependency graph, test sources and semantic environment. Keep caches scoped to the same runtime and platform. Server, system synchronization and E2E checks always execute. `pnpm test:all` runs Vitest and Playwright suites.
+Turbo caches deterministic suites and builds using their dependency graph, sources and semantic environment; CI restores its task cache by platform and lockfile. Keep caches scoped to the same runtime and platform. Server, system synchronization and E2E checks always execute. `pnpm test:all` runs Vitest and Playwright suites.
 
 Cached web builds always write to `apps/web/dist`. For an isolated build, use Vite directly: `pnpm --filter @repo/web exec vite build --outDir <directory>`. Set `RILLDAY_TEST_WEB_DIR` to that directory when running browser tests; their preview server inherits it.
 
-CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Formatting, lint, types and the full Vitest suite run first; browser E2E and desktop checks start only after those pass. Desktop checks compile on Linux and build the Windows application through `build:desktop`, including its renderer and native license output. The `web` status requires checks, browser verification and both desktop jobs to succeed. Native build checks do not replace installation and OS-integration tests.
+CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Formatting, lint, types and the full Vitest suite run first. Browser applications are built once and shared across three Playwright shards, each with one worker. The first shard also runs demo and landing tests. The official Playwright container supplies matching browsers, fonts and system libraries; keep its version aligned with `@playwright/test`. Every browser case still runs; successful and failed web runs retain HTML and JUnit reports for seven days.
+
+Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
+
+Run one browser shard locally with `pnpm --filter @repo/web test:e2e --shard=1/3`, after building the web application. Run `pnpm test:e2e` for all browser suites. Visual reference images belong beside their test and are specific to the browser and operating system; update them with Playwright's `--update-snapshots` only after inspecting the rendered change.
 
 Server tests clean up their temporary databases. Set `RILLDAY_TEST_KEEP_ARTIFACTS=1` to retain them for debugging. `RILLDAY_TEST_OUTPUT` selects fixture artifacts; Vitest keeps its default cache location.
 
