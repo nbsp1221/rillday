@@ -10,6 +10,9 @@ export type { WorkspaceContents } from './workspace/workspace-contents.ts';
 
 export { currentRule, reviseHabitRules, scheduled } from './habit-tracking/rules/habit-rule.ts';
 export type { HabitRule } from './habit-tracking/rules/habit-rule.ts';
+export { weeklyHabitAmount } from './habit-tracking/progress/weekly-amount.ts';
+export type { WeeklyHabitAmount } from './habit-tracking/progress/weekly-amount.ts';
+export type { HabitTimeOfDay } from './habit-tracking/habits/habit.ts';
 export {
   completedCheckIn,
   dailyHabitProgress,
@@ -66,3 +69,5 @@ export {
 } from './habit-tracking/check-ins/recorded-quantity.ts';
 
 export { includeWorkspace } from './workspace/include-workspace.ts';
+
+export { habitCheckInAmountSchema } from './habit-tracking/check-ins/check-in.ts';

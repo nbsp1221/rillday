@@ -28,7 +28,6 @@ import {
   habitAt,
   habitDone,
   habitLogFor,
-  habitScheduled,
 } from './workspace/habits.ts';
 import { presentWorkspace } from './workspace/present-workspace.ts';
 
@@ -301,6 +300,9 @@ export class WorkspaceSession implements WorkspacePort {
         );
         return;
       case 'complete':
+        if (rule.frequency === 'weekly-total') {
+          return;
+        }
         this.setHabitLog(habitId, date, {
           value: habitDone(habit, log) ? 0 : (log?.goal ?? rule.goal),
           skipped: false,
@@ -316,11 +318,7 @@ export class WorkspaceSession implements WorkspacePort {
 
   toggleHabit = (habitId: string, date: string) => {
     const habit = this.state.data.habits.find((candidate) => candidate.id === habitId);
-    if (
-      !habit ||
-      !canEditHabitLog(habit, date, this.state.data.habitLogs, this.context.now()) ||
-      !habitScheduled(habit, date)
-    ) {
+    if (!habit || !canEditHabitLog(habit, date, this.state.data.habitLogs, this.context.now())) {
       return null;
     }
     const rule = habitAt(habit, date);

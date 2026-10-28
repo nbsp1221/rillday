@@ -80,6 +80,7 @@ export function presentWorkspace(
         name: habit.name,
         color: habit.color,
         icon: habit.icon,
+        ...(habit.timeOfDay ? { timeOfDay: habit.timeOfDay } : {}),
         archived: habit.archived,
         startDate: habit.startDate,
         createdAt: habit.createdAt,

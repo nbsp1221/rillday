@@ -9,4 +9,4 @@ export * from './habits.ts';
 export * from './labels.ts';
 export type * from './persistence.ts';
 export type * from './connection.ts';
-export { habitAmountSchema } from '@repo/domain';
+export { habitAmountSchema, habitCheckInAmountSchema } from '@repo/domain';

@@ -6,6 +6,7 @@ import {
   dailyHabitProgress,
   habitStatistics,
   scheduled,
+  weeklyHabitAmount,
 } from '@repo/domain';
 import { deviceZone, todayIn } from '../context.ts';
 import type { Habit, HabitLog } from './model.ts';
@@ -120,6 +121,15 @@ export function habitStats(
   weekStartsOn: 0 | 1 = 1,
 ) {
   return habitStatistics(progressSource(habit), logs, today, weekStartsOn);
+}
+
+export function habitWeekAmount(habit: Habit, logs: HabitLog[], date: string, weekStartsOn: 0 | 1) {
+  return weeklyHabitAmount(
+    progressSource(habit),
+    logs.filter((log) => log.date <= habitToday(habit)),
+    date,
+    weekStartsOn,
+  );
 }
 
 export type HabitCheckinAction =

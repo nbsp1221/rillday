@@ -23,6 +23,7 @@ export const habitSchema = z
     name: z.string().trim().min(1).max(120),
     color,
     icon: z.string().min(1).max(60),
+    timeOfDay: z.enum(['morning', 'afternoon', 'evening', 'anytime']).optional(),
     archived: z.boolean(),
     startDate: dateSchema,
     rules: z.array(habitRuleSchema).min(1).max(100),
@@ -33,6 +34,7 @@ export const habitSchema = z
   .refine(validHabitRuleHistory);
 
 export type HabitData = z.infer<typeof habitSchema>;
+export type HabitTimeOfDay = NonNullable<HabitData['timeOfDay']>;
 
 export interface Habit extends HabitData {
   id: string;
