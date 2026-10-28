@@ -13,6 +13,43 @@ async function openSync(page: Page) {
   await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
 }
 
+for (const failures of [1, 2]) {
+  test(
+    'a failed automatic server check waits for explicit retry after ' + failures + ' failures',
+    async ({ page }) => {
+      const server = await fixture({ label: 'setup-retry-', webDir });
+      let checks = 0;
+      try {
+        await page.route(server.origin + '/v1/server', (route) => {
+          checks++;
+          return checks <= failures
+            ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
+            : route.continue();
+        });
+        await page.goto(server.origin);
+        await openSync(page);
+        const alert = page.locator('.sync-error');
+        const retry = page.getByRole('button', { name: 'Check connection', exact: true });
+        for (let attempt = 1; attempt <= failures; attempt++) {
+          await expect(alert).toHaveText(
+            'The server could not process the request. Try syncing again shortly.',
+          );
+          await expect(page.getByLabel('Server URL', { exact: true })).toHaveValue(server.origin);
+          await expect(retry).toBeEnabled();
+          expect(checks).toBe(attempt);
+          await retry.click();
+        }
+        await expect(page.locator('.sync-login-form')).toBeVisible();
+        await expect(page.locator('.sync-server-summary')).toContainText(server.origin);
+        await expect(alert).toHaveCount(0);
+        expect(checks).toBe(failures + 1);
+      } finally {
+        await server.dispose();
+      }
+    },
+  );
+}
+
 test('first setup validates accessible email and password fields before sending credentials', async ({
   page,
 }) => {

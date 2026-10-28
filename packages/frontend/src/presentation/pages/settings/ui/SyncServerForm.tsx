@@ -2,7 +2,7 @@ import { Button } from '@repo/ui/components/button';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@repo/ui/components/field';
 import { Input } from '@repo/ui/components/input';
 import { LoaderCircle } from 'lucide-react';
-import { useCallback, useEffect, useId, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort } from '#application';
 import { useI18n } from '#shared/i18n';
 import { type SyncActionRunner, preventComposition, validateForm } from '../model/sync-forms';
@@ -25,18 +25,29 @@ export function SyncServerForm({
   const [url, setUrl] = useState(state.serverUrl || suggestedServerUrl || '');
   const [editing, setEditing] = useState(!(state.serverUrl || suggestedServerUrl));
   const [error, setError] = useState('');
+  const checkingRef = useRef(false);
   const check = useCallback(
-    (target: string) =>
-      run(async () => {
-        try {
-          await connection.checkServer(target);
-          setUrl(connection.getSnapshot().serverUrl);
-          setEditing(false);
-        } catch (failure) {
-          setEditing(true);
-          throw failure;
-        }
-      }),
+    async (target: string) => {
+      if (checkingRef.current) {
+        return;
+      }
+      // The coordinator becomes idle before the UI's failure handling completes.
+      checkingRef.current = true;
+      try {
+        await run(async () => {
+          try {
+            await connection.checkServer(target);
+            setUrl(connection.getSnapshot().serverUrl);
+            setEditing(false);
+          } catch (failure) {
+            setEditing(true);
+            throw failure;
+          }
+        });
+      } finally {
+        checkingRef.current = false;
+      }
+    },
     [connection, run],
   );
 
