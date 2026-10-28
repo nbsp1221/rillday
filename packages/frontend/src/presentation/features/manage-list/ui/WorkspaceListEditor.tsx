@@ -1,4 +1,3 @@
-import { Field as FormField } from '@base-ui/react/field';
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import { type FormEvent, useState } from 'react';
@@ -7,6 +6,7 @@ import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceColorField } from '#shared/ui/WorkspaceColorField';
 import { WorkspaceDialog } from '#shared/ui/WorkspaceDialog';
+import { WorkspaceField as FormField } from '#shared/ui/WorkspaceField';
 
 export function WorkspaceListEditor({
   list,
@@ -93,7 +93,7 @@ export function WorkspaceListEditor({
       }
     >
       <div className="form-stack flex flex-col gap-(--layout-form-gap) [&_p]:m-0 [&_p]:text-sm [&_p]:leading-(--text-sm--line-height) [&_p]:text-muted-foreground">
-        <FormField.Root className={'form-field flex min-w-0 flex-col gap-(--layout-field-gap)'}>
+        <FormField.Root>
           <FormField.Label className="w-fit text-sm text-muted-foreground">
             {t('lists.name')}
           </FormField.Label>

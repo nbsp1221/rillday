@@ -1,3 +1,4 @@
+import { Form } from '@base-ui/react/form';
 import { Button } from '@repo/ui/components/button';
 import {
   Collapsible,
@@ -9,7 +10,7 @@ import { ChevronDown, ShieldCheck } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort, WorkspaceProfile } from '#application';
 import { useI18n } from '#shared/i18n';
-import { type SyncActionRunner, preventComposition, validateForm } from '../model/sync-forms';
+import { type SyncActionRunner, preventComposition } from '../model/sync-forms';
 import { AccountFields, PasswordField } from './AccountFields';
 
 export function SyncUserAdministration({
@@ -27,6 +28,7 @@ export function SyncUserAdministration({
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [formRevision, setFormRevision] = useState(0);
 
   if (!active || account.server?.role !== 'admin') {
     return null;
@@ -94,20 +96,18 @@ export function SyncUserAdministration({
           <ChevronDown className="size-4 transition-transform group-aria-expanded:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-6">
-          <form
+          <Form
+            key={formRevision}
             className="flex flex-col gap-6"
             aria-label={t('auth.addUser')}
-            noValidate
             onKeyDown={preventComposition}
             onSubmit={(event) => {
               event.preventDefault();
-              if (!validateForm(event.currentTarget)) {
-                return;
-              }
               void run(async () => {
                 await connection.createUser({ email: newEmail, password: newPassword });
                 setNewEmail('');
                 setNewPassword('');
+                setFormRevision((revision) => revision + 1);
               }, t('auth.userCreated'));
             }}
           >
@@ -129,7 +129,7 @@ export function SyncUserAdministration({
             >
               {t('auth.createAccount')}
             </Button>
-          </form>
+          </Form>
         </CollapsibleContent>
       </Collapsible>
     </section>
@@ -149,6 +149,7 @@ export function SyncPasswordForm({
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
   const [currentPassword, setCurrentPassword] = useState('');
   const [replacementPassword, setReplacementPassword] = useState('');
+  const [formRevision, setFormRevision] = useState(0);
   if (!active) {
     return null;
   }
@@ -162,20 +163,18 @@ export function SyncPasswordForm({
         <ChevronDown className="size-4 transition-transform group-aria-expanded:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-6">
-        <form
+        <Form
+          key={formRevision}
           className="flex flex-col gap-6"
           aria-label={t('auth.changePassword')}
-          noValidate
           onKeyDown={preventComposition}
           onSubmit={(event) => {
             event.preventDefault();
-            if (!validateForm(event.currentTarget)) {
-              return;
-            }
             void run(async () => {
               await connection.changePassword(currentPassword, replacementPassword);
               setCurrentPassword('');
               setReplacementPassword('');
+              setFormRevision((revision) => revision + 1);
             }, t('auth.passwordChanged'));
           }}
         >
@@ -202,7 +201,7 @@ export function SyncPasswordForm({
           >
             {t('auth.changePassword')}
           </Button>
-        </form>
+        </Form>
       </CollapsibleContent>
     </Collapsible>
   );
