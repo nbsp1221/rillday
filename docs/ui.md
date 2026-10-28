@@ -46,6 +46,8 @@ Habit ideas and direct creation use the same editor. Its appearance picker combi
 
 Weekly quantity targets accumulate actual amounts across the selected calendar week, independently of weekly targets measured in distinct successful days. Their progress and streaks measure weeks, not completed days. Goal changes take effect at a week boundary; historical amounts retain their recorded units. Entries with a different unit are identified and excluded from the current target rather than converted.
 
+The habit week header and rows share one column definition. Row menus occupy a fixed final slot independently of quick-add buttons. Today's date has a filled primary badge and `aria-current="date"`; progress meters remain separate. Completed days use a paired-color checkmark, unlogged days an empty outline, recorded amounts a numeric tile, and unavailable days a dash. Each control owns its appearance through the shared Button and local presentation classes; screen containers must not override descendant button colors or opacity.
+
 ## Capture and task editing
 
 The capture composer keeps its date, priority and submit controls on a stable axis. React Aria Autocomplete owns label suggestion navigation, scrolling and accessibility while the product owns the caret's current token and task submission. Suggestions remain in a viewport-clamped shared popover and retain input focus. Home/End navigate an open suggestion list; Tab advances without accepting a suggestion. Textarea sizing uses native CSS. Manual property choices take precedence over inferred metadata. Escape closes suggestions first; Enter respects composition and any explicitly selected suggestion. Invalid content remains editable. Drafts belong to their current scope and workspace partition.

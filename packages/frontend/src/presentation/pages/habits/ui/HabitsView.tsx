@@ -1,4 +1,3 @@
-import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Button } from '@repo/ui/components/button';
 import { Toggle } from '@repo/ui/components/toggle';
 import { cn } from 'cn';
@@ -124,7 +123,7 @@ export function HabitsView() {
   const todayProgress = habitDayProgress(data.habits, data.habitLogs, today);
 
   return (
-    <section className="habits-view [--habit-inset:var(--layout-page-inset)] relative h-full min-h-0 flex min-w-0 bg-background text-foreground [&_button]:text-inherit [&_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-35 [&_button:focus-visible]:[outline:2px_solid_var(--ring)] [&_button:focus-visible]:outline-offset-2 [@media(max-width:_899px)]:[--habit-inset:var(--layout-page-inset-compact)]">
+    <section className="habits-view [--habit-inset:var(--layout-page-inset)] relative flex h-full min-h-0 min-w-0 bg-background text-foreground [@media(max-width:_899px)]:[--habit-inset:var(--layout-page-inset-compact)]">
       <div
         className="habits-main flex-1 min-w-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover [container-type:inline-size]"
         inert={narrow && Boolean(selected)}
@@ -142,14 +141,15 @@ export function HabitsView() {
           >
             <Archive className="size-4 inline-block shrink-0 align-middle" />
           </Toggle>
-          <ButtonPrimitive
+          <Button
+            variant="ghost"
             ref={addRef}
             onClick={() => setChoosingIdea(true)}
             className={'habits-add [.workspace-actions_>_&]:text-link'}
           >
             <Plus className="size-4 inline-block shrink-0 align-middle" />
             {t('habits.add')}
-          </ButtonPrimitive>
+          </Button>
         </WorkspaceHeader>
         <div className="habits-summary flex items-center justify-between my-(--layout-section-gap) mx-(--habit-inset) gap-6 [&_h2]:m-0 [&_h2]:font-semibold [&_h2]:text-xl [&_h2]:leading-(--text-xl--line-height) [&_p]:text-xs [&_p]:text-muted-foreground [&_p]:[margin:8px_0_0] [&_p]:leading-(--text-xs--line-height) [@media(max-width:_899px)]:gap-4 [@media(max-width:_380px)]:[&_h2]:text-lg [@media(max-width:_380px)]:[&_h2]:leading-(--text-lg--line-height)">
           <div>
@@ -175,7 +175,7 @@ export function HabitsView() {
             />
           )}
         </div>
-        <div className="habits-week-nav flex items-center gap-3 [margin:0_var(--habit-inset)_16px] justify-between text-muted-foreground text-sm leading-(--text-sm--line-height) [&_button]:w-8 [&_button]:h-8 [&_button]:p-0 [&_button]:border-0 [&_button]:rounded-sm [&_button]:bg-transparent [&_button]:grid [&_button]:place-items-center [&_button]:text-muted-foreground [&_button]:shrink-0 [&_button:hover]:bg-surface-hover [&_button:hover]:text-foreground [@media(max-width:_899px)]:gap-2 [@media(max-width:_380px)]:items-start [@media(max-width:_380px)]:flex-col [@media(max-width:_380px)]:gap-2">
+        <div className="habits-week-nav flex items-center justify-between gap-3 [margin:0_var(--habit-inset)_16px] text-sm text-muted-foreground [@media(max-width:_899px)]:gap-2 [@media(max-width:_380px)]:flex-col [@media(max-width:_380px)]:items-start">
           <span className="habit-week-range">
             {new TemporalIntl.DateTimeFormat(dateLocale, {
               year: 'numeric',
@@ -184,26 +184,32 @@ export function HabitsView() {
             }).formatRange(Temporal.PlainDate.from(dates[0]), Temporal.PlainDate.from(dates[6]))}
           </span>
           <div className="habit-week-controls flex items-center gap-1 shrink-0 [@media(max-width:_380px)]:self-end">
-            <ButtonPrimitive
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
               aria-label={t('dates.previousWeek')}
               onClick={() => setAnchor(addDays(anchor, -7))}
             >
               <ChevronLeft className="size-4 inline-block shrink-0 align-middle" />
-            </ButtonPrimitive>
-            <ButtonPrimitive
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setAnchor(today)}
-              className={
-                'habits-today [.habits-week-nav_&]:w-auto [.habits-week-nav_&]:py-1 [.habits-week-nav_&]:px-2 [.habits-week-nav_&]:whitespace-nowrap'
-              }
+              className="habits-today text-muted-foreground"
             >
               {t('dates.thisWeek')}
-            </ButtonPrimitive>
-            <ButtonPrimitive
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
               aria-label={t('dates.nextWeek')}
               onClick={() => setAnchor(addDays(anchor, 7))}
             >
               <ChevronRight className="size-4 inline-block shrink-0 align-middle" />
-            </ButtonPrimitive>
+            </Button>
           </div>
         </div>
         <HabitWeekTable

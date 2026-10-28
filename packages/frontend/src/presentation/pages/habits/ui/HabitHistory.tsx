@@ -1,4 +1,4 @@
-import { Button as ButtonPrimitive } from '@base-ui/react/button';
+import { Button } from '@repo/ui/components/button';
 import { cn } from 'cn';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Temporal } from 'temporal-polyfill/implementation';
@@ -45,14 +45,17 @@ export function HabitHistory({
 
   return (
     <div className="habit-history mt-6 [&_>_p]:text-xs [&_>_p]:text-muted-foreground [&_>_p]:mt-3 [&_>_p]:leading-(--text-xs--line-height)">
-      <div className="habit-history-heading [&_button]:w-8 [&_button]:h-8 [&_button]:p-0 [&_button]:border-0 [&_button]:rounded-sm [&_button]:bg-transparent [&_button]:grid [&_button]:place-items-center [&_button]:text-muted-foreground [&_button]:shrink-0 [&_button:hover]:bg-surface-hover [&_button:hover]:text-foreground flex gap-3 items-center mb-3 [&_h3]:text-sm [&_h3]:font-medium [&_h3]:m-0 [&_h3]:flex-1 [&_h3]:leading-(--text-sm--line-height)">
+      <div className="habit-history-heading mb-3 flex items-center gap-3 [&_h3]:m-0 [&_h3]:flex-1 [&_h3]:text-sm [&_h3]:font-medium">
         <h3>
           {month.toLocaleString(dateLocale, {
             year: 'numeric',
             month: 'long',
           })}
         </h3>
-        <ButtonPrimitive
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground"
           aria-label={t('dates.previousMonth')}
           disabled={Temporal.PlainYearMonth.compare(yearMonth, firstMonth) <= 0}
           onClick={() => {
@@ -60,8 +63,11 @@ export function HabitHistory({
           }}
         >
           <ChevronLeft className="size-3.5 inline-block shrink-0 align-middle" />
-        </ButtonPrimitive>
-        <ButtonPrimitive
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground"
           aria-label={t('dates.nextMonth')}
           disabled={Temporal.PlainYearMonth.compare(yearMonth, lastMonth) >= 0}
           onClick={() => {
@@ -69,9 +75,9 @@ export function HabitHistory({
           }}
         >
           <ChevronRight className="size-3.5 inline-block shrink-0 align-middle" />
-        </ButtonPrimitive>
+        </Button>
       </div>
-      <div className="habit-history-grid grid grid-cols-[repeat(7,_minmax(0,_1fr))] gap-1 text-center [&_>_span]:text-xs [&_>_span]:text-muted-foreground [&_>_span]:pb-2 [&_>_span]:leading-(--text-xs--line-height) [&_button]:border [&_button]:border-transparent [&_button]:rounded-full [&_button]:[aspect-ratio:1] [&_button]:w-full [&_button]:max-w-9 [&_button]:[justify-self:center] [&_button]:bg-transparent [&_button]:text-muted-foreground [&_button]:text-xs [&_button]:p-0 [&_button]:leading-(--text-xs--line-height) [&_button:hover:not(:disabled):not(.done)]:bg-surface-hover [&_button:hover:not(:disabled):not(.done)]:text-foreground">
+      <div className="habit-history-grid grid grid-cols-7 gap-1 text-center [&_>_span]:pb-2 [&_>_span]:text-xs [&_>_span]:text-muted-foreground">
         {weekdayOrder.map((day) => (
           <span key={day}>{dayNames[day]}</span>
         ))}
@@ -80,7 +86,9 @@ export function HabitHistory({
           const log = habitLogFor(data.habitLogs, habit.id, date);
 
           return (
-            <ButtonPrimitive
+            <Button
+              variant="ghost"
+              size="icon"
               key={date}
               disabled={date > today || date < start || (!habitScheduled(habit, date) && !log)}
               aria-pressed={date === logDate}
@@ -97,19 +105,12 @@ export function HabitHistory({
               title={`${formatDate(date)} ${log?.note || ''}`}
               onClick={() => onDateChange(date)}
               className={cn(
-                'relative',
-                !day.toPlainYearMonth().equals(yearMonth)
-                  ? 'outside [.habit-history-grid_button&:not(.done)]:text-muted-foreground'
-                  : '',
-                habitDone(habit, log)
-                  ? 'done [.habit-history-grid_button&]:bg-habit-color [.habit-history-grid_button&]:text-habit-on-color [.habit-history-grid_button&:hover:not(:disabled)]:bg-habit-color [.habit-history-grid_button&:hover:not(:disabled)]:text-habit-on-color [.habit-history-grid_button&:hover:not(:disabled)]:shadow-[inset_0_0_0_2px_color-mix(in_srgb,_var(--habit-on-color)_30%,_transparent)]'
-                  : '',
-                log?.skipped
-                  ? 'skipped [.habit-history-grid_button&]:bg-transparent [.habit-history-grid_button&]:border-separator'
-                  : '',
-                date === logDate
-                  ? 'selected [.habit-history-grid_button&]:[outline:1px_solid_var(--ring)] [.habit-history-grid_button&]:outline-offset-[1px] [.habit-weekday-select_button&]:border-link [.habit-weekday-select_button&]:[background:color-mix(in_srgb,_var(--primary)_20%,_transparent)] [.habit-weekday-select_button&]:text-link'
-                  : '',
+                'relative aspect-square w-full max-w-9 justify-self-center rounded-full border border-transparent p-0 text-xs text-muted-foreground',
+                !day.toPlainYearMonth().equals(yearMonth) && 'outside',
+                habitDone(habit, log) &&
+                  'done bg-habit-color text-habit-on-color hover:bg-habit-color hover:text-habit-on-color hover:shadow-[inset_0_0_0_2px_color-mix(in_srgb,_var(--habit-on-color)_30%,_transparent)] dark:hover:bg-habit-color',
+                log?.skipped && 'skipped border-separator bg-transparent',
+                date === logDate && 'selected outline outline-ring outline-offset-1',
               )}
             >
               {day.day}
@@ -121,7 +122,7 @@ export function HabitHistory({
                     className="habit-record-mark absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-habit-color"
                   />
                 )}
-            </ButtonPrimitive>
+            </Button>
           );
         })}
       </div>

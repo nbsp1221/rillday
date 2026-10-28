@@ -851,5 +851,6 @@
   "habits.ideaUnits.minutes": "분",
   "habits.ideaUnits.times": "회",
   "habits.ideaUnits.pages": "쪽",
-  "habits.ruleEffectiveOn": "예약된 목표와 일정은 {{date}}부터 적용돼요. 기존 기록은 유지돼요."
+  "habits.ruleEffectiveOn": "예약된 목표와 일정은 {{date}}부터 적용돼요. 기존 기록은 유지돼요.",
+  "habits.upcoming": "예정"
 }

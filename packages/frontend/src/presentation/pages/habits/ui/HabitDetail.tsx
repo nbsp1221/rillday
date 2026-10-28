@@ -1,5 +1,5 @@
-import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
+import { Button } from '@repo/ui/components/button';
 import { Sheet, SheetTitle } from '@repo/ui/components/sheet';
 import { cn } from 'cn';
 import { Archive, BarChart3, Check, Flame, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
@@ -129,13 +129,25 @@ export function HabitDetail({
         style={habitColors(habit.color)}
         aria-label={habit.name}
       >
-        <div className="habit-detail-toolbar flex justify-end gap-1 [padding:8px_12px_0] shrink-0 [&_button]:w-8 [&_button]:h-8 [&_button]:p-0 [&_button]:border-0 [&_button]:rounded-sm [&_button]:bg-transparent [&_button]:grid [&_button]:place-items-center [&_button]:text-muted-foreground [&_button]:shrink-0 [&_button:hover]:bg-surface-hover [&_button:hover]:text-foreground">
-          <ButtonPrimitive aria-label={t('habits.edit')} onClick={() => onEdit()}>
+        <div className="habit-detail-toolbar flex shrink-0 justify-end gap-1 px-3 pt-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label={t('habits.edit')}
+            onClick={() => onEdit()}
+          >
             <Pencil className="size-4 inline-block shrink-0 align-middle" />
-          </ButtonPrimitive>
-          <ButtonPrimitive aria-label={t('panels.closeDetails')} onClick={closeDetail}>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label={t('panels.closeDetails')}
+            onClick={closeDetail}
+          >
             <X className="size-4 inline-block shrink-0 align-middle" />
-          </ButtonPrimitive>
+          </Button>
         </div>
         <div className="habit-detail-body min-h-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover overscroll-contain [padding:12px_20px_20px]">
           <div className="habit-detail-title text-center [margin:0_0_16px] [&_h2]:text-base [&_h2]:font-medium [&_h2]:[margin:12px_0_8px] [&_h2]:wrap-anywhere [&_h2]:leading-(--text-base--line-height) [&_p]:text-xs [&_p]:text-muted-foreground [&_p]:m-0 [&_p]:leading-(--text-xs--line-height)">
@@ -156,7 +168,7 @@ export function HabitDetail({
               {t('habits.timeZoneDescription', { zone: habit.zone })}
             </p>
           )}
-          <div className="habit-stats grid grid-cols-[repeat(3,_1fr)] py-4 px-0 border-0 [&_>_div]:flex [&_>_div]:flex-col [&_>_div]:items-center [&_>_div]:gap-1 [&_svg]:text-muted-foreground [&_strong]:text-xl [&_strong]:font-medium [&_strong]:mt-0.5 [&_strong]:leading-(--text-xl--line-height) [&_span]:text-xs [&_span]:text-muted-foreground [&_span]:leading-(--text-xs--line-height)">
+          <div className="habit-stats grid grid-cols-3 gap-3 py-4 px-0 border-0 [&_>_div]:flex [&_>_div]:flex-col [&_>_div]:items-center [&_>_div]:gap-1 [&_svg]:text-muted-foreground [&_strong]:text-xl [&_strong]:font-medium [&_strong]:mt-0.5 [&_strong]:leading-(--text-xl--line-height) [&_span]:text-center [&_span]:text-xs [&_span]:text-muted-foreground [&_span]:leading-(--text-xs--line-height)">
             <div>
               <Flame className="size-3.5 inline-block shrink-0 align-middle" />
               <strong>{stats.streak}</strong>
@@ -208,22 +220,29 @@ export function HabitDetail({
             statsMonth={statsMonth}
             onMonthChange={onMonthChange}
           />
-          <div className="habit-detail-actions flex justify-between pt-4 mt-6 [border-top:1px_solid_var(--separator)] [&_button:hover]:bg-surface-hover [&_button]:bg-transparent [&_button]:border-0 [&_button]:py-1 [&_button]:px-2 [&_button]:min-h-8 [&_button]:rounded-sm [&_button]:flex [&_button]:items-center [&_button]:gap-1 [&_button]:text-sm [&_button]:text-muted-foreground [&_button]:leading-(--text-sm--line-height)">
-            <ButtonPrimitive onClick={() => onArchive()}>
+          <div className="habit-detail-actions mt-6 flex justify-between border-t border-separator pt-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => onArchive()}
+            >
               {habit.archived ? (
                 <RotateCcw className="size-3.5 inline-block shrink-0 align-middle" />
               ) : (
                 <Archive className="size-3.5 inline-block shrink-0 align-middle" />
               )}
               {habit.archived ? t('habits.restore') : t('habits.archive')}
-            </ButtonPrimitive>
-            <ButtonPrimitive
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onDelete()}
-              className={'danger [.habits-view_&]:text-danger-text text-danger-text'}
+              className="text-danger-text hover:text-danger-text"
             >
               <Trash2 className="size-3.5 inline-block shrink-0 align-middle" />
               {t('habits.delete')}
-            </ButtonPrimitive>
+            </Button>
           </div>
         </div>
       </aside>

@@ -75,7 +75,7 @@ test('historical habit controls retain the rule their click uses after the goal 
   await seedWorkspace(page, workspace);
   await page.reload();
   await page.getByLabel('Habit', { exact: true }).click();
-  await expect(page.locator('.habit-table-head strong')).toHaveText([
+  await expect(page.locator('.habit-table-head time[datetime]')).toHaveText([
     '18',
     '19',
     '20',

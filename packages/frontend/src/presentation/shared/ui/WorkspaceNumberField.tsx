@@ -37,7 +37,8 @@ export function WorkspaceNumberField({
       invalid={showError || undefined}
       className={cn(
         'number-stepper-group min-w-0 max-w-full',
-        visibleLabel && 'grid grid-cols-[minmax(0,1fr)_minmax(0,156px)] items-center gap-2',
+        visibleLabel &&
+          'grid grid-cols-[minmax(0,1fr)_minmax(0,min(50%,156px))] items-center gap-2',
         className,
       )}
     >

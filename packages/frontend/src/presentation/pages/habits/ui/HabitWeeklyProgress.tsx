@@ -14,7 +14,7 @@ export function HabitWeeklyProgress({ habit, date }: { habit: Habit; date: strin
   }
 
   return (
-    <span className="habit-week-amount block mt-2 min-w-0 space-y-1.5">
+    <span className="habit-week-amount block mt-2 min-w-0 space-y-1.5 font-normal">
       <span className="m-0 text-xs tabular-nums text-secondary-foreground">
         {t('habits.weeklyAmount', { ...progress })}
       </span>

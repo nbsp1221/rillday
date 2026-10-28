@@ -868,5 +868,6 @@
   "habits.ideaUnits.pages": "pages",
   "habits.ruleEffectiveOn": "The planned target and schedule start on {{date}}. Existing records stay unchanged.",
   "habits.excludedUnits_one": "{{count}} entry uses a different unit and is not included in this target.",
-  "habits.excludedUnits_other": "{{count}} entries use a different unit and are not included in this target."
+  "habits.excludedUnits_other": "{{count}} entries use a different unit and are not included in this target.",
+  "habits.upcoming": "Upcoming"
 }
