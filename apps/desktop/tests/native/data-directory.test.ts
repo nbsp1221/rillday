@@ -233,8 +233,10 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await page.getByLabel('Habit', { exact: true }).click();
     await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+    await page.getByRole('button', { name: 'Create your own', exact: true }).click();
     await page.getByLabel('Habit name', { exact: true }).fill('Desktop habit');
     await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await page.locator('.habit-name').filter({ hasText: 'Desktop habit' }).click();
     await page
       .locator('.habit-checkin')
       .getByRole('button', { name: 'Complete', exact: true })

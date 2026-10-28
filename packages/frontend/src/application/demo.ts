@@ -161,19 +161,28 @@ export function createDemoWorkspace(today = dateKey()): Workspace {
   });
 
   data.habits = [
-    habit('water', 'Drink enough water', '#7d9cc4', 'clover', {
+    habit('water', 'Drink enough water', '#7d9cc4', 'droplets', {
       kind: 'quantity',
       goal: 8,
       unit: 'cups',
     }),
-    habit('reading', 'Read a book', '#c591ba', 'star', {
+    habit('reading', 'Read a book', '#c591ba', 'book-open', {
       kind: 'quantity',
-      goal: 20,
+      goal: 60,
       unit: 'min',
-      step: 5,
+      step: 10,
+      frequency: 'weekly-total',
+      timeOfDay: 'evening',
     }),
-    habit('exercise', 'Light exercise', '#94b781', 'sun'),
-    habit('journal', 'Write a daily journal', '#d2ae6a', 'diamond', { frequency: 'weekly' }),
+    habit('exercise', 'Light exercise', '#94b781', 'dumbbell', {
+      timeOfDay: 'morning',
+      frequency: 'weekly',
+      weeklyTarget: 3,
+    }),
+    habit('journal', 'Write a daily journal', '#d2ae6a', 'notebook-pen', {
+      frequency: 'weekly',
+      timeOfDay: 'evening',
+    }),
     habit('words', 'Review new words', '#7eb4b4', '✦', { archived: true, frequency: 'weekdays' }),
   ];
   for (let offset = -27; offset <= 0; offset++) {
@@ -184,7 +193,9 @@ export function createDemoWorkspace(today = dateKey()): Workspace {
         offset === 0
           ? ({ water: 5, reading: 10, exercise: 1, journal: 0, words: 0 }[item.id] ?? 0)
           : completed
-            ? item.goal
+            ? item.frequency === 'weekly-total'
+              ? 15
+              : item.goal
             : 0;
       data.habitLogs.push({
         habitId: item.id,

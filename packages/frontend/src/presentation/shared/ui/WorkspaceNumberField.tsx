@@ -15,6 +15,7 @@ export function WorkspaceNumberField({
   editorFocus,
   showError,
   visibleLabel = false,
+  showButtons = true,
   className,
   ...props
 }: NumberField.Root.Props & {
@@ -27,6 +28,7 @@ export function WorkspaceNumberField({
   editorFocus?: boolean;
   showError?: boolean;
   visibleLabel?: boolean;
+  showButtons?: boolean;
 }) {
   const { t, dateLocale } = useI18n();
 
@@ -44,12 +46,14 @@ export function WorkspaceNumberField({
       )}
       <NumberField.Root {...props} locale={dateLocale} allowOutOfRange required>
         <NumberField.Group className="number-stepper flex h-(--control-height) min-w-0 items-center overflow-hidden rounded-sm border border-control-border focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring">
-          <NumberField.Decrement
-            className="grid h-full w-8 shrink-0 place-items-center hover:bg-overlay-hover disabled:opacity-45"
-            aria-label={decrease}
-          >
-            <Minus size={14} />
-          </NumberField.Decrement>
+          {showButtons && (
+            <NumberField.Decrement
+              className="grid h-full w-8 shrink-0 place-items-center hover:bg-overlay-hover disabled:opacity-45"
+              aria-label={decrease}
+            >
+              <Minus size={14} />
+            </NumberField.Decrement>
+          )}
           <NumberField.Input
             ref={inputRef}
             aria-label={label}
@@ -69,12 +73,14 @@ export function WorkspaceNumberField({
               }
             }}
           />
-          <NumberField.Increment
-            className="grid h-full w-8 shrink-0 place-items-center hover:bg-overlay-hover disabled:opacity-45"
-            aria-label={increase}
-          >
-            <Plus size={14} />
-          </NumberField.Increment>
+          {showButtons && (
+            <NumberField.Increment
+              className="grid h-full w-8 shrink-0 place-items-center hover:bg-overlay-hover disabled:opacity-45"
+              aria-label={increase}
+            >
+              <Plus size={14} />
+            </NumberField.Increment>
+          )}
         </NumberField.Group>
         <Field.Error className="number-stepper-error mt-1 block text-xs text-danger-text">
           {error}

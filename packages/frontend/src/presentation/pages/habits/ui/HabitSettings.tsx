@@ -68,10 +68,22 @@ export function HabitSettings({
       label: t('habits.frequencyInterval'),
       description: t('habits.frequencyIntervalDescription'),
     },
+    ...(value.kind === 'quantity'
+      ? [
+          {
+            value: 'weekly-total' as const,
+            label: t('habits.frequencyWeeklyTotal'),
+            description: t('habits.frequencyWeeklyTotalDescription'),
+          },
+        ]
+      : []),
   ] as const;
   let summary: string;
 
   switch (value.frequency) {
+    case 'weekly-total':
+      summary = t('habits.frequencyWeeklyTotal');
+      break;
     case 'weekly':
       summary = t('habits.weeklyDays', { count: value.weeklyTarget });
       break;
@@ -101,7 +113,12 @@ export function HabitSettings({
           value={value.kind}
           onValueChange={(kind) => {
             if (kind) {
-              onChange({ kind: kind as typeof value.kind });
+              onChange({
+                kind: kind as typeof value.kind,
+                ...(kind === 'boolean' && value.frequency === 'weekly-total'
+                  ? { frequency: 'daily' }
+                  : {}),
+              });
             }
           }}
         >
@@ -127,7 +144,9 @@ export function HabitSettings({
                 'form-field flex min-w-0 flex-col gap-(--layout-field-gap)',
                 'habit-setting-row grid grid-cols-[minmax(0,_1fr)_minmax(0,_156px)] items-center gap-2 min-h-9 [&_>_label]:self-center',
               )}
-              label={t('habits.goal')}
+              label={t(
+                value.frequency === 'weekly-total' ? 'habits.weeklyGoal' : 'habits.dailyGoal',
+              )}
               value={goal}
               step="any"
               onValueChange={(text) => numeric(text, setGoal, 'goal', minimum, maximum)}
@@ -172,6 +191,11 @@ export function HabitSettings({
           options={frequencies}
           onChange={(frequency) => onChange({ frequency })}
         />
+        {value.frequency === 'weekly-total' && (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t('habits.weeklyTotalHint')} {t('habits.periodBoundary')}
+          </p>
+        )}
         {value.frequency === 'weekdays' && (
           <>
             <ToggleGroup
@@ -252,6 +276,17 @@ export function HabitSettings({
           </>
         )}
       </div>
+      <WorkspaceChoiceField
+        label={t('habits.timeOfDay')}
+        value={value.timeOfDay ?? 'anytime'}
+        summary={t(`habits.${value.timeOfDay ?? 'anytime'}`)}
+        options={(['anytime', 'morning', 'afternoon', 'evening'] as const).map((value) => ({
+          value,
+          label: t(`habits.${value}`),
+        }))}
+        onChange={(timeOfDay) => onChange({ timeOfDay })}
+      />
+      <p className="text-xs text-muted-foreground">{t('habits.timeOfDayHint')}</p>
     </>
   );
 }

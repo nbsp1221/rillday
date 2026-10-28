@@ -26,6 +26,8 @@ export function useHabitDisplay() {
 
   function scheduleLabel(habit: Habit) {
     switch (habit.frequency) {
+      case 'weekly-total':
+        return t('habits.frequencyWeeklyTotal');
       case 'weekly':
         return t('habits.weeklyDays', { count: habit.weeklyTarget });
       case 'weekdays':

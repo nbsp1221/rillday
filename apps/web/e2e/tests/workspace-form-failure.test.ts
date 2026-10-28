@@ -62,6 +62,7 @@ test('a rejected habit save retains its editor and can be corrected without a du
   await page.goto('/');
   await page.getByLabel('Habit', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New habit', exact: true });
   const input = dialog.getByLabel('Habit name', { exact: true });
   await input.evaluate((element) => element.removeAttribute('maxlength'));
@@ -88,6 +89,7 @@ test('a new habit check-in invalidates the Undo action from an older list deleti
   await page.goto('/');
   await page.getByLabel('Habit', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Daily note');
   await page
     .getByRole('dialog', { name: 'New habit', exact: true })

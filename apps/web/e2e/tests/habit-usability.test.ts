@@ -14,12 +14,14 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
   await amount.fill('');
   await expect(amount).toHaveValue('');
   await page.getByLabel('Check-in note', { exact: true }).click();
-  await expect(amount).toHaveValue('5');
+  await expect(amount).toHaveValue('');
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await amount.fill('-3');
   await amount.press('Enter');
-  await expect(amount).toHaveValue('5');
+  await expect(amount).toHaveValue('-3');
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await amount.fill('3.5');
-  await amount.press('Enter');
+  await amount.press('Tab');
   await expect(amount).toHaveValue('3.5');
   const note = page.getByLabel('Check-in note', { exact: true });
   await note.fill('Note after updating quantity');
@@ -172,14 +174,14 @@ test('habit cards update quantity progress and retain it after reload', async ({
   await page.getByLabel('Habit', { exact: true }).click();
   const progress = page.locator('.habits-summary').getByRole('meter');
   await expect(progress).toHaveAttribute('aria-valuenow', '1');
-  await expect(progress).toHaveAttribute('aria-valuemax', '4');
+  await expect(progress).toHaveAttribute('aria-valuemax', '3');
   const water = page.locator('.habit-row').filter({ hasText: 'Drink enough water' });
   const today = (await browserToday(page)).toString();
   for (let count = 0; count < 3; count++) {
-    await water.locator('.habit-day.today').click();
+    await water.locator('.habit-quick-add').click();
   }
   await expect(progress).toHaveAttribute('aria-valuenow', '2');
-  await page.getByLabel('Close details', { exact: true }).click();
+  await expect(page.locator('.habit-detail')).toHaveCount(0);
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);

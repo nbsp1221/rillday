@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Temporal } from 'temporal-polyfill/implementation';
 import {
   type Habit,
+  habitAt,
   habitDone,
   habitLogFor,
   habitScheduled,
@@ -87,13 +88,16 @@ export function HabitHistory({
                 date: formatDate(date),
                 status: log?.skipped
                   ? t('habits.skipped')
-                  : habitDone(habit, log)
-                    ? t('common.complete')
-                    : t('habits.incomplete'),
+                  : habitAt(habit, date).frequency === 'weekly-total' && log?.value
+                    ? t('habits.recordedAmount', { value: log.value, unit: log.unit ?? habit.unit })
+                    : habitDone(habit, log)
+                      ? t('common.complete')
+                      : t('habits.incomplete'),
               })}
               title={`${formatDate(date)} ${log?.note || ''}`}
               onClick={() => onDateChange(date)}
               className={cn(
+                'relative',
                 !day.toPlainYearMonth().equals(yearMonth)
                   ? 'outside [.habit-history-grid_button&:not(.done)]:text-muted-foreground'
                   : '',
@@ -109,6 +113,14 @@ export function HabitHistory({
               )}
             >
               {day.day}
+              {habitAt(habit, date).frequency === 'weekly-total' &&
+                !log?.skipped &&
+                Boolean(log?.value) && (
+                  <span
+                    aria-hidden="true"
+                    className="habit-record-mark absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-habit-color"
+                  />
+                )}
             </ButtonPrimitive>
           );
         })}

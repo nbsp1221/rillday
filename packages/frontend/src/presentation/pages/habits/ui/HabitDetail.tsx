@@ -17,6 +17,7 @@ import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
 import { HabitCheckin } from './HabitCheckin';
 import { HabitHistory } from './HabitHistory';
+import { HabitWeeklyProgress } from './HabitWeeklyProgress';
 import { habitColors, useHabitDisplay } from './habit-display';
 import { HabitGlyph } from './habit-icons';
 
@@ -160,13 +161,19 @@ export function HabitDetail({
               <Flame className="size-3.5 inline-block shrink-0 align-middle" />
               <strong>{stats.streak}</strong>
               <span>
-                {habit.frequency === 'weekly' ? t('habits.weekStreak') : t('habits.streak')}
+                {habit.frequency.startsWith('weekly') ? t('habits.weekStreak') : t('habits.streak')}
               </span>
             </div>
             <div>
               <Check className="size-3.5 inline-block shrink-0 align-middle" />
               <strong>{stats.total}</strong>
-              <span>{t('habits.totalCompleted')}</span>
+              <span>
+                {t(
+                  habit.frequency === 'weekly-total'
+                    ? 'habits.completedWeeks'
+                    : 'habits.totalCompleted',
+                )}
+              </span>
             </div>
             <div>
               <BarChart3 className="size-3.5 inline-block shrink-0 align-middle" />
@@ -183,8 +190,11 @@ export function HabitDetail({
               })}
             </p>
           )}
+          {habit.frequency === 'weekly-total' && (
+            <HabitWeeklyProgress habit={habit} date={logDate} />
+          )}
           <HabitCheckin
-            key={habit.id}
+            key={`${habit.id}:${logDate}`}
             habit={habitAt(habit, logDate)}
             log={selectedLog}
             date={logDate}

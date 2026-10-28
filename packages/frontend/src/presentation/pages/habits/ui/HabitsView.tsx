@@ -9,7 +9,6 @@ import {
   type Habit,
   type HabitCheckinAction,
   addDays,
-  createHabitDraft,
   dateKey,
   habitDayProgress,
   habitToday,
@@ -22,6 +21,7 @@ import { WorkspaceDialog } from '#shared/ui/WorkspaceDialog';
 import { WorkspaceHeader } from '../../../shared/ui/WorkspaceHeader';
 import { HabitDetail } from './HabitDetail';
 import { HabitEditor } from './HabitEditor';
+import { HabitIdeas } from './HabitIdeas';
 import { HabitProgressRing } from './HabitProgressRing';
 import { HabitWeekTable } from './HabitWeekTable';
 
@@ -34,11 +34,13 @@ export function HabitsView() {
   const { data, apply, persistence, notify, selectTask, runOperation } = useWorkspace();
   const [anchor, setAnchor] = useState(() => dateKey());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [choosingIdea, setChoosingIdea] = useState(false);
   const [editor, setEditor] = useState<Habit | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [deleting, setDeleting] = useState<Habit | null>(null);
   const [logDate, setLogDate] = useState(() => dateKey());
   const [statsMonth, setStatsMonth] = useState(() => dateKey());
+  const addRef = useRef<HTMLButtonElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const [narrow, setNarrow] = useState(() => matchMedia('(max-width:899px)').matches);
@@ -91,11 +93,7 @@ export function HabitsView() {
   }
 
   function toggleLog(habit: Habit, date: string) {
-    runOperation(() => {
-      if (persistence.toggleHabit(habit.id, date) === 'quantity') {
-        openDetail(habit, date);
-      }
-    });
+    runOperation(() => persistence.toggleHabit(habit.id, date));
   }
 
   function archive(habit: Habit) {
@@ -145,7 +143,8 @@ export function HabitsView() {
             <Archive className="size-4 inline-block shrink-0 align-middle" />
           </Toggle>
           <ButtonPrimitive
-            onClick={() => setEditor(createHabitDraft(t('habits.times')))}
+            ref={addRef}
+            onClick={() => setChoosingIdea(true)}
             className={'habits-add [.workspace-actions_>_&]:text-link'}
           >
             <Plus className="size-4 inline-block shrink-0 align-middle" />
@@ -214,10 +213,11 @@ export function HabitsView() {
           selectedId={selectedId}
           openDetail={openDetail}
           toggleLog={toggleLog}
+          onLogChange={setLog}
           archive={archive}
           onEdit={(habit) => setEditor(structuredClone(habit))}
           onDelete={setDeleting}
-          onCreate={() => setEditor(createHabitDraft(t('habits.times')))}
+          onCreate={() => setChoosingIdea(true)}
         />
       </div>
       {selected && (
@@ -265,14 +265,26 @@ export function HabitsView() {
           }
         />
       )}
+      {choosingIdea && (
+        <HabitIdeas
+          finalFocus={addRef}
+          onClose={() => setChoosingIdea(false)}
+          onChoose={(habit) => {
+            setChoosingIdea(false);
+            setEditor(habit);
+          }}
+        />
+      )}
       {editor && (
         <HabitEditor
           key={editor.id}
           initialHabit={editor}
+          finalFocus={data.habits.some((habit) => habit.id === editor.id) ? undefined : addRef}
           close={() => setEditor(null)}
           onSaved={(saved) => {
-            setSelectedId(saved.id);
-            setLogDate(habitToday(saved));
+            if (selectedId === saved.id) {
+              setLogDate(habitToday(saved));
+            }
             setEditor(null);
           }}
         />

@@ -1,7 +1,5 @@
 import { Popover } from '@base-ui/react/popover';
 import { Button } from '@repo/ui/components/button';
-import { Input } from '@repo/ui/components/input';
-import { Label } from '@repo/ui/components/label';
 import { Textarea } from '@repo/ui/components/textarea';
 import { cn } from 'cn';
 import { CalendarDays, Check, Minus, Plus, RotateCcw, SkipForward } from 'lucide-react';
@@ -10,6 +8,7 @@ import {
   type Habit,
   type HabitCheckinAction,
   type HabitLog,
+  habitCheckInAmountSchema,
   habitDone,
   habitScheduled,
   habitStartDate,
@@ -17,6 +16,7 @@ import {
 } from '#application';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceCalendar } from '#shared/ui/WorkspaceCalendar';
+import { WorkspaceNumberField } from '#shared/ui/WorkspaceNumberField';
 import { WorkspacePopover } from '#shared/ui/WorkspacePopover';
 
 export function HabitCheckin({
@@ -29,12 +29,12 @@ export function HabitCheckin({
   habit: Habit;
   log?: HabitLog;
   date: string;
-  onDateChange: (date: string) => void;
+  onDateChange?: (date: string) => void;
   onChange: (action: HabitCheckinAction) => void;
 }) {
   const { t, formatDate } = useI18n();
   const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState(() => String(log?.value ?? 0));
+  const [amount, setAmount] = useState<number | null>(log?.value ?? 0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const controlId = useId();
@@ -46,7 +46,7 @@ export function HabitCheckin({
   const editingAmountRef = useRef(false);
   useEffect(() => {
     if (!editingAmountRef.current) {
-      setAmount(String(value));
+      setAmount(value);
     }
   }, [habit.id, date, value]);
 
@@ -54,38 +54,44 @@ export function HabitCheckin({
     setOpen(false);
   }
 
-  function commitAmount() {
-    const parsed = Number(amount);
+  const maximum = habitCheckInAmountSchema.maxValue!;
+  const invalid = !habitCheckInAmountSchema.safeParse(amount).success;
 
-    if (amount.trim() && Number.isFinite(parsed) && parsed >= 0 && !disabled) {
-      if (parsed !== value) {
-        onChange({ type: 'amount', value: parsed });
-      }
-    } else {
-      setAmount(String(value));
+  function commitAmount(next: number | null) {
+    if (
+      next !== null &&
+      habitCheckInAmountSchema.safeParse(next).success &&
+      !disabled &&
+      next !== value
+    ) {
+      onChange({ type: 'amount', value: next });
     }
   }
 
   return (
-    <div className="habit-checkin mt-6 [&_input]:border [&_input]:border-control-border [&_input]:rounded-md [&_input]:bg-transparent [&_input]:text-foreground [&_input]:p-2 [&_input]:min-w-0 [&_input]:box-border [&_input:focus-visible]:[outline:2px_solid_var(--ring)] [&_input:focus-visible]:outline-offset-2 [&_textarea:focus-visible]:[outline:2px_solid_var(--ring)] [&_textarea:focus-visible]:outline-offset-2 [&_textarea]:[font-family:inherit] [&_textarea]:w-full [&_textarea]:resize-y [&_textarea]:box-border [&_textarea]:min-h-18 [&_textarea]:text-sm [&_textarea]:border [&_textarea]:border-control-border [&_textarea]:rounded-md [&_textarea]:bg-transparent [&_textarea]:text-foreground [&_textarea]:p-2 [&_textarea]:leading-(--text-sm--line-height)">
+    <div className="habit-checkin mt-4">
       <div className="habit-checkin-date flex items-center justify-between gap-2 text-sm text-muted-foreground leading-(--text-sm--line-height)">
         <span>{t('habits.checkInDate')}</span>
-        <Popover.Trigger
-          handle={handle}
-          id={`${controlId}-trigger`}
-          ref={triggerRef}
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls={open ? controlId : undefined}
-          onClick={() => setOpen(!open)}
-          className={
-            'habit-date-button inline-flex items-center justify-center gap-2 min-h-8 py-1 px-2 rounded-sm border-0 bg-transparent text-foreground hover:bg-surface-hover'
-          }
-        >
-          <CalendarDays className="size-3.5 inline-block shrink-0 align-middle" />
-          {formatDate(date)}
-        </Popover.Trigger>
+        {onDateChange ? (
+          <Popover.Trigger
+            handle={handle}
+            id={`${controlId}-trigger`}
+            ref={triggerRef}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={open ? controlId : undefined}
+            onClick={() => setOpen(!open)}
+            className={
+              'habit-date-button inline-flex items-center justify-center gap-2 min-h-8 py-1 px-2 rounded-sm border-0 bg-transparent text-foreground hover:bg-surface-hover'
+            }
+          >
+            <CalendarDays className="size-3.5 inline-block shrink-0 align-middle" />
+            {formatDate(date)}
+          </Popover.Trigger>
+        ) : (
+          <span className="text-foreground">{formatDate(date)}</span>
+        )}
       </div>
       {open && (
         <WorkspacePopover
@@ -107,7 +113,7 @@ export function HabitCheckin({
             maximum={habitToday(habit)}
             label={t('habits.checkInDate')}
             onChange={(next) => {
-              onDateChange(next);
+              onDateChange?.(next);
               close();
             }}
           />
@@ -124,7 +130,9 @@ export function HabitCheckin({
           {log?.skipped ? t('habits.skipped') : value}
           <small>
             {' '}
-            / {habit.goal} {habit.unit}
+            {habit.frequency === 'weekly-total'
+              ? (log?.unit ?? habit.unit)
+              : `/ ${log?.goal ?? habit.goal} ${log?.unit ?? habit.unit}`}
           </small>
         </strong>
         {habit.kind === 'quantity' && (
@@ -153,59 +161,44 @@ export function HabitCheckin({
         )}
       </div>
       {habit.kind === 'quantity' && (
-        <Label className="habit-manual-value flex items-center justify-between gap-2 text-sm text-muted-foreground leading-(--text-sm--line-height) mb-3 [&_input]:w-26 [&_input]:min-h-(--control-height)">
-          {t('habits.enterAmount')}
-          <Input
-            aria-label={t('habits.checkInAmount')}
-            type="number"
-            min="0"
-            step="any"
-            value={amount}
-            disabled={disabled}
-            onFocus={() => {
-              editingAmountRef.current = true;
-            }}
-            onChange={(event) => {
-              const text = event.target.value;
-              setAmount(text);
-              const parsed = Number(text);
-
-              if (text.trim() && Number.isFinite(parsed) && parsed >= 0 && !disabled) {
-                onChange({ type: 'amount', value: parsed });
-              }
-            }}
-            onBlur={() => {
-              editingAmountRef.current = false;
-              commitAmount();
-            }}
-            onKeyDown={(event) => {
-              if (
-                event.key === 'Enter' &&
-                !event.nativeEvent.isComposing &&
-                event.keyCode !== 229
-              ) {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
-            className={
-              'h-(--control-height) border-control-border bg-card px-[9px] py-[7px] text-sm'
-            }
-          />
-        </Label>
+        <WorkspaceNumberField
+          className="mb-3"
+          visibleLabel
+          showButtons={false}
+          label={t('habits.checkInAmount')}
+          value={amount}
+          min={0}
+          max={maximum}
+          step="any"
+          disabled={disabled}
+          onValueChange={setAmount}
+          onValueCommitted={commitAmount}
+          onFocus={() => {
+            editingAmountRef.current = true;
+          }}
+          onBlur={() => {
+            editingAmountRef.current = false;
+          }}
+          showError={invalid}
+          decrease={t('habits.decreaseCheckIn')}
+          increase={t('habits.increaseCheckIn')}
+          error={t('controls.numberRange', { minimum: 0, maximum })}
+        />
       )}
-      <Button
-        variant={done ? 'outline' : 'default'}
-        disabled={disabled}
-        onClick={() => onChange({ type: 'complete' })}
-        className={cn(
-          'h-(--control-height) bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover',
-          'habit-finish w-full',
-        )}
-      >
-        <Check className="size-3.5 inline-block shrink-0 align-middle" />
-        {done ? t('tasks.markIncomplete') : t('common.complete')}
-      </Button>
+      {habit.frequency !== 'weekly-total' && (
+        <Button
+          variant={done ? 'outline' : 'default'}
+          disabled={disabled}
+          onClick={() => onChange({ type: 'complete' })}
+          className={cn(
+            'h-(--control-height) bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover',
+            'habit-finish w-full',
+          )}
+        >
+          <Check className="size-3.5 inline-block shrink-0 align-middle" />
+          {done ? t('tasks.markIncomplete') : t('common.complete')}
+        </Button>
+      )}
       <div className="habit-log-actions flex gap-2 [margin:8px_0_12px] [&_>_button]:flex-1 [&_>_button]:px-2">
         <Button
           variant="ghost"
@@ -220,7 +213,7 @@ export function HabitCheckin({
           variant="ghost"
           disabled={disabled}
           onClick={() => {
-            setAmount('0');
+            setAmount(0);
             onChange({ type: 'reset' });
           }}
           className={'h-(--control-height) text-muted-foreground hover:text-foreground'}
@@ -232,11 +225,12 @@ export function HabitCheckin({
       <Textarea
         aria-label={t('habits.checkInNote')}
         placeholder={t('habits.notePlaceholder')}
+        maxLength={8000}
         value={log?.note ?? ''}
         disabled={disabled}
         onChange={(event) => onChange({ type: 'note', text: event.target.value })}
         className={
-          'min-h-0 rounded-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0'
+          'min-h-18 w-full resize-y rounded-md border border-control-border bg-transparent p-2 text-sm'
         }
       />
     </div>

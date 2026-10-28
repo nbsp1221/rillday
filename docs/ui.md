@@ -42,7 +42,9 @@ Capture and task details share the date, time, duration and repeat controls. Pic
 
 Color fields show a small swatch and current value in one 36px control. Presets and custom color editing open in a compact popover, rather than expanding the parent form. React Aria owns color parsing, keyboard interaction and accessible color controls. Its standard HEX field accepts three or six digits and rejects invalid characters immediately. Partial input must not overwrite a valid saved value. Parent Save/Cancel owns the edit transaction.
 
-Habit identity uses the shared SVG resolver, localized icon names and keyboard selection. Preserve existing unknown imported glyphs. Goal/frequency controls show only relevant fields, use Base UI NumberField with locale-aware parsing and product bounds and commit through the modal. Completed history-date hover retains the habit color and contrast-aware numeral color.
+Habit ideas and direct creation use the same editor. Its appearance picker combines searchable SVG icons, emoji and the shared color panel. Goal/frequency controls show only relevant fields and use Base UI NumberField with locale-aware parsing and domain bounds. Optional morning, afternoon and evening groups organize the weekly list independently of reminders. A quantity habit has a direct add action for today and a date popover for corrections and notes. Completed history-date hover retains the habit color and contrast-aware numeral color.
+
+Weekly quantity targets accumulate actual amounts across the selected calendar week, independently of weekly targets measured in distinct successful days. Their progress and streaks measure weeks, not completed days. Goal changes take effect at a week boundary; historical amounts retain their recorded units. Entries with a different unit are identified and excluded from the current target rather than converted.
 
 ## Capture and task editing
 

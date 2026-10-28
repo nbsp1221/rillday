@@ -53,6 +53,7 @@ test('long habit editors use the same modal, trap focus and keep actions visible
   await page.getByLabel('Habit', { exact: true }).click();
   const opener = page.getByRole('button', { name: 'Add habit', exact: true });
   await opener.click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New habit', exact: true });
   await fits(page, dialog);
   expect(
@@ -273,6 +274,7 @@ for (const theme of ['dark', 'light']) {
     await page.keyboard.press('Escape');
     await page.getByLabel('Habit', { exact: true }).click();
     await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+    await page.getByRole('button', { name: 'Create your own', exact: true }).click();
     const disabled = page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true });
     await expect(disabled).toBeDisabled();
     const disabledFill = await disabled.evaluate((el) => getComputedStyle(el).backgroundColor);

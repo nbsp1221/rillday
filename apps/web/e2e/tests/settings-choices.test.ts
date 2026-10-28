@@ -363,6 +363,7 @@ test.describe(() => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Habit', exact: true }).tap();
     await page.getByRole('button', { name: 'Add habit', exact: true }).tap();
+    await page.getByRole('button', { name: 'Create your own', exact: true }).tap();
     await page.getByLabel('Habit name', { exact: true }).fill('Touch frequency');
     await page.getByRole('combobox', { name: 'Frequency', exact: true }).tap();
     await page.getByRole('option', { name: /^A number of days each week/ }).tap();

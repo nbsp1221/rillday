@@ -6,6 +6,7 @@ async function newHabit(page: Page) {
   await page.goto('/');
   await page.getByLabel('Habit', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Habit settings check');
   await expect(page.getByRole('radiogroup', { name: 'Goal', exact: true })).toBeVisible();
 }
@@ -88,7 +89,7 @@ test('historical habit controls retain the rule their click uses after the goal 
   const today = row.locator('.habit-day').nth(2);
   await expect(historical).toHaveAccessibleName(/Mark incomplete$/);
   await expect(historical).toHaveAttribute('aria-pressed', 'true');
-  await expect(today).toHaveAccessibleName(/Increase check-in, 0\/8 cups$/);
+  await expect(today).toHaveAccessibleName(/Edit record$/);
   await historical.click();
   await expect
     .poll(
@@ -98,7 +99,7 @@ test('historical habit controls retain the rule their click uses after the goal 
     .toBe(0);
   await expect(historical).toHaveAccessibleName(/Check in$/);
   await expect(historical).toHaveAttribute('aria-pressed', 'false');
-  await today.click();
+  await row.locator('.habit-quick-add').click();
   await expect
     .poll(
       async () =>
@@ -126,7 +127,7 @@ test('quantity goal, unit suggestions and fractional check-in step save exactly 
 }) => {
   await newHabit(page);
   await page.getByRole('radio', { name: 'Track amount', exact: true }).click();
-  const goal = page.getByRole('textbox', { name: 'Goal', exact: true });
+  const goal = page.getByRole('textbox', { name: 'Daily target', exact: true });
   const step = page.getByRole('textbox', { name: 'Step size', exact: true });
   await goal.fill('2.5');
   await page.getByLabel('Increase goal', { exact: true }).click();
@@ -170,7 +171,7 @@ test('invalid numeric drafts and blank units cannot save; min/max keyboard and b
 }) => {
   await newHabit(page);
   await page.getByRole('radio', { name: 'Track amount', exact: true }).click();
-  const goal = page.getByRole('textbox', { name: 'Goal', exact: true });
+  const goal = page.getByRole('textbox', { name: 'Daily target', exact: true });
   const save = page.getByRole('button', { name: 'Save', exact: true });
   for (const [value, expected] of [
     ['', ''],
@@ -253,9 +254,9 @@ test('changing editor modes retains local drafts; Cancel and IME never alter exi
   await page.goto('/?demo=1');
   await page.getByLabel('Habit', { exact: true }).click();
   const before = await storedWorkspace(page);
-  await page.locator('.habit-name').first().click();
+  await page.locator('.habit-name').filter({ hasText: 'Drink enough water' }).click();
   await page.getByLabel('Edit habit', { exact: true }).click();
-  const goal = page.getByRole('textbox', { name: 'Goal', exact: true });
+  const goal = page.getByRole('textbox', { name: 'Daily target', exact: true });
   await goal.fill('');
   await goal.fill('12.');
   await expect(goal).toHaveValue('12.');
@@ -373,9 +374,10 @@ test('quantity bounds block invalid input and accept the declared maximum', asyn
   await page.reload();
   await page.getByLabel('Habit', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Check quantity boundaries');
   await page.getByRole('radio', { name: 'Track amount', exact: true }).click();
-  for (const label of ['Goal', 'Step size']) {
+  for (const label of ['Daily target', 'Step size']) {
     const input = page.getByRole('textbox', { name: label, exact: true });
     await expect(
       page.locator('.number-stepper-group').filter({ has: input }).locator('input[type=number]'),
