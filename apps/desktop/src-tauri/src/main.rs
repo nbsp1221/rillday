@@ -3,6 +3,13 @@
 mod data_directory;
 
 #[tauri::command]
+fn data_directory_setup(directory: tauri::State<data_directory::DataDirectory>) -> Option<String> {
+    directory
+        .needs_setup()
+        .then(|| directory.path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn data_directory_info(directory: tauri::State<data_directory::DataDirectory>) -> String {
     directory.path.to_string_lossy().into_owned()
 }
@@ -66,8 +73,12 @@ fn credential_remove(app: tauri::AppHandle, key: String) -> Result<(), String> {
 
 fn main() {
     let mut context = tauri::generate_context!();
-    let directory = std::env::current_exe()
-        .and_then(|exe| data_directory::DataDirectory::load(&exe, &context.config().identifier));
+    #[cfg(debug_assertions)]
+    assert!(
+        context.config().identifier.ends_with(".dev"),
+        "Development builds require a .dev identifier. Start with pnpm dev:desktop."
+    );
+    let directory = data_directory::DataDirectory::load(&context.config().identifier);
     let directory = match directory {
         Ok(directory) => directory,
         Err(error) => {
@@ -79,6 +90,9 @@ fn main() {
             return;
         }
     };
+    for window in &mut context.config_mut().app.windows {
+        window.incognito = directory.needs_setup();
+    }
     context.config_mut().app.app_directories_override = Some(
         tauri::utils::config::AppDirectoriesOverride::Root(directory.path.clone()),
     );
@@ -88,6 +102,7 @@ fn main() {
             credential_read,
             credential_write,
             credential_remove,
+            data_directory_setup,
             data_directory_info,
             data_directory_choose,
             data_directory_use

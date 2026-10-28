@@ -9,8 +9,8 @@ export default defineConfig({
   timeout: 180_000,
   reporter: [['list'], ['html', { outputFolder: '.cache/tests/native-report', open: 'never' }]],
   metadata: {
-    portable: resolve(
-      process.env.RILLDAY_PORTABLE_ZIP ?? '../../release/Rillday_windows_x64_portable.zip',
-    ),
+    executable: process.env.RILLDAY_NATIVE_EXECUTABLE
+      ? resolve(process.env.RILLDAY_NATIVE_EXECUTABLE)
+      : undefined,
   },
 });

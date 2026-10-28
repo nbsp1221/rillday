@@ -1,4 +1,8 @@
 {
+  "dataDirectory.setupTitle": "Choose where to keep your work",
+  "dataDirectory.setupDescription": "Your tasks and habits stay on this device. Use the suggested folder, choose an empty folder, or open an existing Rillday data folder.",
+  "dataDirectory.setupOpen": "Open Rillday",
+  "dataDirectory.setupNote": "You can change this later in Settings. Opening a folder does not move or merge existing work.",
   "dataDirectory.title": "Data folder",
   "dataDirectory.current": "Current data folder",
   "dataDirectory.description": "Choose an empty folder or open an existing Rillday data folder. Close Rillday before copying or moving its data folder.",

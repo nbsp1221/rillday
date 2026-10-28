@@ -1,6 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import {
+  access,
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rename,
+  writeFile,
+} from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { type Browser, type Page, chromium, expect, test } from '@playwright/test';
 import { freePort } from '@repo/test-support';
@@ -36,19 +45,41 @@ async function saved(page: Page) {
     .toBe(true);
 }
 
-test('portable data survives restart, folder relocation and explicit folder selection without touching user input', async ({}, testInfo) => {
+test('first-run selection, shared profiles and folder changes preserve offline work without touching user input', async ({}, testInfo) => {
+  if (typeof testInfo.config.metadata.executable !== 'string') {
+    throw new Error(
+      'Set RILLDAY_NATIVE_EXECUTABLE to an application built with tauri.test.conf.json',
+    );
+  }
   const root = resolve('.cache/tests/native');
   await mkdir(root, { recursive: true });
   const fixture = await mkdtemp(resolve(root, 'case-'));
-  const unpacked = resolve(fixture, 'portable');
+  const unpacked = resolve(fixture, 'archive-app');
   await mkdir(unpacked);
-  execFileSync('tar.exe', ['-xf', String(testInfo.config.metadata.portable), '-C', unpacked], {
-    windowsHide: true,
-  });
+  await cp(String(testInfo.config.metadata.executable), resolve(unpacked, 'rillday-desktop.exe'));
+  const identifier = 'dev.rillday.workspace.test';
+  const defaultPath = resolve(process.env.LOCALAPPDATA!, identifier);
+  const configuration = resolve(process.env.APPDATA!, identifier);
+  const locationFile = resolve(configuration, 'rillday-data-directory');
+  await expect(access(defaultPath)).rejects.toThrow();
+  await expect(access(configuration)).rejects.toThrow();
   let desktop: string | undefined;
   let browser: Browser | undefined;
   let port = 0;
   let owned: { exe: string; pid?: number } | undefined;
+
+  async function disconnect() {
+    await browser?.close().catch(() => undefined);
+    browser = undefined;
+  }
+
+  async function captureFailure() {
+    const page = browser?.contexts()[0]?.pages()[0];
+    if (page && !page.isClosed()) {
+      await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => undefined);
+      await writeFile(testInfo.outputPath('failure.txt'), await page.locator('body').innerText());
+    }
+  }
 
   async function stop() {
     try {
@@ -79,8 +110,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
         owned = undefined;
       }
     } finally {
-      await browser?.close().catch(() => undefined);
-      browser = undefined;
+      await disconnect();
     }
   }
 
@@ -103,7 +133,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
       .toBe(true);
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     const page = browser.contexts()[0].pages()[0];
-    await expect(page.locator('.rillday-app[data-runtime="desktop"]')).toBeVisible();
+    await expect(page.locator('main').first()).toBeVisible();
     if (owned) {
       owned.pid = native({ action: 'inspect', desktop }).windows?.find(
         (window) => window.class !== '#32770',
@@ -129,14 +159,80 @@ test('portable data survives restart, folder relocation and explicit folder sele
 
   try {
     let page = await start(unpacked);
+    await expect(
+      page.getByRole('heading', { name: 'Choose where to keep your work' }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Current data folder')).toHaveText(defaultPath);
+    expect(await page.evaluate(() => indexedDB.databases())).toEqual([]);
+    await expect(access(locationFile)).rejects.toThrow();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Choose where to keep your work' }),
+    ).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+      .toBe('rgb(23, 23, 23)');
+    await page.screenshot({ path: testInfo.outputPath('first-run.png'), animations: 'disabled' });
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Choose where to keep your work' }),
+    ).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.body).backgroundColor))
+      .toBe('rgb(255, 255, 255)');
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
+    await page.screenshot({
+      path: testInfo.outputPath('first-run-light.png'),
+      animations: 'disabled',
+    });
+    const session = await page.context().newCDPSession(page);
+    const userAgent = await page.evaluate(() => navigator.userAgent);
+    await session.send('Emulation.setUserAgentOverride', { userAgent, acceptLanguage: 'ko-KR' });
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: '자료를 보관할 위치를 선택하세요' }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath('first-run-korean.png'),
+      animations: 'disabled',
+    });
+    await session.send('Emulation.setUserAgentOverride', { userAgent, acceptLanguage: 'en-US' });
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Choose where to keep your work' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Choose folder…', exact: true }).click();
+    await expect
+      .poll(() =>
+        native({ action: 'inspect', desktop }).windows?.some((window) => window.class === '#32770'),
+      )
+      .toBe(true);
+    native({ action: 'cancel', desktop });
+    await expect(page.getByLabel('Current data folder')).toHaveText(defaultPath);
+    await expect(access(locationFile)).rejects.toThrow();
+    await expect(page.getByRole('button', { name: 'Open Rillday', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Open Rillday', exact: true }).focus();
+    await page.getByRole('button', { name: 'Open Rillday', exact: true }).press('Enter');
+    await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
+    await disconnect();
+    page = await connect();
+    await expect(page.locator('.rillday-app[data-runtime="desktop"]')).toBeVisible();
     await page.context().setOffline(true);
-    const title = 'Portable offline task';
+    const title = 'Offline desktop task';
     await page.locator('#quick-add-input').fill(title);
     await page.locator('#quick-add-input').press('Enter');
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await page.getByLabel('Habit', { exact: true }).click();
     await page.getByRole('button', { name: 'Add habit', exact: true }).click();
-    await page.getByLabel('Habit name', { exact: true }).fill('Portable habit');
+    await page.getByLabel('Habit name', { exact: true }).fill('Desktop habit');
     await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
     await page
       .locator('.habit-checkin')
@@ -148,7 +244,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
     const moved = resolve(fixture, 'moved');
     await cp(unpacked, moved, { recursive: true, errorOnExist: true, force: false });
     const selected = resolve(moved, ' 선택한 자료');
-    await cp(resolve(unpacked, 'data'), selected, {
+    await cp(defaultPath, selected, {
       recursive: true,
       errorOnExist: true,
       force: false,
@@ -156,13 +252,13 @@ test('portable data survives restart, folder relocation and explicit folder sele
     page = await start(moved);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await page.getByLabel('Habit', { exact: true }).click();
-    await expect(page.getByText('Portable habit', { exact: true })).toBeVisible();
-    await page.getByText('Portable habit', { exact: true }).click();
+    await expect(page.getByText('Desktop habit', { exact: true })).toBeVisible();
+    await page.getByText('Desktop habit', { exact: true }).click();
     await expect(page.locator('.habit-finish')).toContainText('Mark incomplete');
     await page.getByLabel('Settings and backup', { exact: true }).click();
     await page.getByRole('button', { name: 'Data and backups', exact: true }).click();
     await expect(page.getByLabel('Current data folder', { exact: true })).toHaveText(
-      resolve(moved, 'data'),
+      await realpath(defaultPath),
     );
     await expect(page.getByRole('button', { name: 'Choose folder…', exact: true })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('data-folder.png'), animations: 'disabled' });
@@ -193,7 +289,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
     );
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByLabel('Current data folder', { exact: true })).toHaveText(
-      resolve(moved, 'data'),
+      await realpath(defaultPath),
     );
     await chooseFolder();
     await expect(
@@ -201,7 +297,7 @@ test('portable data survives restart, folder relocation and explicit folder sele
     ).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByLabel('Current data folder', { exact: true })).toHaveText(
-      resolve(moved, 'data'),
+      await realpath(defaultPath),
     );
     await chooseFolder();
     await page.getByRole('button', { name: 'Save and restart', exact: true }).click();
@@ -217,12 +313,11 @@ test('portable data survives restart, folder relocation and explicit folder sele
         { timeout: 30_000 },
       )
       .toBe(true);
-    await browser?.close().catch(() => undefined);
-    browser = undefined;
+    await disconnect();
     page = await connect();
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await page.getByLabel('Habit', { exact: true }).click();
-    await expect(page.getByText('Portable habit', { exact: true })).toBeVisible();
+    await expect(page.getByText('Desktop habit', { exact: true })).toBeVisible();
     await page.getByLabel('Settings and backup', { exact: true }).click();
     await page.getByRole('button', { name: 'Data and backups', exact: true }).click();
     await expect(page.getByLabel('Current data folder', { exact: true })).toHaveText(selected);
@@ -244,7 +339,27 @@ test('portable data survives restart, folder relocation and explicit folder sele
       path: testInfo.outputPath('data-folder-korean.png'),
       animations: 'disabled',
     });
-    expect(await readFile(resolve(moved, 'rillday-data-directory'), 'utf8')).toBe(' 선택한 자료\n');
+    expect(await readFile(locationFile, 'utf8')).toBe(selected + '\n');
+    await saved(page);
+    await stop();
+    await rename(configuration, resolve(fixture, 'previous-configuration'));
+    page = await start(moved);
+    await expect(
+      page.getByRole('heading', { name: 'Choose where to keep your work' }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Choose folder…', exact: true }).click();
+    await expect
+      .poll(() =>
+        native({ action: 'inspect', desktop }).windows?.some((window) => window.class === '#32770'),
+      )
+      .toBe(true);
+    native({ action: 'select', desktop, path: selected });
+    await expect(page.getByLabel('Current data folder')).toHaveText(selected);
+    await page.getByRole('button', { name: 'Open Rillday', exact: true }).click();
+    await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
+    await disconnect();
+    page = await connect();
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
     await writeFile(
       testInfo.outputPath('native.json'),
       JSON.stringify(
@@ -262,7 +377,26 @@ test('portable data survives restart, folder relocation and explicit folder sele
         2,
       ),
     );
+  } catch (error) {
+    await captureFailure().catch(() => undefined);
+    throw error;
   } finally {
+    await writeFile(testInfo.outputPath('fixture.json'), JSON.stringify({ fixture })).catch(
+      () => undefined,
+    );
     await stop();
+    for (const [source, name] of [
+      [defaultPath, 'default-profile'],
+      [configuration, 'configuration'],
+    ]) {
+      if (
+        await access(source).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        await rename(source, resolve(fixture, name));
+      }
+    }
   }
 });

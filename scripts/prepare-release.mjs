@@ -14,15 +14,11 @@ const version = await releaseVersion();
 const output = resolve(destination);
 await mkdir(output, { recursive: true });
 await copyFile(resolve(installer), resolve(output, 'Rillday_windows_x64_setup.exe'));
-const portable = zipSync({
+const archive = zipSync({
   'rillday-desktop.exe': await readFile(resolve(executable)),
-  'rillday-data-directory': await readFile(
-    resolve(root, 'apps/desktop/portable/rillday-data-directory'),
-  ),
-  'data/.rillday-data': await readFile(resolve(root, 'apps/desktop/portable/data/.rillday-data')),
   'LICENSE': await readFile(resolve(root, 'LICENSE')),
 });
-await writeFile(resolve(output, 'Rillday_windows_x64_portable.zip'), portable);
+await writeFile(resolve(output, 'Rillday_windows_x64.zip'), archive);
 await copyFile(resolve(root, 'compose.yaml'), resolve(output, 'compose.yaml'));
 const environment = await readFile(resolve(root, '.env.example'), 'utf8');
 if (!/^RILLDAY_VERSION=.+$/m.test(environment)) {
@@ -36,7 +32,7 @@ const sums = [];
 await writeFile(resolve(output, 'release-notes.md'), await releaseNotes());
 for (const name of [
   'Rillday_windows_x64_setup.exe',
-  'Rillday_windows_x64_portable.zip',
+  'Rillday_windows_x64.zip',
   'compose.yaml',
   'example.env',
 ]) {

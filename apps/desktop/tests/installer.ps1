@@ -1,11 +1,11 @@
 param(
   [Parameter(Mandatory = $true)][string]$Installer,
-  [Parameter(Mandatory = $true)][string]$Portable,
+  [Parameter(Mandatory = $true)][string]$Archive,
   [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
 $installerPath = (Resolve-Path -LiteralPath $Installer).Path
-$portablePath = (Resolve-Path -LiteralPath $Portable).Path
+$archivePath = (Resolve-Path -LiteralPath $Archive).Path
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $installation = Join-Path $output 'installed'
 $profile = Join-Path $env:LOCALAPPDATA 'dev.rillday.workspace'
@@ -30,13 +30,12 @@ try {
   Run-Installer $installerPath @('/S', '/NS', "/D=$installation")
   $executable = Join-Path $installation 'rillday-desktop.exe'
   $before = (Get-FileHash -LiteralPath $executable -Algorithm SHA256).Hash
-  $portableDirectory = Join-Path $output 'portable'
-  Expand-Archive -LiteralPath $portablePath -DestinationPath $portableDirectory
-  if ((Get-FileHash -LiteralPath (Join-Path $portableDirectory 'rillday-desktop.exe') -Algorithm SHA256).Hash -ne $before) { throw 'Portable and installed application binaries differ' }
-  if ((Get-Content -LiteralPath (Join-Path $portableDirectory 'rillday-data-directory') -Raw).Trim() -ne 'data') { throw 'Portable data folder configuration missing' }
-  if ((Get-Content -LiteralPath (Join-Path $portableDirectory 'data/.rillday-data') -Raw).Trim() -ne 'Rillday data directory') { throw 'Portable data folder identity missing' }
-  if (-not (Test-Path -LiteralPath (Join-Path $portableDirectory 'LICENSE'))) { throw 'Portable license missing' }
-  $result.checks += 'Portable archive contains the identical application, relative data folder and license'
+  $archiveDirectory = Join-Path $output 'archive'
+  Expand-Archive -LiteralPath $archivePath -DestinationPath $archiveDirectory
+  if ((Get-FileHash -LiteralPath (Join-Path $archiveDirectory 'rillday-desktop.exe') -Algorithm SHA256).Hash -ne $before) { throw 'ZIP and installed application binaries differ' }
+  if ((Test-Path -LiteralPath (Join-Path $archiveDirectory 'rillday-data-directory')) -or (Test-Path -LiteralPath (Join-Path $archiveDirectory 'data'))) { throw 'ZIP distribution must not select a separate workspace' }
+  if (-not (Test-Path -LiteralPath (Join-Path $archiveDirectory 'LICENSE'))) { throw 'ZIP license missing' }
+  $result.checks += 'ZIP archive contains the identical application and license without a separate storage policy'
   if (-not (Test-Path -LiteralPath $uninstallKey)) { throw 'Uninstall registration missing' }
   $result.checks += 'Silent current-user installation and uninstall registration'
   New-Item -ItemType Directory -Path $profile -ErrorAction Stop | Out-Null
