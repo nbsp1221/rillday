@@ -30,7 +30,7 @@ For remote access, configure [HTTPS](#https-and-remote-access) and a reachable p
 
 ## First administrator and accounts
 
-Open **Settings → Sync**, check the server address and create the first administrator. **The first successful setup request becomes administrator. Complete this step before exposing the server to other people.** Concurrent setup requests cannot create a second administrator.
+Open **Settings → Sync**. The web app checks its own server automatically; in Windows, enter the server's HTTPS address and choose **Check connection**. Confirm the displayed server, then create the first administrator using an email address and a password of 12–128 characters. **The first successful setup request becomes administrator. Complete this step before exposing the server to other people.** Concurrent setup requests cannot create a second administrator.
 
 The administrator adds ordinary accounts from Settings → Sync. Public registration is disabled. A server supports up to **10 accounts**, including its administrator. Each account owns private workspace data; administrator access manages accounts rather than granting access to other users' workspace APIs.
 

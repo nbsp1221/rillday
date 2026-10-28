@@ -153,15 +153,10 @@ try {
     "import {writeFileSync} from 'node:fs'; try {writeFileSync('/app/probe','x');process.exit(1)} catch(e) {if(e.code!=='EROFS')throw e}",
   );
   result.checks.push('fresh Compose install, web/API, non-root and read-only filesystem');
-  await request('/v1/setup', { email, password, name: 'Synthetic administrator' }, undefined, 201);
+  await request('/v1/setup', { email, password }, undefined, 201);
   const token = await signin();
   const account = await request('/v1/account', undefined, token);
-  await request(
-    '/v1/admin/users',
-    { email: 'person@example.test', password, name: 'Synthetic person' },
-    token,
-    201,
-  );
+  await request('/v1/admin/users', { email: 'person@example.test', password }, token, 201);
   // Opaque document fixtures keep the packaging test independent of the renderer.
   const documentId = node(
     `import {generateAutomergeUrl,parseAutomergeUrl} from '@automerge/automerge-repo'; console.log(parseAutomergeUrl(generateAutomergeUrl()).documentId)`,

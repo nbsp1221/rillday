@@ -1,6 +1,5 @@
 export interface AccountInput {
   email: string;
-  name: string;
   password: string;
 }
 

@@ -414,7 +414,6 @@ export class AccountCoordinator implements AccountHostPort {
       try {
         await this.options.transport.request(this.connection.serverUrl, '/v1/setup', {
           email: details.email.trim(),
-          name: details.name?.trim() ?? '',
           password: details.password,
         });
       } catch (error) {
@@ -498,7 +497,7 @@ export class AccountCoordinator implements AccountHostPort {
 
     const profile: WorkspaceProfile = {
       ...source,
-      name: user.name,
+      name: user.email,
       generation: (source.generation ?? 0) + 1,
       server: {
         url,
@@ -846,9 +845,6 @@ export class AccountCoordinator implements AccountHostPort {
       id,
       async () => {
         await this.validate(profile);
-        if (profile.server) {
-          await this.activeRequest('/api/auth/update-user', { name });
-        }
         this.registry = await this.repository.saveRegistry({
           ...this.registry,
           accounts: this.registry.accounts.map((a) => (a.id === id ? { ...a, name } : a)),
@@ -955,7 +951,6 @@ export class AccountCoordinator implements AccountHostPort {
     this.busy(async () => {
       await this.activeRequest('/v1/admin/users', {
         email: details.email.trim(),
-        name: details.name?.trim() ?? '',
         password: details.password,
       });
       const users = usersResponse.parse(await this.activeRequest('/v1/admin/users'));

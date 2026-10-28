@@ -13,6 +13,7 @@ import {
 import { resolve } from 'node:path';
 import { type Browser, type Page, chromium, expect, test } from '@playwright/test';
 import { freePort } from '@repo/test-support';
+import { verifyNativeSync } from './support/sync';
 
 test.skip(process.platform !== 'win32', 'Windows WebView2 integration');
 const helper = resolve(import.meta.dirname, 'windows-desktop.py');
@@ -360,6 +361,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await disconnect();
     page = await connect();
     await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await verifyNativeSync(page, testInfo);
     await writeFile(
       testInfo.outputPath('native.json'),
       JSON.stringify(
@@ -372,6 +374,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
           nativeRestart: true,
           offlineTaskAndHabit: true,
           invalidFolderRejected: true,
+          manualServerSetupAndSync: true,
         },
         null,
         2,
