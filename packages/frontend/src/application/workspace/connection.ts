@@ -14,7 +14,6 @@ export interface ServerInformation {
 export interface ServerUser {
   id: string;
   email: string;
-  name: string;
   role: 'user' | 'admin';
   banned: boolean | null;
 }
@@ -22,7 +21,6 @@ export interface ServerUser {
 export interface LoginDetails {
   email: string;
   password: string;
-  name?: string;
 }
 
 export interface ConnectionReview {

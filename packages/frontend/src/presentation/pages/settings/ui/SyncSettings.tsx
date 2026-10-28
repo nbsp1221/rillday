@@ -1,32 +1,32 @@
-import { Field as FormField } from '@base-ui/react/field';
 import { Button } from '@repo/ui/components/button';
-import { Input } from '@repo/ui/components/input';
-import { Cloud, LogOut, RefreshCw, UserRound } from 'lucide-react';
-import { useState, useSyncExternalStore } from 'react';
+import { FieldError } from '@repo/ui/components/field';
+import { Cloud, HardDrive, LogOut, RefreshCw } from 'lucide-react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort, WorkspacePort, WorkspaceProfile } from '#application';
 import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useI18n } from '#shared/i18n';
+import type { SyncActionRunner } from '../model/sync-forms';
 import { syncError } from '../../../shared/lib/operation-errors';
-import { preventComposition } from '../model/sync-forms';
 import { SyncPasswordForm, SyncUserAdministration } from './SyncAccountForms';
-import { SyncLoginForm } from './SyncLoginForm';
 import { SyncBackupRecovery, SyncConflicts } from './SyncRecovery';
+import { SyncServerForm } from './SyncServerForm';
 
 export function SyncSettings({
   connection,
   workspace,
   account,
   runtime,
+  suggestedServerUrl,
 }: {
   connection: ConnectionPort;
   workspace: WorkspacePort;
   account: WorkspaceProfile;
   runtime: HostRuntime;
+  suggestedServerUrl?: string;
 }) {
   const { t } = useI18n();
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
   const sync = useSyncExternalStore(workspace.subscribe, workspace.getSnapshot);
-  const [url, setUrl] = useState(state.serverUrl);
   const [notice, setNotice] = useState('');
   const [localError, setLocalError] = useState('');
   const [logoutConfirm, setLogoutConfirm] = useState(false);
@@ -35,7 +35,7 @@ export function SyncSettings({
     state.serverUrl === account.server.url &&
     sync.syncState !== 'authentication-required';
 
-  async function run(action: () => Promise<unknown>, message = '') {
+  const run = useCallback<SyncActionRunner>(async (action, message = '') => {
     setLocalError('');
     setNotice('');
 
@@ -48,76 +48,29 @@ export function SyncSettings({
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : 'connection_failed');
     }
-  }
+  }, []);
 
   const status = t(sync.syncState, { ns: 'sync' });
 
   return (
-    <div className="settings-section flex flex-col gap-0 [&_>_p:not(.settings-description)]:[margin:12px_0_0] [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [&_>_h2]:text-base [&_>_h2]:font-semibold [&_>_h2]:[margin:0_0_12px] [&_>_h2]:leading-(--text-base--line-height) [&_>_h3]:text-base [&_>_h3]:font-semibold [&_>_h3]:[margin:0_0_12px] [&_>_h3]:leading-(--text-base--line-height) sync-settings gap-(--layout-section-gap) [&_h3]:m-0 [&_h3]:text-sm [&_h3]:font-semibold">
+    <div className="settings-section sync-settings flex w-full max-w-md flex-col gap-6">
       <SyncIdentity account={account} pending={sync.pending} status={status} />
-      <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
-        {t(account.server ? 'sync.workspaceDescription' : 'profiles.guestDescription')}
-      </p>
-      <form
-        className="sync-server-form"
-        onKeyDown={preventComposition}
-        onSubmit={(event) => {
-          event.preventDefault();
-          void run(() => connection.checkServer(url), t('connection.verified'));
-        }}
-      >
-        <FormField.Root className={'form-field flex min-w-0 flex-col gap-(--layout-field-gap)'}>
-          <FormField.Label className="text-sm text-muted-foreground">
-            {t('connection.serverUrl')}
-          </FormField.Label>
-          <div className="sync-server-field flex items-center gap-2 [&_input]:flex-1 [&_input]:min-w-0 [&_button]:shrink-0 [@media(max-width:_640px)]:flex-wrap [@media(max-width:_640px)]:[&_input]:basis-full">
-            <Input
-              aria-label={t('connection.serverUrl')}
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://rillday.example.com"
-              inputMode="url"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              required
-              disabled={state.busy || Boolean(state.review)}
-              className={
-                'h-(--control-height) border-control-border bg-card px-[9px] py-[7px] text-sm'
-              }
-            />
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={state.busy || Boolean(state.review)}
-              className={'h-(--control-height)'}
-            >
-              {t('connection.check')}
-            </Button>
-          </div>
-        </FormField.Root>
-      </form>
-      {state.server &&
-        state.serverUrl.startsWith('http:') &&
-        !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/.test(state.serverUrl) && (
-          <p
-            className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground"
-            role="note"
-          >
-            {t('connection.insecureWarning')}
-          </p>
-        )}
-      <SyncLoginForm connection={connection} active={Boolean(active)} run={run} />
+      <SyncServerForm
+        connection={connection}
+        active={Boolean(active)}
+        suggestedServerUrl={suggestedServerUrl}
+        run={run}
+      />
       {state.review && (
         <section
-          className="settings-card p-(--layout-card-inset) rounded-lg bg-surface-inset [&_>_h3]:[margin:0_0_8px] [&_>_h3]:text-base [&_>_h3]:font-medium [&_>_h3]:leading-(--text-base--line-height) [&_>_p:not(.settings-description)]:m-0 [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [.settings-card_+_&]:mt-(--layout-section-gap) [.settings-row_+_&]:mt-(--layout-section-gap) [.sync-settings_&]:m-0 sync-connection-review flex flex-col gap-3"
+          className="sync-connection-review flex flex-col gap-4 rounded-lg bg-surface-inset p-(--layout-card-inset) text-sm"
           aria-label={t('connection.review')}
         >
-          <h3>{t('connection.chooseStrategy')}</h3>
+          <h3 className="text-base font-medium">{t('connection.chooseStrategy')}</h3>
           <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground sync-server-address wrap-anywhere">
             {state.review.email} · {state.review.serverUrl}
           </p>
-          <div className="sync-review-counts grid grid-cols-[repeat(2,_minmax(0,_1fr))] gap-4 py-2 [&_p]:[margin:6px_0_0] [@media(max-width:_640px)]:grid-cols-[minmax(0,_1fr)]">
+          <div className="sync-review-counts grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <strong>{t('connection.deviceData')}</strong>
               <p>
@@ -159,7 +112,7 @@ export function SyncSettings({
               {t('recovery.inputCountDescription', { count: state.review.drafts ?? 0 })}
             </p>
           )}
-          <div className="settings-actions [.settings-card_&]:mt-4 flex flex-wrap gap-2 [.sync-settings_&]:flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <Button
               disabled={state.busy}
               onClick={() =>
@@ -196,7 +149,7 @@ export function SyncSettings({
         </section>
       )}
       {account.server && (
-        <div className="settings-actions [.settings-card_&]:mt-4 flex flex-wrap gap-2 [.sync-settings_&]:flex-wrap sync-actions">
+        <div className="sync-actions flex flex-wrap gap-2">
           <Button
             variant="outline"
             disabled={sync.syncState === 'syncing' || state.busy}
@@ -219,10 +172,10 @@ export function SyncSettings({
       )}
       {logoutConfirm && account.server && (
         <section
-          className="settings-card p-(--layout-card-inset) rounded-lg bg-surface-inset [&_>_h3]:[margin:0_0_8px] [&_>_h3]:text-base [&_>_h3]:font-medium [&_>_h3]:leading-(--text-base--line-height) [&_>_p:not(.settings-description)]:m-0 [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [.settings-card_+_&]:mt-(--layout-section-gap) [.settings-row_+_&]:mt-(--layout-section-gap) [.sync-settings_&]:m-0 sync-disconnect flex flex-col gap-3"
+          className="sync-disconnect flex flex-col gap-4 rounded-lg bg-surface-inset p-(--layout-card-inset) text-sm"
           aria-label={t('connection.disconnect')}
         >
-          <h3>{t('connection.disconnectChoice')}</h3>
+          <h3 className="text-base font-medium">{t('connection.disconnectChoice')}</h3>
           <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
             {t('connection.disconnectDescription')}
           </p>
@@ -242,7 +195,7 @@ export function SyncSettings({
               {t('connection.syncBeforeRemove')}
             </p>
           )}
-          <div className="settings-actions [.settings-card_&]:mt-4 flex flex-wrap gap-2 [.sync-settings_&]:flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={runtime === 'desktop' ? 'default' : 'outline'}
               disabled={state.busy}
@@ -252,9 +205,7 @@ export function SyncSettings({
                   setLogoutConfirm(false);
                 }, t('connection.disconnectedKept'))
               }
-              className={
-                'h-(--control-height) bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover'
-              }
+              className={'h-(--control-height) pointer-coarse:h-11'}
             >
               {t('connection.keepAndDisconnect')}
             </Button>
@@ -297,9 +248,9 @@ export function SyncSettings({
       <SyncPasswordForm connection={connection} active={Boolean(active)} run={run} />
 
       {(localError || state.error || sync.error) && (
-        <p className="sync-error m-0 text-sm text-destructive wrap-anywhere" role="alert">
+        <FieldError className="sync-error wrap-anywhere">
           {syncError(t, localError || state.error || sync.error)}
-        </p>
+        </FieldError>
       )}
       {notice && (
         <p
@@ -325,20 +276,26 @@ function SyncIdentity({
   const { t } = useI18n();
 
   return (
-    <div className="sync-identity flex items-center gap-3 min-w-0 [&_>_div]:flex-1 [&_>_div]:min-w-0">
+    <div className="sync-identity flex min-w-0 items-center gap-3">
       {account.server ? (
         <Cloud className="size-4 inline-block shrink-0 align-middle" />
       ) : (
-        <UserRound className="size-4 inline-block shrink-0 align-middle" />
+        <HardDrive className="size-4 shrink-0" />
       )}
-      <div>
-        <strong>{account.server ? account.name : t('profiles.guest')}</strong>
-        <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
-          {pending > 0 ? t('sync.statusPending', { status, count: pending }) : status}
+      <div className="min-w-0 flex-1">
+        <strong className="wrap-anywhere text-sm font-medium">
+          {account.server ? account.server.email : t('sync.localTitle')}
+        </strong>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {account.server
+            ? pending > 0
+              ? t('sync.statusPending', { status, count: pending })
+              : status
+            : t('profiles.guestDescription')}
         </p>
         {account.server && (
           <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground sync-server-address wrap-anywhere">
-            {account.server.email} · {account.server.url}
+            {account.server.url}
           </p>
         )}
       </div>

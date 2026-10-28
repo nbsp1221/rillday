@@ -29,6 +29,7 @@ createRoot(root).render(
       application={application}
       runtime="web"
       version={import.meta.env.VITE_APP_VERSION}
+      suggestedServerUrl={demo ? undefined : location.origin}
     >
       {import.meta.env.PROD
         ? (application) => (

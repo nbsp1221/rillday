@@ -26,6 +26,11 @@ export default defineConfig({
           fileName: 'licenses/pretendard-OFL-1.1.txt',
           source: readFileSync(new URL('../../packages/ui/LICENSE.pretendard', import.meta.url)),
         });
+        this.emitFile({
+          type: 'asset',
+          fileName: 'licenses/shadcn-MIT.txt',
+          source: readFileSync(new URL('../../packages/ui/LICENSE.shadcn', import.meta.url)),
+        });
       },
     },
   ],

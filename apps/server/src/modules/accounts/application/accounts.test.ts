@@ -9,7 +9,6 @@ import { AccountService } from './accounts.ts';
 
 const input = {
   email: 'person@example.test',
-  name: 'Person',
   password: 'Synthetic-password-2026!',
 };
 const administrator: AccountSession = {

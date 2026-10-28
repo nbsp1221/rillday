@@ -4,7 +4,7 @@ import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
 import { reloadSavedPage } from '../support/navigation';
 
-const fixture = createServerFixture(createServer);
+const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));
 
 for (const keep of [true, false]) {
   test(`web disconnect ${keep ? 'retains' : 'removes'} the device copy after explicit confirmation`, async ({
@@ -18,9 +18,7 @@ for (const keep of [true, false]) {
       await page.goto(server.origin);
       await page.getByLabel('Settings and backup', { exact: true }).click();
       await page.getByRole('button', { name: 'Sync', exact: true }).click();
-      await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-      await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-      await page.getByLabel('Name', { exact: true }).fill('Disconnect verification');
+      await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0);
       await page.getByLabel('Email', { exact: true }).fill('disconnect@rillday.test');
       await page.getByLabel('Password', { exact: true }).fill(password);
       await page.getByRole('button', { name: 'Create administrator', exact: true }).click();
@@ -48,9 +46,7 @@ for (const keep of [true, false]) {
       await expect(
         page.getByRole('button', { name: 'Disconnect server', exact: true }),
       ).toHaveCount(0);
-      await expect(
-        page.getByRole('button', { name: 'Check connection', exact: true }),
-      ).toBeEnabled();
+      await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled();
       await page.getByRole('button', { name: 'Back', exact: true }).click();
       await expect(page.getByText(title, { exact: true })).toHaveCount(keep ? 1 : 0);
       await reloadSavedPage(page);

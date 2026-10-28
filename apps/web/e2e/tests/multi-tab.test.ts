@@ -209,9 +209,7 @@ test('connected tabs save independently and an isolated device receives their ed
   await page.goto('/');
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
-  await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-  await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Multi-tab test');
+  await expect(page.locator('.sync-server-summary')).toContainText(server.origin);
   await page.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Create administrator', exact: true }).click();
@@ -250,8 +248,7 @@ test('connected tabs save independently and an isolated device receives their ed
       .locator('.settings-nav')
       .getByRole('button', { name: 'Sync', exact: true })
       .click();
-    await observer.getByLabel('Server URL', { exact: true }).fill(server.origin);
-    await observer.getByRole('button', { name: 'Check connection', exact: true }).click();
+    await expect(observer.locator('.sync-server-summary')).toContainText(server.origin);
     await observer.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
     await observer.getByLabel('Password', { exact: true }).fill(password);
     await observer.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -276,13 +273,9 @@ test('a workspace transition preserves unfinished capture in accessible desktop 
   await tab.locator('#quick-add-input').fill(draft);
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
-  await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-  await page.getByRole('button', { name: 'Check connection', exact: true }).click();
   await page.locator('.sync-login-form').waitFor();
+  await expect(page.locator('.sync-server-summary')).toContainText(server.origin);
   const setup = await page.getByRole('form', { name: 'Set up administrator', exact: true }).count();
-  if (setup) {
-    await page.getByLabel('Name', { exact: true }).fill('Multi-tab test');
-  }
   await page.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page

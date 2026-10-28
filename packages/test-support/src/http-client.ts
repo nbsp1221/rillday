@@ -51,7 +51,7 @@ export async function setupAdministrator(
       'content-type': 'application/json',
       origin,
     },
-    body: JSON.stringify({ email, password, name: 'Synthetic account' }),
+    body: JSON.stringify({ email, password }),
   });
   assert.equal(created.status, 201, await created.text());
 
@@ -65,7 +65,6 @@ export async function createUser(
   const created = await administrator.request('/v1/admin/users', {
     email,
     password,
-    name: 'Synthetic account',
   });
   assert.equal(created.status, 201, JSON.stringify(created.body));
 

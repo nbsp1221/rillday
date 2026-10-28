@@ -14,12 +14,14 @@ function ConnectedApp({
   version,
   navigationFooter,
   dataDirectory,
+  suggestedServerUrl,
 }: {
   application: Application;
   runtime: HostRuntime;
   version: string;
   navigationFooter?: ReactNode;
   dataDirectory?: DataDirectoryPort;
+  suggestedServerUrl?: string;
 }) {
   const state = useSyncExternalStore(application.subscribe, application.getSnapshot);
   return (
@@ -34,6 +36,7 @@ function ConnectedApp({
       version={version}
       navigationFooter={navigationFooter}
       dataDirectory={dataDirectory}
+      suggestedServerUrl={suggestedServerUrl}
       renameAccount={application.renameAccount}
     />
   );
@@ -52,6 +55,7 @@ export function RilldayApplication({
   children,
   navigationFooter,
   dataDirectory,
+  suggestedServerUrl,
 }: {
   runtime: HostRuntime;
   version: string;
@@ -60,6 +64,7 @@ export function RilldayApplication({
   children?: (application: Application) => ReactNode;
   navigationFooter?: ReactNode;
   dataDirectory?: DataDirectoryPort;
+  suggestedServerUrl?: string;
 }) {
   const { ready, error, language, reportError, persistPreferences } =
     useApplicationStartup(application);
@@ -107,6 +112,7 @@ export function RilldayApplication({
           version={version}
           navigationFooter={navigationFooter}
           dataDirectory={dataDirectory}
+          suggestedServerUrl={suggestedServerUrl}
         />
         {children?.(ready.application)}
       </PreferencesProvider>
