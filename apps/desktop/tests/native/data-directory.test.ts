@@ -1,18 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import {
-  access,
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  realpath,
-  rename,
-  writeFile,
-} from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { type Browser, type Page, chromium, expect, test } from '@playwright/test';
 import { freePort } from '@repo/test-support';
+import fs from 'fs-extra';
 import { verifyNativeSync } from './support/sync';
 
 test.skip(process.platform !== 'win32', 'Windows WebView2 integration');
@@ -52,7 +44,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       'Set RILLDAY_NATIVE_EXECUTABLE to an application built with tauri.test.conf.json',
     );
   }
-  const root = resolve('.cache/tests/native');
+  const root = resolve(process.env.RILLDAY_TEST_OUTPUT ?? '.cache/tests', 'native');
   await mkdir(root, { recursive: true });
   const fixture = await mkdtemp(resolve(root, 'case-'));
   const unpacked = resolve(fixture, 'archive-app');
@@ -62,11 +54,16 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   const defaultPath = resolve(process.env.LOCALAPPDATA!, identifier);
   const configuration = resolve(process.env.APPDATA!, identifier);
   const locationFile = resolve(configuration, 'rillday-data-directory');
+  const testConfig = JSON.parse(
+    await readFile(resolve(import.meta.dirname, 'tauri.test.conf.json'), 'utf8'),
+  ) as { app: { windows: { additionalBrowserArgs: string }[] } };
+  const port = Number(
+    testConfig.app.windows[0].additionalBrowserArgs.match(/--remote-debugging-port=(\d+)/)?.[1],
+  );
   await expect(access(defaultPath)).rejects.toThrow();
   await expect(access(configuration)).rejects.toThrow();
   let desktop: string | undefined;
   let browser: Browser | undefined;
-  let port = 0;
   let owned: { exe: string; pid?: number } | undefined;
 
   async function disconnect() {
@@ -144,16 +141,13 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   }
 
   async function start(folder: string) {
-    port = await freePort();
+    await freePort(port);
     desktop = `RilldayTest-${randomUUID()}`;
     owned = { exe: resolve(folder, 'rillday-desktop.exe') };
     owned.pid = native({
       action: 'start',
       desktop,
       exe: owned.exe,
-      env: {
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --enable-automation --lang=en-US --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding`,
-      },
     }).pid;
     return connect();
   }
@@ -343,7 +337,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     expect(await readFile(locationFile, 'utf8')).toBe(selected + '\n');
     await saved(page);
     await stop();
-    await rename(configuration, resolve(fixture, 'previous-configuration'));
+    await fs.move(configuration, resolve(fixture, 'previous-configuration'));
     page = await start(moved);
     await expect(
       page.getByRole('heading', { name: 'Choose where to keep your work' }),
@@ -398,7 +392,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
           () => false,
         )
       ) {
-        await rename(source, resolve(fixture, name));
+        await fs.move(source, resolve(fixture, name));
       }
     }
   }

@@ -179,6 +179,8 @@ CI retries a failed browser case once to collect a full trace, and treats a retr
 
 Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. CI installs the pinned official `cargo-about` binary with checksum verification. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
 
+The isolated native test configuration enables CDP through Tauri's browser options on loopback port 9223. The runner refuses to start when that port is occupied. `RILLDAY_TEST_OUTPUT` selects the native fixture, report and result directories as well as browser artifacts.
+
 Run one browser shard locally with `pnpm --filter @repo/web test:e2e --shard=1/3`, after building the web application. Run `pnpm test:e2e` for all application browser suites. Visual reference images belong beside their test and are specific to the browser and operating system; update them with Playwright's `--update-snapshots` only after inspecting the rendered change.
 
 Run shared UI contracts with `pnpm --filter @repo/frontend test:browser`. `RILLDAY_TEST_COMPONENT_PORT` overrides the gallery's default port 4193. The gallery uses fresh browser contexts and runs independently of the application preview.

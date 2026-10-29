@@ -124,6 +124,7 @@ def terminate_owned(pid, executable):
 
 
 request = json.load(sys.stdin)
+root = (Path(os.environ.get("RILLDAY_TEST_OUTPUT", str(Path(__file__).resolve().parents[2] / ".cache" / "tests"))) / "native").resolve()
 name = request["desktop"]
 assert name.startswith("RilldayTest-")
 uuid.UUID(name.removeprefix("RilldayTest-"))
@@ -135,11 +136,9 @@ result = {"inputBefore": before, "desktop": name}
 try:
     if request["action"] == "terminate":
         exe = Path(request["exe"]).resolve()
-        root = Path(__file__).resolve().parents[2] / ".cache" / "tests" / "native"
         assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
         terminate_owned(request["pid"], exe)
     elif request["action"] == "start":
-        root = Path(__file__).resolve().parents[2] / ".cache" / "tests" / "native"
         exe = Path(request["exe"]).resolve()
         assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
         check_test_binary(exe)
@@ -148,16 +147,13 @@ try:
             u.CloseDesktop(existing)
             raise RuntimeError("Preserve an existing desktop")
         desktop = checked(u.CreateDesktopW(name, None, None, 0, 0xC7, None))
-        env = dict(os.environ)
-        env.update(request["env"])
-        block = c.create_unicode_buffer("\0".join(f"{key}={value}" for key, value in sorted(env.items(), key=lambda pair: pair[0].upper())) + "\0\0")
         startup = Startup()
         startup.cb = c.sizeof(startup)
         startup.desktop = "WinSta0\\" + name
         startup.flags = 1
         startup.show = 4
         process = Process()
-        checked(k.CreateProcessW(str(exe), None, None, None, False, 0x400, block,
+        checked(k.CreateProcessW(str(exe), None, None, None, False, 0, None,
                                 str(exe.parent), c.byref(startup), c.byref(process)))
         result["pid"] = process.pid
         try:
@@ -212,7 +208,6 @@ try:
                     if request["action"] == "select" and title.value == "Choose folder…":
                         assert len(edits) == 1 and len(buttons) == 1, "Expected the Windows folder selection controls"
                         folder = Path(request["path"]).resolve()
-                        root = Path(__file__).resolve().parents[2] / ".cache" / "tests" / "native"
                         assert folder.is_relative_to(root.resolve()) and folder.is_dir()
                         value = c.create_unicode_buffer(str(folder))
                         checked(u.SendMessageW(edits[0], 0x0C, 0, c.addressof(value)))

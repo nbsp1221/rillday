@@ -1,4 +1,14 @@
 {
   "productName": "Rillday Test",
-  "identifier": "dev.rillday.workspace.test"
+  "identifier": "dev.rillday.workspace.test",
+  "app": {
+    "windows": [
+      {
+        "title": "Rillday",
+        "width": 1120,
+        "height": 760,
+        "additionalBrowserArgs": "--remote-debugging-port=9223 --enable-automation --lang=en-US --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
+      }
+    ]
+  }
 }

@@ -93,6 +93,20 @@ async function drop(page: Page, target: Locator, point?: { clientX: number; clie
   await page.mouse.up();
 }
 
+async function stackPosition(item: Locator) {
+  return item.evaluate((element) => {
+    const target = element.closest<HTMLElement>('[data-calendar-drop]')!;
+    const parent = target.getBoundingClientRect();
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return {
+      x: x - parent.x + target.scrollLeft,
+      y: y - parent.y + target.scrollTop,
+      width,
+      height,
+    };
+  });
+}
+
 test('late events retain their wall-clock position and clip at midnight after reload', async ({
   page,
 }) => {
@@ -397,32 +411,36 @@ for (const view of ['Month', 'Agenda', 'Day']) {
   test(`${view} pending task occupies the same top-down stack position as the committed task`, async ({
     page,
   }) => {
-    const today = await seed(page);
-    await mode(page, view);
-    const target = page.locator(
-      view === 'Month'
-        ? `.calendar-day[data-date="${today}"]`
-        : view === 'Agenda'
-          ? `.calendar-agenda-day[data-date="${today}"]`
-          : `.calendar-all-day>[data-date="${today}"]`,
-    );
-    await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
-    await over(page, target);
-    const preview = target.locator('.calendar-drop-preview');
-    const before = (await preview.boundingBox())!;
-    if (view === 'Month') {
-      const head = (await target.locator('.calendar-day-head').boundingBox())!;
-      const existing = (await target
-        .locator(`[data-task-id="${fixtureId('block')}"]`)
-        .boundingBox())!;
-      expect(before.y).toBe(head.y + head.height + 4);
-      expect(before.y + before.height).toBeLessThan(existing.y);
+    for (const day of ['01', '31']) {
+      await page.clock.setFixedTime(new Date(`2026-10-${day}T03:00:00Z`));
+      const today = await seed(page);
+      await mode(page, view);
+      const target = page.locator(
+        view === 'Month'
+          ? `.calendar-day[data-date="${today}"]`
+          : view === 'Agenda'
+            ? `.calendar-agenda-day[data-date="${today}"]`
+            : `.calendar-all-day>[data-date="${today}"]`,
+      );
+      await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
+      await over(page, target);
+      const preview = target.locator('.calendar-drop-preview');
+      const before = (await preview.boundingBox())!;
+      const position = await stackPosition(preview);
+      if (view === 'Month') {
+        const head = (await target.locator('.calendar-day-head').boundingBox())!;
+        const existing = (await target
+          .locator(`[data-task-id="${fixtureId('block')}"]`)
+          .boundingBox())!;
+        expect(before.y).toBe(head.y + head.height + 4);
+        expect(before.y + before.height).toBeLessThan(existing.y);
+      }
+      await drop(page, target);
+      await expect.poll(async () => (await sourceRecord(page)).date).toBe(today);
+      expect(
+        await stackPosition(target.locator(`[data-task-id="${fixtureId('source')}"]`)),
+      ).toEqual(position);
     }
-    await drop(page, target);
-    await expect.poll(async () => (await sourceRecord(page)).date).toBe(today);
-    expect(await target.locator(`[data-task-id="${fixtureId('source')}"]`).boundingBox()).toEqual(
-      before,
-    );
   });
 }
 
