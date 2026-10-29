@@ -869,5 +869,6 @@
   "emoji.skinToneMediumLight": "약간 밝은 피부색",
   "emoji.skinToneMedium": "중간 피부색",
   "emoji.skinToneMediumDark": "약간 어두운 피부색",
-  "emoji.skinToneDark": "어두운 피부색"
+  "emoji.skinToneDark": "어두운 피부색",
+  "habits.dayLabel": "{{name}}, {{date}}"
 }

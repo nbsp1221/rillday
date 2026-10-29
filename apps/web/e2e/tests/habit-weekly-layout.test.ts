@@ -128,15 +128,15 @@ for (const theme of ['Dark', 'Light']) {
       );
     }
     const completed = page.locator('.habit-day[data-state="complete"]').first();
-    const mark = completed.locator('.habit-day-mark');
-    const before = await appearance(mark);
+    const before = await appearance(completed);
     expect(before.contrast).toBeGreaterThanOrEqual(4.5);
     await completed.hover();
-    expect((await appearance(mark)).color).toBe(before.color);
-    expect((await appearance(mark)).contrast).toBeGreaterThanOrEqual(4.5);
-    await expect(
-      page.locator('.habit-day[data-state="empty"]').first().locator('.habit-day-mark'),
-    ).toHaveCSS('border-top-style', 'solid');
+    expect((await appearance(completed)).color).toBe(before.color);
+    expect((await appearance(completed)).contrast).toBeGreaterThanOrEqual(4.5);
+    await expect(page.locator('.habit-day[data-state="empty"]').first()).toHaveCSS(
+      'border-top-style',
+      'solid',
+    );
     for (const future of await page.locator('.habit-day[data-state="future"]').all()) {
       await expect(future).toBeDisabled();
     }
@@ -164,49 +164,53 @@ for (const theme of ['Dark', 'Light']) {
     expect(statLabelsFit).toBe(true);
   });
 
-  test(`day hover and focus follow the marker shape without moving or shrinking it in ${theme}`, async ({
-    page,
-  }) => {
+  test(`checkbox state and hover share one surface in ${theme}`, async ({ page }) => {
     await openWeek(page, theme);
     for (const width of [1183, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       for (const state of ['complete', 'recorded', 'empty']) {
         const cell = page.locator(`.habit-day[data-state="${state}"]:not(:disabled)`).first();
-        const mark = cell.locator('.habit-day-mark');
         await page.mouse.move(0, 0);
         const before = await cell.boundingBox();
-        const marker = (await mark.boundingBox())!;
+        expect(before!.width).toBe(28);
+        expect(before!.height).toBe(28);
+        const normal = await cell.evaluate((el) => {
+          const s = getComputedStyle(el);
+          return { background: s.backgroundColor, shadow: s.boxShadow, color: s.color };
+        });
         const shape = await cell.evaluate((el) => getComputedStyle(el).borderRadius);
-        expect(before!.width).toBeGreaterThanOrEqual(24);
-        expect(Math.abs(before!.height - before!.width)).toBeLessThan(0.5);
-        expect(Math.abs(before!.x + before!.width / 2 - marker.x - marker.width / 2)).toBeLessThan(
-          0.5,
-        );
-        expect(
-          Math.abs(before!.y + before!.height / 2 - marker.y - marker.height / 2),
-        ).toBeLessThan(0.5);
-        await expect(mark).toHaveCSS('border-radius', shape);
         expect(Number.parseFloat(shape)).toBeGreaterThanOrEqual(state === 'recorded' ? 4 : 14);
-        const background = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
-        const ink = await mark.evaluate((el) => getComputedStyle(el).color);
         await cell.hover();
-        await cell.evaluate(async (el) =>
-          Promise.all(el.getAnimations().map((animation) => animation.finished)),
-        );
-        expect(await cell.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
-          background,
-        );
+        await cell.evaluate(async (el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+        const hover = await cell.evaluate((el) => {
+          const s = getComputedStyle(el);
+          return { background: s.backgroundColor, shadow: s.boxShadow, color: s.color };
+        });
+        expect(hover.background !== normal.background || hover.shadow !== normal.shadow).toBe(true);
+        expect(hover.color).toBe(normal.color);
         expect(await cell.boundingBox()).toEqual(before);
-        expect(await mark.boundingBox()).toEqual(marker);
-        await expect(mark).toHaveCSS('color', ink);
-        expect((await appearance(mark)).contrast).toBeGreaterThanOrEqual(4.5);
+        expect((await appearance(cell)).contrast).toBeGreaterThanOrEqual(4.5);
+        expect(
+          await cell.locator('..').evaluate((el) => getComputedStyle(el).backgroundColor),
+        ).toBe('rgba(0, 0, 0, 0)');
+        if (state !== 'recorded') {
+          await expect(cell).toHaveRole('checkbox');
+          await expect(cell).toBeChecked({ checked: state === 'complete' });
+          expect(
+            await cell.evaluate((el) => {
+              const s = getComputedStyle(el, '::after');
+              return [s.top, s.right, s.bottom, s.left];
+            }),
+          ).toEqual(['0px', '0px', '0px', '0px']);
+        } else {
+          await expect(cell).toHaveRole('button');
+        }
         await cell.focus();
         await page.keyboard.press('Shift+Tab');
         await page.keyboard.press('Tab');
         await expect(cell).toBeFocused();
         expect(await cell.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
         expect(await cell.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe('none');
-        await expect(cell).toHaveCSS('border-radius', shape);
       }
     }
     const quantity = page.locator('.habit-day[data-state="recorded"]:not(:disabled)').first();
@@ -217,14 +221,20 @@ for (const theme of ['Dark', 'Light']) {
     const cells = page.locator('.habit-day');
     const completedIndex = await cells.evaluateAll((cells) =>
       cells.findIndex(
-        (cell) => cell.getAttribute('aria-pressed') === 'true' && !cell.matches(':disabled'),
+        (cell) => cell.getAttribute('aria-checked') === 'true' && !cell.matches(':disabled'),
       ),
     );
     expect(completedIndex).toBeGreaterThanOrEqual(0);
     const toggle = cells.nth(completedIndex);
+    const name = await toggle.getAttribute('aria-label');
     await toggle.press('Space');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await toggle.press('Space');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(toggle).not.toBeChecked();
+    await expect(toggle).toHaveAccessibleName(name!);
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await expect(toggle).toHaveAccessibleName(name!);
+    await page.reload();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
+    await expect(cells.nth(completedIndex)).toBeChecked();
   });
 }

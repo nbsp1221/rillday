@@ -87,8 +87,9 @@ test('historical habit controls retain the rule their click uses after the goal 
   const row = page.locator('.habit-row').filter({ hasText: 'Review past entries' });
   const historical = row.locator('.habit-day').nth(1);
   const today = row.locator('.habit-day').nth(2);
-  await expect(historical).toHaveAccessibleName(/Mark incomplete$/);
-  await expect(historical).toHaveAttribute('aria-pressed', 'true');
+  await expect(historical).toHaveRole('checkbox');
+  const historicalName = await historical.getAttribute('aria-label');
+  await expect(historical).toBeChecked();
   await expect(today).toHaveAccessibleName(/Edit record$/);
   await historical.click();
   await expect
@@ -97,8 +98,8 @@ test('historical habit controls retain the rule their click uses after the goal 
         (await storedWorkspace(page)).habitLogs.find((log) => log.date === '2026-10-19')?.value,
     )
     .toBe(0);
-  await expect(historical).toHaveAccessibleName(/Check in$/);
-  await expect(historical).toHaveAttribute('aria-pressed', 'false');
+  await expect(historical).toHaveAccessibleName(historicalName!);
+  await expect(historical).not.toBeChecked();
   await row.locator('.habit-quick-add').click();
   await expect
     .poll(

@@ -114,7 +114,7 @@ test('a new habit check-in invalidates the Undo action from an older list deleti
 
   await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-row .habit-day.today').click();
-  await expect(page.locator('.habit-row .habit-day.today')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.habit-row .habit-day.today')).toBeChecked();
   await expect(toast).toContainText('List deleted');
   await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
   expect((await storedWorkspace(page)).habitLogs).toHaveLength(1);

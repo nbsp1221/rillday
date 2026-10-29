@@ -121,6 +121,46 @@ test('appearance search, roving radio keys and layered Escape fit a narrow scree
 });
 
 for (const theme of ['Dark', 'Light']) {
+  test(`weekly checkboxes preserve custom colors, stable labels and checked states in ${theme}`, async ({
+    page,
+  }) => {
+    await fixture(page);
+    await page.getByLabel('Settings and backup', { exact: true }).click();
+    await page
+      .locator('.settings-nav')
+      .getByRole('button', { name: 'Appearance', exact: true })
+      .click();
+    await page.getByRole('radio', { name: theme, exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
+    for (let index = 0; index < 4; index++) {
+      const control = page.locator('.habit-row').nth(index).locator('.habit-day.today');
+      await expect(control).toHaveRole('checkbox');
+      await expect(control).toBeChecked();
+      await page.mouse.move(0, 0);
+      const paint = await control.evaluate((el) => ({
+        fill: getComputedStyle(el).backgroundColor,
+        ink: getComputedStyle(el).color,
+      }));
+      const name = await control.getAttribute('aria-label');
+      await control.hover();
+      expect(
+        await control.evaluate((el) => ({
+          fill: getComputedStyle(el).backgroundColor,
+          ink: getComputedStyle(el).color,
+        })),
+      ).toEqual(paint);
+      expect((await appearance(control)).contrast).toBeGreaterThanOrEqual(4.5);
+      await control.click();
+      await expect(control).not.toBeChecked();
+      await expect(control).toHaveAccessibleName(name!);
+      await control.press('Space');
+      await expect(control).toBeChecked();
+      await expect(control).toHaveAccessibleName(name!);
+    }
+    expect((await storedWorkspace(page)).habitLogs).toHaveLength(9);
+  });
+
   test(`completed habit dates retain readable paired colors on hover and selection in ${theme}`, async ({
     page,
   }) => {

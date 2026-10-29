@@ -886,5 +886,6 @@
   "emoji.skinToneMediumLight": "Medium-light skin tone",
   "emoji.skinToneMedium": "Medium skin tone",
   "emoji.skinToneMediumDark": "Medium-dark skin tone",
-  "emoji.skinToneDark": "Dark skin tone"
+  "emoji.skinToneDark": "Dark skin tone",
+  "habits.dayLabel": "{{name}}, {{date}}"
 }
