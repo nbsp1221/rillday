@@ -56,6 +56,8 @@ for (const theme of ['dark', 'light']) {
         expect(
           await longLabel.evaluate((element) => element.scrollWidth > element.clientWidth),
         ).toBe(true);
+        await expect(longLabel).toHaveCSS('text-overflow', 'ellipsis');
+        await expect(longLabel).toHaveCSS('overflow-x', 'hidden');
         await page.keyboard.press('Escape');
         await expect(trigger).toBeFocused();
         await expect(trigger).toHaveAttribute('data-value', 'en');

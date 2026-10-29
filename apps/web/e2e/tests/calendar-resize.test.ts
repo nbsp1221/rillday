@@ -206,9 +206,9 @@ test('the final calendar quarter hour fits inside midnight', async ({ page }) =>
   const geometry = await event.evaluate((element) => {
     const cell = element.closest<HTMLElement>('[data-hour]')!;
     return {
-      height: element.style.height,
+      height: element.getBoundingClientRect().height / cell.getBoundingClientRect().height,
       overflow: element.getBoundingClientRect().bottom - cell.getBoundingClientRect().bottom,
     };
   });
-  expect(geometry).toEqual({ height: '16px', overflow: 0 });
+  expect(geometry).toEqual({ height: 0.25, overflow: 0 });
 });

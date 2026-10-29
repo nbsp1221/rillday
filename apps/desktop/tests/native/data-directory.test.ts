@@ -62,8 +62,11 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   );
   await expect(access(defaultPath)).rejects.toThrow();
   await expect(access(configuration)).rejects.toThrow();
+  let failed = false;
+  let failure: unknown;
   let desktop: string | undefined;
   let browser: Browser | undefined;
+  let webviewProcesses: number[] = [];
   let owned: { exe: string; pid?: number } | undefined;
 
   async function disconnect() {
@@ -72,43 +75,64 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   }
 
   async function captureFailure() {
-    const page = browser?.contexts()[0]?.pages()[0];
+    const page = browser?.contexts().flatMap((context) => context.pages())[0];
     if (page && !page.isClosed()) {
       await page.screenshot({ path: testInfo.outputPath('failure.png') }).catch(() => undefined);
       await writeFile(testInfo.outputPath('failure.txt'), await page.locator('body').innerText());
     }
   }
 
-  async function stop() {
+  async function rememberWebviewProcesses() {
+    const session = await browser!.newBrowserCDPSession();
     try {
-      if (desktop) {
-        try {
-          native({ action: 'close', desktop });
-          await expect
-            .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 30_000 })
-            .toBe(false);
-        } finally {
-          const status = native({ action: 'inspect', desktop });
-          if (status.exists && owned) {
-            const pids = new Set([
-              owned.pid,
-              ...(status.windows?.map((window) => window.pid) ?? []),
-            ]);
-            for (const pid of pids) {
-              if (pid) {
-                native({ action: 'terminate', desktop, exe: owned.exe, pid });
-              }
-            }
-            await expect
-              .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 5000 })
-              .toBe(false);
-          }
+      const { processInfo } = await session.send('SystemInfo.getProcessInfo');
+      webviewProcesses = processInfo.map((process) => process.id);
+    } finally {
+      await session.detach();
+    }
+  }
+
+  async function stop() {
+    const currentDesktop = desktop;
+    try {
+      try {
+        if (browser?.isConnected()) {
+          await rememberWebviewProcesses();
         }
-        desktop = undefined;
-        owned = undefined;
+      } finally {
+        if (desktop) {
+          try {
+            native({ action: 'close', desktop });
+            await expect
+              .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 30_000 })
+              .toBe(false);
+          } finally {
+            const status = native({ action: 'inspect', desktop });
+            if (status.exists && owned) {
+              const pids = new Set([
+                owned.pid,
+                ...(status.windows?.map((window) => window.pid) ?? []),
+              ]);
+              for (const pid of pids) {
+                if (pid) {
+                  native({ action: 'terminate', desktop, exe: owned.exe, pid });
+                }
+              }
+              await expect
+                .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 5000 })
+                .toBe(false);
+            }
+          }
+          desktop = undefined;
+          owned = undefined;
+        }
       }
     } finally {
       await disconnect();
+      if (currentDesktop && webviewProcesses.length) {
+        native({ action: 'wait-webview', desktop: currentDesktop, pids: webviewProcesses });
+        webviewProcesses = [];
+      }
     }
   }
 
@@ -130,14 +154,24 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       )
       .toBe(true);
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-    const page = browser.contexts()[0].pages()[0];
-    await expect(page.locator('main').first()).toBeVisible();
+    await rememberWebviewProcesses();
+    let page: Page | undefined;
+    await expect
+      .poll(() => {
+        page = browser!
+          .contexts()
+          .flatMap((context) => context.pages())
+          .find((candidate) => !candidate.isClosed());
+        return Boolean(page);
+      })
+      .toBe(true);
+    await expect(page!.locator('main').first()).toBeVisible();
     if (owned) {
       owned.pid = native({ action: 'inspect', desktop }).windows?.find(
         (window) => window.class !== '#32770',
       )?.pid;
     }
-    return page;
+    return page!;
   }
 
   async function start(folder: string) {
@@ -375,25 +409,48 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       ),
     );
   } catch (error) {
+    failed = true;
+    failure = error;
+    await testInfo
+      .attach('native-error', {
+        body: error instanceof Error ? (error.stack ?? error.message) : String(error),
+        contentType: 'text/plain',
+      })
+      .catch(() => undefined);
     await captureFailure().catch(() => undefined);
-    throw error;
   } finally {
     await writeFile(testInfo.outputPath('fixture.json'), JSON.stringify({ fixture })).catch(
       () => undefined,
     );
-    await stop();
-    for (const [source, name] of [
-      [defaultPath, 'default-profile'],
-      [configuration, 'configuration'],
-    ]) {
-      if (
-        await access(source).then(
-          () => true,
-          () => false,
-        )
-      ) {
-        await fs.move(source, resolve(fixture, name));
+    try {
+      await stop();
+      for (const [source, name] of [
+        [defaultPath, 'default-profile'],
+        [configuration, 'configuration'],
+      ]) {
+        if (
+          await access(source).then(
+            () => true,
+            () => false,
+          )
+        ) {
+          await fs.move(source, resolve(fixture, name));
+        }
       }
+    } catch (error) {
+      if (!failed) {
+        failed = true;
+        failure = error;
+      }
+      await testInfo
+        .attach('native-cleanup-error', {
+          body: error instanceof Error ? (error.stack ?? error.message) : String(error),
+          contentType: 'text/plain',
+        })
+        .catch(() => undefined);
     }
+  }
+  if (failed) {
+    throw failure;
   }
 });

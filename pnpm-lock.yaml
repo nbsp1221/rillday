@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@base-ui/react@1.9.0': d3f5a1ad9fb7037be5be38e6808a364eb4b39697c8b86f5c9bccebe02c10b0c8
+  react-resizable-panels@4.15.1: 208627eab6737ba28dbb62aee9737af094ec9cb09445447a7b6f1fd3bd444d76
+
 importers:
 
   .:
@@ -412,7 +416,7 @@ importers:
         version: 2.6.0-alpha.3(supports-color@10.2.2)
       '@base-ui/react':
         specifier: 1.9.0
-        version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 1.9.0(patch_hash=d3f5a1ad9fb7037be5be38e6808a364eb4b39697c8b86f5c9bccebe02c10b0c8)(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@date-fns/utc':
         specifier: 2.1.1
         version: 2.1.1
@@ -474,8 +478,8 @@ importers:
         specifier: 17.1.0
         version: 17.1.0(i18next@26.5.3(typescript@6.0.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)
       react-resizable-panels:
-        specifier: 4.14.6
-        version: 4.14.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 4.15.1
+        version: 4.15.1(patch_hash=208627eab6737ba28dbb62aee9737af094ec9cb09445447a7b6f1fd3bd444d76)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       temporal-polyfill:
         specifier: 1.0.6
         version: 1.0.6
@@ -560,7 +564,7 @@ importers:
     dependencies:
       '@base-ui/react':
         specifier: 1.9.0
-        version: 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 1.9.0(patch_hash=d3f5a1ad9fb7037be5be38e6808a364eb4b39697c8b86f5c9bccebe02c10b0c8)(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       class-variance-authority:
         specifier: 0.7.1
         version: 0.7.1
@@ -586,8 +590,8 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
       react-resizable-panels:
-        specifier: 4.14.6
-        version: 4.14.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: 4.15.1
+        version: 4.15.1(patch_hash=208627eab6737ba28dbb62aee9737af094ec9cb09445447a7b6f1fd3bd444d76)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -6154,11 +6158,15 @@ packages:
       '@types/react':
         optional: true
 
-  react-resizable-panels@4.14.6:
-    resolution: {integrity: sha512-YqkTuTDV1ncknnR5YN/iI8icpClippc9/10job9zJIppt2r8yUwaVfVxhzFNO+3DIxrnAwhcMMs1FdX5xt9C9A==}
+  react-resizable-panels@4.15.1:
+    resolution: {integrity: sha512-9kylygsswcGh1n0Ocb+mC2y5q7UIebwwvONW6g7nncXFG7Xi4evKDnMYlef0RpKjrRpKc11w/zaEDgGbdKe8bg==}
     peerDependencies:
+      '@types/react': ^18.2.6 || ^19.0.0
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
 
   react-stately@3.51.0:
     resolution: {integrity: sha512-YJcmkAXu2XOQP97hO/qz/cC3qv9kni3oVhwBlxWr358BHePJUpY15XwL3YSRMKxYt4EkslPqAz11JRirMfANGw==}
@@ -7675,7 +7683,7 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@base-ui/react@1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@base-ui/react@1.9.0(patch_hash=d3f5a1ad9fb7037be5be38e6808a364eb4b39697c8b86f5c9bccebe02c10b0c8)(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@babel/runtime': 7.29.10
       '@base-ui/utils': 0.5.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -12684,10 +12692,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  react-resizable-panels@4.14.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  react-resizable-panels@4.15.1(patch_hash=208627eab6737ba28dbb62aee9737af094ec9cb09445447a7b6f1fd3bd444d76)(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
+    optionalDependencies:
+      '@types/react': 19.3.0
 
   react-stately@3.51.0(react@19.3.1):
     dependencies:

@@ -654,6 +654,11 @@ test('a downloaded backup above 10MiB restores through the file picker', async (
   const source = await download.path();
   expect(source).not.toBeNull();
   expect(readFileSync(source).byteLength).toBeGreaterThan(10 * 1024 * 1024);
+  await seedWorkspace(page, emptyWorkspace());
+  await page.reload();
+  expect((await storedWorkspace(page)).tasks).toEqual([]);
+  await page.getByLabel('Settings and backup', { exact: true }).click();
+  await page.getByRole('button', { name: 'Data and backups', exact: true }).click();
   await page.locator('input[type=file]').first().setInputFiles(source);
   await expect(page.getByRole('dialog', { name: 'Import backup', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Import', exact: true }).click();

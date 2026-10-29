@@ -212,6 +212,24 @@ test('sign-in preserves local work until consent and administrator forms use the
     await change.getByLabel('New password', { exact: true }).fill(password + '-changed');
     await change.getByRole('button', { name: 'Change password', exact: true }).click();
     await expect(change.getByLabel('Current password', { exact: true })).toHaveValue('');
+
+    const authenticate = (secret: string) =>
+      fetch(server.origin + '/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'origin': server.origin },
+        body: JSON.stringify({ email: 'admin@rillday.test', password: secret }),
+      });
+
+    const oldCredentials = await authenticate(password);
+    expect(oldCredentials.status).toBe(401);
+    await oldCredentials.body?.cancel();
+    const newCredentials = await authenticate(password + '-changed');
+    expect(newCredentials.status).toBe(200);
+    const signedIn: unknown = await newCredentials.json();
+    expect(signedIn).toMatchObject({
+      user: { email: 'admin@rillday.test' },
+      token: expect.any(String),
+    });
     await expect(change.locator('[aria-invalid=true]')).toHaveCount(0);
     await expect(change.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: 'Back', exact: true }).click();

@@ -1,5 +1,6 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
+import { expectNonvisualAnnouncement } from '../support/announcement';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -136,11 +137,16 @@ test('late events retain their wall-clock position and clip at midnight after re
     await expect(event).toBeVisible();
     expect(
       await event.evaluate((element) => ({
-        top: element.style.top,
-        height: element.style.height,
+        top:
+          (element.getBoundingClientRect().top -
+            element.closest('[data-hour]')!.getBoundingClientRect().top) /
+          element.closest('[data-hour]')!.getBoundingClientRect().height,
+        height:
+          element.getBoundingClientRect().height /
+          element.closest('[data-hour]')!.getBoundingClientRect().height,
         hour: element.closest<HTMLElement>('[data-hour]')?.dataset.hour,
       })),
-    ).toEqual({ top: '32px', height: '32px', hour: '23' });
+    ).toEqual({ top: 0.5, height: 0.5, hour: '23' });
     expect(await sourceRecord(page)).toMatchObject({ time: '23:30', duration: 90 });
   }
 });
@@ -169,10 +175,7 @@ test('pointer month drag previews the destination before saving and supports Und
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
   await over(page, page.locator('.calendar-day').nth(11));
   const status = page.locator('.calendar-drag-status');
-  await expect(status).toHaveClass(/task-drag-announcement/);
-  await expect(status).toHaveCSS('clip-path', 'inset(50%)');
-  await expect(status).toHaveCSS('width', '1px');
-  await expect(status).toHaveCSS('height', '1px');
+  await expectNonvisualAnnouncement(page, status);
   await page.keyboard.press('Escape');
   await page.mouse.up();
   await page.locator('.toast').getByRole('button', { name: 'Undo', exact: true }).click();

@@ -1,6 +1,5 @@
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
-import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
 type Area = 'tasks' | 'matrix';
@@ -9,24 +8,40 @@ async function fixture(page: Page, area: Area) {
   await page.goto('/');
   await page.locator('.quick-add').waitFor();
   const data = emptyWorkspace();
-  const date = (await browserToday(page)).toString();
+  const date = '2026-10-31';
+  const metadata = {
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+    order: 0,
+  };
   data.tasks = [
     createTaskRecord('Drag the body and its padding', data, {
+      ...metadata,
       id: 'body-source',
       date,
       time: '09:30',
       priority: 3,
       notes: 'Keep notes',
     })!,
-    createTaskRecord('Next task', data, { id: 'body-next', priority: 3 })!,
+    createTaskRecord('Next task', data, {
+      ...metadata,
+      id: 'body-next',
+      priority: 3,
+      date: null,
+      order: 1,
+    })!,
     createTaskRecord('Subtasks', data, {
+      ...metadata,
       id: 'body-child',
       parentId: 'body-source',
       priority: 3,
+      date: null,
     })!,
   ];
   await seedWorkspace(page, data);
   await page.reload();
+  await page.locator('.quick-add').waitFor();
+  await page.clock.setFixedTime(new Date('2026-10-31T03:00:00Z'));
   if (area === 'matrix') {
     await page.getByLabel('Eisenhower Matrix', { exact: true }).click();
   }

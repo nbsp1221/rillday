@@ -21,6 +21,8 @@ u.SetThreadDesktop.argtypes = [w.HANDLE]
 u.GetThreadDesktop.argtypes = [w.DWORD]
 u.GetThreadDesktop.restype = w.HANDLE
 k.GetCurrentThreadId.restype = w.DWORD
+k.WaitForMultipleObjects.argtypes = [w.DWORD, c.POINTER(w.HANDLE), w.BOOL, w.DWORD]
+k.WaitForMultipleObjects.restype = w.DWORD
 u.OpenInputDesktop.argtypes = [w.DWORD, w.BOOL, w.DWORD]
 u.OpenInputDesktop.restype = w.HANDLE
 u.GetUserObjectInformationW.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]
@@ -123,6 +125,33 @@ def terminate_owned(pid, executable):
         k.CloseHandle(handle)
 
 
+def wait_webview(pids):
+    handles = []
+    try:
+        assert 0 < len(pids) <= 64
+        for pid in pids:
+            handle = k.OpenProcess(0x1000 | 0x100000, False, pid)
+            if not handle and c.get_last_error() == 87:
+                continue
+            checked(handle)
+            handles.append(handle)
+            exit_code = w.DWORD()
+            checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
+            if exit_code.value != 259:
+                continue
+            image = c.create_unicode_buffer(32768)
+            size = w.DWORD(len(image))
+            checked(k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)))
+            assert Path(image.value).name.lower() == "msedgewebview2.exe"
+        if handles:
+            values = (w.HANDLE * len(handles))(*handles)
+            if k.WaitForMultipleObjects(len(handles), values, True, 15000) != 0:
+                raise RuntimeError("Owned WebView2 processes did not exit")
+    finally:
+        for handle in handles:
+            k.CloseHandle(handle)
+
+
 request = json.load(sys.stdin)
 root = (Path(os.environ.get("RILLDAY_TEST_OUTPUT", str(Path(__file__).resolve().parents[2] / ".cache" / "tests"))) / "native").resolve()
 name = request["desktop"]
@@ -134,7 +163,9 @@ original = u.GetThreadDesktop(k.GetCurrentThreadId())
 desktop = None
 result = {"inputBefore": before, "desktop": name}
 try:
-    if request["action"] == "terminate":
+    if request["action"] == "wait-webview":
+        wait_webview(request["pids"])
+    elif request["action"] == "terminate":
         exe = Path(request["exe"]).resolve()
         assert exe.is_relative_to(root.resolve()) and exe.name == "rillday-desktop.exe"
         terminate_owned(request["pid"], exe)

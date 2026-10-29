@@ -6,6 +6,10 @@ Use Node.js 24 and pnpm 11.25.0. Install dependencies from the repository root w
 
 Private workspace packages use `@repo/*` names independently of product branding. Declare their dependencies with `workspace:*` and import through their package exports.
 
+The Base UI 1.9.0 dependency patch backports [upstream #6015](https://github.com/mui/base-ui/pull/6015), which prevents deferred focus restoration from stealing focus. Remove the patch when upgrading to a release containing that fix. pnpm applies it during installation; Docker copies it before fetching dependencies.
+
+The react-resizable-panels patch refreshes the keyboard handler in the ESM build consumed by Vite from current DOM dimensions before applying resize keys, using the library's existing size-synchronization helper. Remove it when an upstream release covers keyboard input before ResizeObserver delivery.
+
 ## Web
 
 ```sh
@@ -160,6 +164,8 @@ pnpm test:e2e
 `check` runs Oxfmt, Turbo package boundaries, Oxlint followed by ESLint, and TypeScript. `pnpm check:boundaries` checks package dependencies and isolation through Turbo. Oxlint checks production imports of server/test-support APIs; TypeScript resolves imports and package exports, including side-effect imports. ESLint uses the shared retn0 presets with Oxlint's duplicate-rule suppression. Use `pnpm format` and `pnpm lint:fix` for supported automatic corrections, then review the changes.
 
 `test` delegates unit and integration suites to package-owned Vitest runners through Turbo. Put unit tests beside the implementation as `module.test.ts` or `module.test.tsx`. Vitest's default discovery finds both forms without an `include` override. Group tests by the behavior they protect, rather than by the refactoring that introduced them.
+
+Assert observable behavior with independently stated expectations. Behavior-preserving refactors should keep tests passing. Verify persistence through reload and account changes through the real boundary; mock call counts only when the interaction itself is consequential. Isolate mutable fixtures, control incidental time, wait for observable completion and preserve original failures during cleanup. Visual checks should protect rendered geometry or reviewed pixels rather than a particular CSS recipe.
 
 Keep IndexedDB, SQLite, HTTP and process-recovery integration scenarios in the owning package's `tests/`, grouped by feature. Cross-package HTTP synchronization belongs to `packages/frontend/tests/sync/`, alongside its concrete IndexedDB adapters. Feature modules may keep their own focused integration tests alongside their adapters. Test location describes ownership; the dependencies exercised determine whether a case is a unit or integration test.
 

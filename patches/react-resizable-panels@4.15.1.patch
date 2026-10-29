@@ -1,0 +1,21 @@
+diff --git a/dist/react-resizable-panels.js b/dist/react-resizable-panels.js
+index 9b4c6246fc065837088e330ada4ea270b394026b..f6d98cc6f79588a995f56cb5392b1dc6ec418031 100644
+--- a/dist/react-resizable-panels.js
++++ b/dist/react-resizable-panels.js
+@@ -1885,10 +1885,13 @@ function Ut(e) {
+   if (e.defaultPrevented)
+     return;
+   const t = e.currentTarget, n = In(t);
+-  if (!(n.disabled || n.separators.find(
++  if (n.disabled || n.separators.find(
+     (r) => r.element === t
+-  )?.disabled))
+-    switch (e.key) {
++  )?.disabled) return;
++  const current = Pt({ axis: n, axisState: ue(n.id, !0) });
++  if (!current) return;
++  if (current.changed) ge(n, current.state);
++  switch (e.key) {
+       case "ArrowDown": {
+         e.preventDefault(), n.orientation === "vertical" && Re(t, 5);
+         break;

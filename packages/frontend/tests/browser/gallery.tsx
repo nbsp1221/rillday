@@ -3,8 +3,13 @@ import { createRoot } from 'react-dom/client';
 import '@repo/ui/styles/fonts/web.css';
 import './gallery.css';
 import { Choices, NumericChoices } from './WorkspaceChoice.story';
+import { Colors } from './WorkspaceColorField.story';
 
-const stories: Record<string, ComponentType<{ locale?: string }>> = { Choices, NumericChoices };
+const stories: Record<string, ComponentType<{ locale?: string }>> = {
+  Choices,
+  NumericChoices,
+  Colors,
+};
 const container = document.getElementById('root')!;
 let root = createRoot(container);
 

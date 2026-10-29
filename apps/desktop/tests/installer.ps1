@@ -51,6 +51,7 @@ try {
 } finally {
   try {
     $uninstaller = Join-Path $installation 'uninstall.exe'
+    if (-not $result.failure -and -not (Test-Path -LiteralPath $uninstaller)) { throw 'Uninstaller missing' }
     if (Test-Path -LiteralPath $uninstaller) {
       Run-Installer $uninstaller @('/S')
       # NSIS runs a temporary child uninstaller after its original process exits.
@@ -61,12 +62,20 @@ try {
       if (Test-Path -LiteralPath $uninstallKey) { throw 'Uninstall registration remains' }
       $result.checks += 'Standard uninstallation removes registration'
     }
-    if (-not $result.failure) { $result.ok = $true }
+    if (-not $result.failure) {
+      if (Test-Path -LiteralPath $uninstallKey) { throw 'Uninstall registration remains' }
+      $result.ok = $true
+    }
   } catch {
     $result.ok = $false
     $result.cleanupFailure = $_.ToString()
-    throw
+    if (-not $result.failure) { throw }
   } finally {
-    $result | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'result.json') -Encoding utf8
+    try {
+      $result | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'result.json') -Encoding utf8
+    } catch {
+      if (-not $result.failure -and -not $result.cleanupFailure) { throw }
+      Write-Warning $_.ToString()
+    }
   }
 }

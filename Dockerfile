@@ -7,6 +7,7 @@ RUN apt-get update \
     && corepack enable \
     && corepack prepare pnpm@11.25.0 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 RUN pnpm fetch
 COPY . .
 RUN pnpm install --offline --frozen-lockfile --package-import-method=copy \

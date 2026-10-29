@@ -362,3 +362,32 @@ test('detail card fills its panel throughout opening, resizing and repeated clos
     await expect(card).toHaveCount(0);
   }
 });
+
+test('keyboard resizing uses the current group width before ResizeObserver delivery', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 950 });
+  await page.goto('/');
+  const input = page.getByLabel('Quick add task', { exact: true });
+  await input.fill('Immediate resize boundary');
+  await input.press('Enter');
+  await page.locator('.task-title').click();
+  const sidebar = page.locator('.task-sidebar');
+  const separator = page.getByRole('separator', { name: 'Content sidebar width', exact: true });
+  await expect(page.locator('.detail-pane')).toBeVisible();
+  await separator.press('End');
+  await expect.poll(() => width(sidebar)).toBe(367);
+
+  await page.evaluate(() => {
+    const group = document.querySelector<HTMLElement>('.workspace-panels')!;
+    const nextWidth = group.clientWidth + 416;
+    group.style.minWidth = `${nextWidth}px`;
+    group.style.width = `${nextWidth}px`;
+    group.getBoundingClientRect();
+    // Exercise input before the pending size observation, without a settling delay.
+    document
+      .querySelector<HTMLElement>('[aria-label="Content sidebar width"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  });
+  await expect.poll(() => width(sidebar)).toBe(480);
+});
