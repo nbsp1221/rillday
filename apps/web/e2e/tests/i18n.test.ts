@@ -21,8 +21,8 @@ for (const language of ['ko', 'en'] as const) {
   }) => {
     const areas =
       language === 'ko'
-        ? ['태스크', '아이젠하워 매트릭스', '캘린더', '습관']
-        : ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit'];
+        ? ['태스크', '아이젠하워 매트릭스', '캘린더', '습관 트래커']
+        : ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit tracker'];
     const quadrants =
       language === 'ko'
         ? [
@@ -59,6 +59,9 @@ for (const language of ['ko', 'en'] as const) {
     await expect(page.getByRole('option')).toHaveText(areas);
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^(돌아가기|Back)$/, exact: true }).click();
+
+    await page.getByLabel(areas[3], { exact: true }).click();
+    await expect(page.locator('.workspace-title-row h1')).toHaveText(areas[3]);
 
     await page.getByLabel(areas[1], { exact: true }).click();
     await expect(page.locator('.quadrant-header h2')).toHaveText(quadrants);
@@ -329,7 +332,7 @@ test.describe('English browser locale', () => {
     await page.reload();
     await page.clock.setFixedTime(new Date('2026-10-20T03:00:00.000Z'));
     await changeLanguage(page, 'en');
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit tracker', { exact: true }).click();
     await expect(
       page.getByText('0 of 1 habit planned for today completed.', { exact: true }),
     ).toBeVisible();

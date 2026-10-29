@@ -33,7 +33,7 @@ test('navigation restores preferred sidebar pixels after a hidden viewport chang
     )
     .toBe(0);
   const preferred = await width(sidebar);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.getByLabel('Tasks', { exact: true }).click();
   await expect.poll(async () => Math.abs((await width(sidebar)) - preferred)).toBeLessThan(1);

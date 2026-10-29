@@ -49,7 +49,6 @@
   "habits.weekStreakCount": "{{count}}주 연속",
   "habits.dayStreakCount": "{{count}}일 연속",
   "dates.thisWeek": "이번 주",
-  "habits.habit": "습관",
   "habits.times": "회",
   "habits.weeklyDays": "주 {{count}}일",
   "habits.restored": "습관을 복원했어요",

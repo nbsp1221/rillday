@@ -52,7 +52,7 @@ test('root starts with examples, every product area opens and no account or serv
   page.on('pageerror', (error) => errors.push(error.message));
   await ready(page);
   expect(await page.locator('.task-row').count()).toBeGreaterThan(3);
-  for (const name of ['Calendar', 'Eisenhower Matrix', 'Habit', 'Tasks']) {
+  for (const name of ['Calendar', 'Eisenhower Matrix', 'Habit tracker', 'Tasks']) {
     await page.getByRole('button', { name, exact: true }).click();
     await expect(page.locator('.main-workspace')).toBeVisible();
   }
@@ -252,7 +252,7 @@ test('demo navigation keeps the full-height product layout and consistent rail g
     expect(demoBox.x).toBe(searchBox.x);
     expect(demoBox.width).toBe(searchBox.width);
     expect(demoBox.height).toBe(searchBox.height);
-    for (const area of ['Calendar', 'Eisenhower Matrix', 'Habit', 'Tasks']) {
+    for (const area of ['Calendar', 'Eisenhower Matrix', 'Habit tracker', 'Tasks']) {
       await page.getByRole('button', { name: area, exact: true }).click();
       const bounds = (await page.locator('.rillday-app').boundingBox())!;
       expect(bounds.y).toBe(0);

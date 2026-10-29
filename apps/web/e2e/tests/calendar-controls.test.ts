@@ -240,7 +240,7 @@ test('calendar capture has a real submit action, validates, preserves drafts and
   await input.press('Escape');
   await expect(input).not.toBeFocused();
   await expect(input).toHaveValue('한글 조합');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByLabel('Calendar', { exact: true }).click();
   await expect(input).toHaveValue('한글 조합');
   await submit.click();

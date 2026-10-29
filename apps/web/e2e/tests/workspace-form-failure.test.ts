@@ -60,7 +60,7 @@ test('a rejected habit save retains its editor and can be corrected without a du
   page,
 }) => {
   await page.goto('/');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New habit', exact: true });
@@ -87,7 +87,7 @@ test('a new habit check-in invalidates the Undo action from an older list deleti
   page,
 }) => {
   await page.goto('/');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Daily note');
@@ -112,7 +112,7 @@ test('a new habit check-in invalidates the Undo action from an older list deleti
   const toast = page.locator('.toast');
   await expect(toast.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
 
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.locator('.habit-row .habit-day.today').click();
   await expect(page.locator('.habit-row .habit-day.today')).toHaveAttribute('aria-pressed', 'true');
   await expect(toast).toContainText('List deleted');

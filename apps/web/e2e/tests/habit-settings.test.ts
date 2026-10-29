@@ -4,7 +4,7 @@ import { seedWorkspace, storedWorkspace } from '../support/storage';
 
 async function newHabit(page: Page) {
   await page.goto('/');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Habit settings check');
@@ -74,7 +74,7 @@ test('historical habit controls retain the rule their click uses after the goal 
   });
   await seedWorkspace(page, workspace);
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await expect(page.locator('.habit-table-head time[datetime]')).toHaveText([
     '18',
     '19',
@@ -158,7 +158,7 @@ test('quantity goal, unit suggestions and fractional check-in step save exactly 
     })
     .toEqual({ goal: 3.5, step: 0.25, unit: 'cups', frequency: 'weekly', weeklyTarget: 4 });
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.locator('.habit-name').first().click();
   await page.getByLabel('Edit habit', { exact: true }).click();
   await expect(goal).toHaveValue('3.5');
@@ -252,7 +252,7 @@ test('changing editor modes retains local drafts; Cancel and IME never alter exi
   page,
 }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   const before = await storedWorkspace(page);
   await page.locator('.habit-name').filter({ hasText: 'Drink enough water' }).click();
   await page.getByLabel('Edit habit', { exact: true }).click();
@@ -372,7 +372,7 @@ test('quantity bounds block invalid input and accept the declared maximum', asyn
   await expect(page.locator('#quick-add-input')).toBeVisible();
   await seedWorkspace(page, emptyWorkspace());
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Check quantity boundaries');

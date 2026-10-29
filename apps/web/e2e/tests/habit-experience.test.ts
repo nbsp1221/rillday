@@ -7,7 +7,7 @@ test('weekly quantity targets, optional grouping and quick records share the rea
   context,
 }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Make time to read', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Weekly study');
@@ -48,7 +48,7 @@ test('weekly quantity targets, optional grouping and quick records share the rea
     });
   await context.setOffline(false);
   await reloadSavedPage(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '22.5');
   await expect(page.locator('.habit-time-group').first()).toHaveText('Morning');
   await row.locator('.habit-name').click();
@@ -61,7 +61,7 @@ test('reopening a weekly habit edits its planned target without changing the act
 }) => {
   await page.clock.install({ time: new Date('2026-10-29T03:00:00Z') });
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Make time to read', exact: true }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();

@@ -4,4 +4,4 @@
 '@repo/server': patch
 ---
 
-Make today's date prominent in the habit week view, align habit names and row actions, and distinguish completed, recorded, unlogged and upcoming days with readable markers.
+Improve the habit tracker with a prominent current date, aligned habit names and row actions, and readable markers for completed, recorded, unlogged and upcoming days.

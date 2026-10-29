@@ -48,7 +48,7 @@ test('Settings choices commit only on activation, retain keyboard focus through 
   await startup.press('ArrowDown');
   await expect(page.getByRole('option', { name: 'Tasks', exact: true })).toBeFocused();
   await page.keyboard.press('End');
-  await expect(page.getByRole('option', { name: 'Habit', exact: true })).toBeFocused();
+  await expect(page.getByRole('option', { name: 'Habit tracker', exact: true })).toBeFocused();
   await page.keyboard.press('Home');
   await expect(page.getByRole('option', { name: 'Tasks', exact: true })).toBeFocused();
   await page.keyboard.press('ArrowDown');
@@ -361,7 +361,7 @@ test.describe(() => {
       'complex',
     );
     await page.keyboard.press('Escape');
-    await page.getByRole('button', { name: 'Habit', exact: true }).tap();
+    await page.getByRole('button', { name: 'Habit tracker', exact: true }).tap();
     await page.getByRole('button', { name: 'Add habit', exact: true }).tap();
     await page.getByRole('button', { name: 'Create your own', exact: true }).tap();
     await page.getByLabel('Habit name', { exact: true }).fill('Touch frequency');

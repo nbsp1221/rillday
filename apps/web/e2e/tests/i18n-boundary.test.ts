@@ -197,7 +197,9 @@ for (const language of ['ko', 'en'] as const) {
         : ['Day', 'Week', 'Month', 'Year', 'Agenda'],
     );
     await page.keyboard.press('Escape');
-    await page.getByLabel(language === 'ko' ? '습관' : 'Habit', { exact: true }).click();
+    await page
+      .getByLabel(language === 'ko' ? '습관 트래커' : 'Habit tracker', { exact: true })
+      .click();
     await page
       .getByRole('button', { name: language === 'ko' ? '습관 추가' : 'Add habit', exact: true })
       .click();
