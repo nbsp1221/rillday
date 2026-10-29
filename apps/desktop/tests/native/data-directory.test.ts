@@ -526,7 +526,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
         contentType: 'text/plain',
       })
       .catch(() => undefined);
-    if (desktop && owned?.pid) {
+    if (desktop && owned) {
       await testInfo
         .attach('native-host-log', {
           path: resolve(dirname(owned.exe), 'native-host.log'),

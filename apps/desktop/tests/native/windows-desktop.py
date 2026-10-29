@@ -2,6 +2,7 @@
 
 import ctypes as c
 from ctypes import wintypes as w
+from contextlib import ExitStack, contextmanager
 import json
 import msvcrt
 import os
@@ -11,11 +12,22 @@ import sys
 import traceback
 import uuid
 
+SAFER_SCOPEID_USER = 2
+SAFER_LEVELID_NORMALUSER = 0x20000
+SAFER_LEVEL_OPEN = 1
+SAFER_TOKEN_NULL_IF_EQUAL = 1
+TOKEN_ELEVATION = 20
+TOKEN_INTEGRITY_LEVEL = 25
+MEDIUM_INTEGRITY = 8192
+SE_GROUP_INTEGRITY = 0x20
+CREATE_SUSPENDED = 0x4
+
 for stream in (sys.stdin, sys.stdout, sys.stderr):
     os.set_handle_inheritable(msvcrt.get_osfhandle(stream.fileno()), False)
 
 u = c.WinDLL("user32", use_last_error=True)
 k = c.WinDLL("kernel32", use_last_error=True)
+a = c.WinDLL("advapi32", use_last_error=True)
 callback_type = c.WINFUNCTYPE(w.BOOL, w.HWND, w.LPARAM)
 u.CreateDesktopW.argtypes = [w.LPCWSTR, w.LPCWSTR, c.c_void_p, w.DWORD, w.DWORD, c.c_void_p]
 u.CreateDesktopW.restype = w.HANDLE
@@ -26,6 +38,8 @@ u.SetThreadDesktop.argtypes = [w.HANDLE]
 u.GetThreadDesktop.argtypes = [w.DWORD]
 u.GetThreadDesktop.restype = w.HANDLE
 k.GetCurrentThreadId.restype = w.DWORD
+k.ResumeThread.argtypes = [w.HANDLE]
+k.ResumeThread.restype = w.DWORD
 k.WaitForMultipleObjects.argtypes = [w.DWORD, c.POINTER(w.HANDLE), w.BOOL, w.DWORD]
 k.WaitForMultipleObjects.restype = w.DWORD
 u.OpenInputDesktop.argtypes = [w.DWORD, w.BOOL, w.DWORD]
@@ -50,6 +64,25 @@ k.OpenProcess.restype = w.HANDLE
 k.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, c.POINTER(w.DWORD)]
 k.WaitForSingleObject.argtypes = [w.HANDLE, w.DWORD]
 k.WaitForSingleObject.restype = w.DWORD
+k.LocalFree.argtypes = [w.HANDLE]
+k.LocalFree.restype = w.HANDLE
+a.SaferCreateLevel.argtypes = [w.DWORD, w.DWORD, w.DWORD, c.POINTER(w.HANDLE), c.c_void_p]
+a.SaferComputeTokenFromLevel.argtypes = [w.HANDLE, w.HANDLE, c.POINTER(w.HANDLE), w.DWORD, c.c_void_p]
+a.SaferCloseLevel.argtypes = [w.HANDLE]
+a.ConvertStringSidToSidW.argtypes = [w.LPCWSTR, c.POINTER(c.c_void_p)]
+a.GetLengthSid.argtypes = [c.c_void_p]
+a.GetLengthSid.restype = w.DWORD
+a.SetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD]
+a.GetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]
+a.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, c.POINTER(w.HANDLE)]
+a.GetSidSubAuthorityCount.argtypes = [c.c_void_p]
+a.GetSidSubAuthorityCount.restype = c.POINTER(c.c_ubyte)
+a.GetSidSubAuthority.argtypes = [c.c_void_p, w.DWORD]
+a.GetSidSubAuthority.restype = c.POINTER(w.DWORD)
+
+
+class SidAndAttributes(c.Structure):
+    _fields_ = [("sid", c.c_void_p), ("attributes", w.DWORD)]
 
 
 class Startup(c.Structure):
@@ -68,6 +101,7 @@ class Process(c.Structure):
 k.CreateProcessW.argtypes = [w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p,
                             w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR,
                             c.POINTER(Startup), c.POINTER(Process)]
+a.CreateProcessAsUserW.argtypes = [w.HANDLE, *k.CreateProcessW.argtypes]
 
 
 def checked(value):
@@ -81,6 +115,48 @@ def send_message(hwnd, message, wparam, lparam):
     c.set_last_error(0)
     if not u.SendMessageTimeoutW(hwnd, message, wparam, lparam, 0x2, 5000, c.byref(result)):
         raise c.WinError(c.get_last_error() or 1460)
+
+
+@contextmanager
+def normal_user_token():
+    # WebView2 needs an unelevated host on a desktop without Explorer.
+    # https://github.com/MicrosoftEdge/WebView2Feedback/issues/2005
+    with ExitStack() as resources:
+        level = w.HANDLE()
+        checked(a.SaferCreateLevel(SAFER_SCOPEID_USER, SAFER_LEVELID_NORMALUSER,
+                                  SAFER_LEVEL_OPEN, c.byref(level), None))
+        resources.callback(a.SaferCloseLevel, level)
+        token = w.HANDLE()
+        checked(a.SaferComputeTokenFromLevel(level, None, c.byref(token), SAFER_TOKEN_NULL_IF_EQUAL, None))
+        if token:
+            resources.callback(k.CloseHandle, token)
+            sid = c.c_void_p()
+            checked(a.ConvertStringSidToSidW("S-1-16-8192", c.byref(sid)))
+            resources.callback(k.LocalFree, sid)
+            label = SidAndAttributes(sid, SE_GROUP_INTEGRITY)
+            checked(a.SetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, c.byref(label),
+                                          c.sizeof(label) + a.GetLengthSid(sid)))
+        yield token
+
+
+def process_privileges(process):
+    token = w.HANDLE()
+    checked(a.OpenProcessToken(process, 0x8, c.byref(token)))
+    try:
+        elevation = w.DWORD()
+        needed = w.DWORD()
+        checked(a.GetTokenInformation(token, TOKEN_ELEVATION, c.byref(elevation), c.sizeof(elevation), c.byref(needed)))
+        a.GetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, None, 0, c.byref(needed))
+        if c.get_last_error() != 122:
+            raise c.WinError(c.get_last_error())
+        information = c.create_string_buffer(needed.value)
+        checked(a.GetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, information, len(information), c.byref(needed)))
+        label = c.cast(information, c.POINTER(SidAndAttributes)).contents
+        count = a.GetSidSubAuthorityCount(label.sid)[0]
+        integrity = a.GetSidSubAuthority(label.sid, count - 1)[0]
+        return {"elevated": bool(elevation.value), "integrityLevel": integrity}
+    finally:
+        k.CloseHandle(token)
 
 
 def check_test_binary(executable):
@@ -115,27 +191,50 @@ def input_desktop():
         checked(u.CloseDesktop(handle))
 
 
-def terminate_owned(pid, executable):
-    handle = k.OpenProcess(0x1000 | 0x100000, False, pid)
-    if not handle and c.get_last_error() == 87:
-        return
-    checked(handle)
-    try:
-        exit_code = w.DWORD()
-        checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
-        if exit_code.value != 259:
-            return
-        image = c.create_unicode_buffer(32768)
-        size = w.DWORD(len(image))
-        checked(k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)))
-        assert Path(image.value).resolve() == executable, "Preserve an unrelated process"
-        # Retain the process handle while terminating its tree to prevent PID reuse.
-        subprocess.run(["taskkill.exe", "/PID", str(pid), "/T", "/F"],
-                       capture_output=True, timeout=10, creationflags=0x08000000)
-        if k.WaitForSingleObject(handle, 10000) != 0:
-            raise RuntimeError("Owned application did not exit")
-    finally:
-        k.CloseHandle(handle)
+def terminate_owned(pids, executable):
+    errors = []
+    with ExitStack() as resources:
+        handles = []
+        for pid in pids:
+            try:
+                handle = k.OpenProcess(0x1000 | 0x100000, False, pid)
+                if not handle and c.get_last_error() == 87:
+                    continue
+                checked(handle)
+                resources.callback(k.CloseHandle, handle)
+                exit_code = w.DWORD()
+                checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
+                if exit_code.value != 259:
+                    continue
+                image = c.create_unicode_buffer(32768)
+                size = w.DWORD(len(image))
+                checked(k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)))
+                assert Path(image.value).resolve() == executable, "Preserve an unrelated process"
+                handles.append((pid, handle))
+            except BaseException as error:
+                errors.append(error)
+        if handles:
+            assert len(handles) <= 64, "WaitForMultipleObjects supports at most 64 handles"
+            values = (w.HANDLE * len(handles))(*(handle for pid, handle in handles))
+            state = k.WaitForMultipleObjects(len(handles), values, True, 5000)
+            if state == 258:
+                # Hold all process handles while terminating the owned trees in one operation.
+                arguments = [argument for pid, handle in handles
+                             if k.WaitForSingleObject(handle, 0) == 258
+                             for argument in ("/PID", str(pid))]
+                if arguments:
+                    try:
+                        subprocess.run(["taskkill.exe", *arguments, "/T", "/F"],
+                                       capture_output=True, timeout=10, creationflags=0x08000000)
+                    except BaseException as error:
+                        errors.append(error)
+                state = k.WaitForMultipleObjects(len(handles), values, True, 5000)
+            if state == 0xFFFFFFFF:
+                errors.append(c.WinError(c.get_last_error()))
+            elif state != 0:
+                errors.append(RuntimeError("Owned applications did not exit"))
+    if errors:
+        raise BaseExceptionGroup("Owned application cleanup failed", errors)
 
 
 def wait_webview(pids):
@@ -172,6 +271,8 @@ owners = {}
 def release(name):
     owner = owners.get(name)
     if owner:
+        # A missing window does not prove that its application process exited.
+        terminate_owned(owner["pids"], owner["exe"])
         if owner["desktop"]:
             checked(u.CloseDesktop(owner["desktop"]))
             owner["desktop"] = None
@@ -206,7 +307,7 @@ def handle(request):
         elif action == "terminate":
             exe = Path(request["exe"]).resolve()
             assert owner and exe == owner["exe"], "Preserve an unrelated application"
-            terminate_owned(request["pid"], exe)
+            terminate_owned([request["pid"]], exe)
         elif action == "start":
             exe = Path(request["exe"]).resolve()
             assert exe.is_relative_to(root) and exe.name == "rillday-desktop.exe"
@@ -225,13 +326,17 @@ def handle(request):
             process = Process()
             try:
                 # GUI applications otherwise have no stderr for startup failures.
-                with (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
+                with normal_user_token() as token, (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
                     startup.stdin = msvcrt.get_osfhandle(null.fileno())
                     startup.stdout = startup.stderr = msvcrt.get_osfhandle(output.fileno())
                     os.set_handle_inheritable(startup.stdin, True)
                     os.set_handle_inheritable(startup.stdout, True)
-                    checked(k.CreateProcessW(str(exe), None, None, None, True, 0, None,
-                                            str(exe.parent), c.byref(startup), c.byref(process)))
+                    arguments = (str(exe), None, None, None, True, CREATE_SUSPENDED, None,
+                                 str(exe.parent), c.byref(startup), c.byref(process))
+                    if token:
+                        checked(a.CreateProcessAsUserW(token, *arguments))
+                    else:
+                        checked(k.CreateProcessW(*arguments))
             except BaseException as error:
                 try:
                     checked(u.SetThreadDesktop(original))
@@ -241,8 +346,14 @@ def handle(request):
                 raise
             # The driver owns this desktop across application restarts until release.
             owners[name] = {"desktop": creator, "process": process.process,
-                            "pid": process.pid, "exe": exe}
-            k.CloseHandle(process.thread)
+                            "pid": process.pid, "exe": exe, "pids": {process.pid}}
+            try:
+                result["privileges"] = process_privileges(process.process)
+                assert result["privileges"] == {"elevated": False, "integrityLevel": MEDIUM_INTEGRITY}, "Native verification requires a normal-user process at Medium integrity"
+                if k.ResumeThread(process.thread) == 0xFFFFFFFF:
+                    raise c.WinError(c.get_last_error())
+            finally:
+                k.CloseHandle(process.thread)
             exit_code = w.DWORD()
             checked(k.GetExitCodeProcess(process.process, c.byref(exit_code)))
             result["pid"] = process.pid
@@ -269,6 +380,8 @@ def handle(request):
                             u.GetWindowThreadProcessId(hwnd, c.byref(pid))
                             window_class = c.create_unicode_buffer(256)
                             u.GetClassNameW(hwnd, window_class, len(window_class))
+                            if window_class.value == "Tauri Window" or (window_class.value == "#32770" and title.value == "Choose folder…"):
+                                owner["pids"].add(pid.value)
                             texts, edits, buttons, views = [], [], [], []
 
                             @callback_type
@@ -342,16 +455,16 @@ def cleanup():
     errors = []
     for name, owner in list(owners.items()):
         try:
-            pids = {owner["pid"]}
-
             @callback_type
             def visit(hwnd, unused):
                 title = c.create_unicode_buffer(256)
                 u.GetWindowTextW(hwnd, title, len(title))
-                if title.value in ("Rillday", "Choose folder…"):
+                window_class = c.create_unicode_buffer(256)
+                u.GetClassNameW(hwnd, window_class, len(window_class))
+                if window_class.value == "Tauri Window" or (window_class.value == "#32770" and title.value == "Choose folder…"):
                     pid = w.DWORD()
                     u.GetWindowThreadProcessId(hwnd, c.byref(pid))
-                    pids.add(pid.value)
+                    owner["pids"].add(pid.value)
                 return True
 
             if owner["desktop"]:
@@ -360,25 +473,6 @@ def cleanup():
                 enumeration_error = c.get_last_error()
                 if not enumerated and enumeration_error:
                     raise c.WinError(enumeration_error)
-            for pid in pids:
-                try:
-                    process = k.OpenProcess(0x1000 | 0x100000, False, pid)
-                    if not process:
-                        if c.get_last_error() == 87:
-                            continue
-                        checked(process)
-                    try:
-                        if k.WaitForSingleObject(process, 0) == 0:
-                            continue
-                        image = c.create_unicode_buffer(32768)
-                        size = w.DWORD(len(image))
-                        checked(k.QueryFullProcessImageNameW(process, 0, image, c.byref(size)))
-                        if Path(image.value).resolve() == owner["exe"]:
-                            terminate_owned(pid, owner["exe"])
-                    finally:
-                        k.CloseHandle(process)
-                except BaseException as error:
-                    errors.append(error)
         except BaseException as error:
             errors.append(error)
         finally:
