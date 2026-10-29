@@ -123,6 +123,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
       - name: Install native prerequisites
         if: runner.os == 'Linux'
         run: |
