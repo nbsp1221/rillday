@@ -37,7 +37,7 @@ async function fixture(page: Page) {
   }));
   await seedWorkspace(page, data);
   await page.reload();
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   return storedWorkspace(page);
 }
 
@@ -88,7 +88,7 @@ test('appearance changes remain a local draft until Save, and cancellation prese
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(async () => (await storedWorkspace(page)).habits[0].icon).toBe('book-open');
   await page.reload();
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
     /lucide-book-open/,
   );
@@ -132,7 +132,7 @@ for (const theme of ['Dark', 'Light']) {
       .click();
     await page.getByRole('radio', { name: theme, exact: true }).click();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await page.getByLabel('Habit tracker', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     for (let i = 0; i < 4; i++) {
       await page.locator('.habit-name').nth(i).click();
       const day = page.locator('.habit-history-grid button.done:not(:disabled)').first();
@@ -181,7 +181,7 @@ test('icon-free, emoji and long habit names retain the same leading slots at eve
   data.habits[2].icon = '🧘';
   await seedWorkspace(page, data);
   await page.reload();
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.evaluate(() => document.fonts.ready);
   for (const width of [1183, 900, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });

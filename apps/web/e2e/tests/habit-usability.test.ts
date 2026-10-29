@@ -7,7 +7,7 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
   page,
 }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   const opener = page.locator('.habit-name').filter({ hasText: 'Drink enough water' });
   await opener.click();
   const amount = page.getByLabel('Check-in amount', { exact: true });
@@ -38,7 +38,7 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
     })
     .toEqual({ value: 3.5, note: 'Note after updating quantity' });
   await reloadSavedPage(page);
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await opener.click();
   await expect(amount).toHaveValue('3.5');
   await expect(note).toHaveValue('Note after updating quantity');
@@ -52,7 +52,7 @@ test('narrow habit details contain focus and the shared date calendar dismisses 
 }) => {
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').first().click();
   const detail = page.locator('.habit-detail');
   await expect(detail).toHaveAttribute('aria-modal', 'true');
@@ -88,7 +88,7 @@ test('habit day axes and menu targets fit both the full page and the space remai
   page,
 }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   for (const width of [1440, 1200, 1024, 900, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     for (const opened of [false, true]) {
@@ -147,7 +147,7 @@ test('habit day axes and menu targets fit both the full page and the space remai
 
 test('archiving closes details, keeps records read-only and supports undo', async ({ page }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   const habit = page.locator('.habit-name').filter({ hasText: 'Drink enough water' });
   await habit.click();
   await page.getByRole('button', { name: 'Archive habit', exact: true }).click();
@@ -171,7 +171,7 @@ test('archiving closes details, keeps records read-only and supports undo', asyn
 
 test('habit cards update quantity progress and retain it after reload', async ({ page }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   const progress = page.locator('.habits-summary').getByRole('meter');
   await expect(progress).toHaveAttribute('aria-valuenow', '1');
   await expect(progress).toHaveAttribute('aria-valuemax', '3');
@@ -191,6 +191,6 @@ test('habit cards update quantity progress and retain it after reload', async ({
     })
     .toBe(8);
   await reloadSavedPage(page);
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(progress).toHaveAttribute('aria-valuenow', '2');
 });

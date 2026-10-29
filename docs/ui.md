@@ -64,6 +64,6 @@ Keep equivalent menu and keyboard actions. Task rows support Up/Down, Home/End, 
 
 ## Localization and verification
 
-All visible text and accessible names use the shared Korean/English catalog. Format dates, quantities and calendar labels consistently. User-authored content is not translated. Use the same translated area labels in navigation, page headings and startup choices.
+All visible text and accessible names use the shared Korean/English catalog. Format dates, quantities and calendar labels consistently. User-authored content is not translated. English top-level area names use title case. Use the same translated area labels in navigation, page headings and startup choices; supporting copy and field labels use sentence case.
 
 For shared UI changes, check both themes and languages, narrow and short layouts, long text, mouse hover, visible keyboard focus, touch targets and reduced motion. Measure stable control bounds, content insets, label/value axes and clipping in the rendered interface. Test nested overlays, Escape focus return, composition, Save/Cancel and persistence as relevant to the change.

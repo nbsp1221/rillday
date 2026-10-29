@@ -198,7 +198,7 @@ for (const language of ['ko', 'en'] as const) {
     );
     await page.keyboard.press('Escape');
     await page
-      .getByLabel(language === 'ko' ? '습관 트래커' : 'Habit tracker', { exact: true })
+      .getByLabel(language === 'ko' ? '습관 트래커' : 'Habit Tracker', { exact: true })
       .click();
     await page
       .getByRole('button', { name: language === 'ko' ? '습관 추가' : 'Add habit', exact: true })

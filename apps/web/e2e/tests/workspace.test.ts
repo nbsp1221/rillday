@@ -251,7 +251,7 @@ test('dated child is visible in today and restoring a parent restores the tree',
 
 test('habit check-in persists; archive and restore retain history', async ({ page }) => {
   await ready(page);
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Stretching');
@@ -279,7 +279,7 @@ test('habit check-in persists; archive and restore retain history', async ({ pag
     })
     .toEqual({ archived: false, value: 1 });
   await reloadSavedPage(page);
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').click();
   await expect(page.locator('.habit-finish')).toContainText('Mark incomplete');
 });
@@ -331,7 +331,7 @@ test('narrow layout keeps task details and all primary views reachable', async (
   await page.locator('.task-title').click();
   await expect(page.getByLabel('Task title', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  for (const label of ['Eisenhower Matrix', 'Calendar', 'Habit tracker', 'Tasks']) {
+  for (const label of ['Eisenhower Matrix', 'Calendar', 'Habit Tracker', 'Tasks']) {
     await page.getByLabel(label, { exact: true }).click();
     await expect(page.locator('.main-workspace')).toBeVisible();
   }
@@ -371,8 +371,8 @@ test('language updates every area and task details without translating user cont
   await expect(page.getByRole('menuitemradio', { name: 'Day', exact: true })).toBeVisible();
   await expect(page.getByRole('menuitemradio', { name: 'Week', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.getByLabel('Habit tracker', { exact: true }).click();
-  await expect(page.locator('.workspace-title-row h1')).toHaveText('Habit tracker');
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
+  await expect(page.locator('.workspace-title-row h1')).toHaveText('Habit Tracker');
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
   await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await expect(page.getByLabel('Habit name', { exact: true })).toBeVisible();
@@ -570,7 +570,7 @@ for (const language of ['ko', 'en']) {
       ).toBeVisible();
 
       await page
-        .getByRole('button', { name: text('습관 트래커', 'Habit tracker'), exact: true })
+        .getByRole('button', { name: text('습관 트래커', 'Habit Tracker'), exact: true })
         .click();
       await page.getByRole('button', { name: text('습관 추가', 'Add habit'), exact: true }).click();
       await page

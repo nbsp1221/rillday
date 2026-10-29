@@ -11,7 +11,7 @@ async function openWeek(page: Page, theme: string) {
     .click();
   await page.getByRole('radio', { name: theme, exact: true }).click();
   await page.getByRole('button', { name: 'Back', exact: true }).click();
-  await page.getByLabel('Habit tracker', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
 }
 
 for (const theme of ['Dark', 'Light']) {
