@@ -152,10 +152,10 @@ export function HabitDetail({
         <div className="habit-detail-body min-h-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover overscroll-contain [padding:12px_20px_20px]">
           <div className="habit-detail-title text-center [margin:0_0_16px] [&_h2]:text-base [&_h2]:font-medium [&_h2]:[margin:12px_0_8px] [&_h2]:wrap-anywhere [&_h2]:leading-(--text-base--line-height) [&_p]:text-xs [&_p]:text-muted-foreground [&_p]:m-0 [&_p]:leading-(--text-xs--line-height)">
             <span
-              className="habit-symbol w-9 h-9 flex items-center justify-center rounded-lg [background:color-mix(in_srgb,_var(--habit-color,_var(--primary))_14%,_transparent)] text-[color:var(--habit-color,_var(--primary))] text-2xl shrink-0 leading-(--text-2xl--line-height) [.habit-detail-title_&]:w-12 [.habit-detail-title_&]:h-12 [.habit-detail-title_&]:m-auto [.habit-detail-title_&]:text-3xl [.habit-detail-title_&]:leading-(--text-3xl--line-height)"
+              className="habit-symbol mx-auto grid size-12 shrink-0 place-items-center rounded-lg bg-habit-color/15 text-3xl text-habit-color"
               aria-hidden="true"
             >
-              <HabitGlyph value={habit.icon} />
+              <HabitGlyph value={habit.icon} className="size-6" />
             </span>
             {narrow ? <SheetTitle render={<h2 />}>{habit.name}</SheetTitle> : <h2>{habit.name}</h2>}
             <p>

@@ -170,3 +170,42 @@ for (const theme of ['Dark', 'Light']) {
     }
   });
 }
+
+test('icon-free, emoji and long habit names retain the same leading slots at every width', async ({
+  page,
+}) => {
+  const data = await fixture(page);
+  data.habits[0].icon = 'none';
+  data.habits[0].name = 'A';
+  data.habits[1].name = 'A deliberately long habit name '.repeat(4).slice(0, 120);
+  data.habits[2].icon = '🧘';
+  await seedWorkspace(page, data);
+  await page.reload();
+  await page.getByLabel('Habit', { exact: true }).click();
+  await page.evaluate(() => document.fonts.ready);
+  for (const width of [1183, 900, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(async () =>
+        page.locator('.habit-row').evaluateAll((rows) =>
+          rows.every((row) => {
+            const box = row.getBoundingClientRect();
+            const icon = row.querySelector('.habit-symbol')!.getBoundingClientRect();
+            const title = row.querySelector('.habit-name strong')!.getBoundingClientRect();
+            const description = row.querySelector('.habit-name small')!.getBoundingClientRect();
+            return (
+              Math.abs(icon.left - box.left - 16) < 0.5 &&
+              icon.width === 36 &&
+              Math.abs(title.left - box.left - 64) < 0.5 &&
+              Math.abs(description.left - title.left) < 0.5
+            );
+          }),
+        ),
+      )
+      .toBe(true);
+    await expect(page.locator('.habit-symbol').first()).toBeEmpty();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+      false,
+    );
+  }
+});

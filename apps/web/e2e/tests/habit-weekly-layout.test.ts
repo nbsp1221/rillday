@@ -47,7 +47,8 @@ for (const theme of ['Dark', 'Light']) {
     page,
   }) => {
     await openWeek(page, theme);
-    for (const width of [1440, 1200, 900, 768, 390, 320]) {
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [1440, 1200, 1183, 900, 768, 390, 320]) {
       await page.setViewportSize({ width, height: 1000 });
       const rows = await page.locator('.habit-row').evaluateAll((rows) =>
         rows.map((row) => {
@@ -56,7 +57,23 @@ for (const theme of ['Dark', 'Light']) {
           const quickButton = row.querySelector('.habit-quick-add');
           const quick = quickButton?.getBoundingClientRect();
           const quickLabel = quickButton?.querySelector('span');
-          const icon = row.querySelector('.habit-name .habit-symbol')!.getBoundingClientRect();
+          const name = row.querySelector('.habit-name')!;
+          const icon = name.querySelector('.habit-symbol')!.getBoundingClientRect();
+          const title = name.querySelector('strong')!.getBoundingClientRect();
+          const description = name.querySelector('small')!.getBoundingClientRect();
+          const progress = name.querySelector('.habit-week-amount')?.getBoundingClientRect();
+          const nameBounds = name.getBoundingClientRect();
+          const actions = row.querySelector('.habit-menu-anchor')!.getBoundingClientRect();
+          const center = {
+            x: nameBounds.x + nameBounds.width / 2,
+            y: nameBounds.y + nameBounds.height / 2,
+          };
+          const centerVisible =
+            center.x >= 0 && center.x < innerWidth && center.y >= 0 && center.y < innerHeight;
+          const nameStyle = getComputedStyle(name);
+          const expectedInset =
+            Number.parseFloat(getComputedStyle(row).paddingLeft) +
+            Number.parseFloat(nameStyle.paddingLeft);
           const heads = [...document.querySelectorAll('.habit-table-head>div')].map((day) => {
             const box = day.getBoundingClientRect();
             return box.x + box.width / 2;
@@ -68,7 +85,15 @@ for (const theme of ['Dark', 'Light']) {
           return {
             inset: bounds.right - menu.right,
             menuInside: menu.left >= bounds.left && menu.right <= bounds.right,
+            nameAndActionsSeparate: nameBounds.right <= actions.left + 0.5,
+            nameCenterReachable:
+              !centerVisible || name.contains(document.elementFromPoint(center.x, center.y)),
             iconInset: icon.left - bounds.left,
+            leadingInsetError: Math.abs(icon.left - bounds.left - expectedInset),
+            titleGap: title.left - icon.right,
+            descriptionAxisError: Math.abs(description.left - title.left),
+            progressAxisError: progress ? Math.abs(progress.left - title.left) : 0,
+            glyphSize: name.querySelector('.habit-symbol svg')!.getBoundingClientRect().width,
             quickGap: quick ? menu.left - quick.right : undefined,
             quickHeight: quick?.height,
             quickLabelFits:
@@ -80,6 +105,13 @@ for (const theme of ['Dark', 'Light']) {
       );
       expect(rows).toHaveLength(4);
       expect(rows.every((row) => row.quickLabelFits)).toBe(true);
+      expect(rows.every((row) => row.nameAndActionsSeparate && row.nameCenterReachable)).toBe(true);
+      expect(rows.every((row) => row.leadingInsetError < 0.5)).toBe(true);
+      expect(rows.every((row) => Math.abs(row.titleGap - 12) < 0.5)).toBe(true);
+      expect(
+        rows.every((row) => row.descriptionAxisError < 0.5 && row.progressAxisError < 0.5),
+      ).toBe(true);
+      expect(rows.every((row) => row.glyphSize === 18)).toBe(true);
       expect(rows.every((row) => Math.abs(row.inset - 12) < 0.5 && row.menuInside)).toBe(true);
       expect(
         Math.max(...rows.map((row) => row.iconInset)) -

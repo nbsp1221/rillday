@@ -56,7 +56,7 @@ export function HabitAppearancePicker({
         style={habitColors(color)}
         className="habit-appearance-trigger grid size-11 shrink-0 place-items-center rounded-lg border border-transparent bg-habit-color/15 text-habit-color hover:border-habit-color focus-visible:outline-2 focus-visible:outline-ring"
       >
-        <HabitGlyph value={icon} size={22} />
+        <HabitGlyph value={icon} className="size-5.5" />
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner

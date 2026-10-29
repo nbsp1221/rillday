@@ -1,7 +1,6 @@
 import { Radio as OptionRadio } from '@base-ui/react/radio';
 import { RadioGroup } from '@repo/ui/components/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@repo/ui/components/toggle-group';
-import { cn } from 'cn';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { type Habit, habitAmountSchema } from '#application';
@@ -140,10 +139,7 @@ export function HabitSettings({
           <div className="habit-settings-fields flex flex-col gap-3 mt-3">
             <WorkspaceNumberField
               visibleLabel
-              className={cn(
-                'form-field flex min-w-0 flex-col gap-(--layout-field-gap)',
-                'habit-setting-row grid grid-cols-[minmax(0,_1fr)_minmax(0,_156px)] items-center gap-2 min-h-9 [&_>_label]:self-center',
-              )}
+              className="habit-setting-row min-h-(--control-height)"
               label={t(
                 value.frequency === 'weekly-total' ? 'habits.weeklyGoal' : 'habits.dailyGoal',
               )}
@@ -159,10 +155,7 @@ export function HabitSettings({
             <HabitUnitField value={value.unit} onChange={(unit) => onChange({ unit })} />
             <WorkspaceNumberField
               visibleLabel
-              className={cn(
-                'form-field flex min-w-0 flex-col gap-(--layout-field-gap)',
-                'habit-setting-row grid grid-cols-[minmax(0,_1fr)_minmax(0,_156px)] items-center gap-2 min-h-9 [&_>_label]:self-center',
-              )}
+              className="habit-setting-row min-h-(--control-height)"
               label={t('habits.stepSize')}
               value={step}
               step="any"
@@ -200,7 +193,7 @@ export function HabitSettings({
           <>
             <ToggleGroup
               multiple
-              className="habit-weekday-select grid grid-cols-[repeat(7,_minmax(0,_1fr))] gap-1 m-0 [&_button]:w-full [&_button]:max-w-9 [&_button]:[justify-self:center] [&_button]:h-8 [&_button]:border [&_button]:border-separator [&_button]:rounded-full [&_button]:bg-transparent [&_button]:text-xs [&_button]:text-muted-foreground [&_button]:leading-(--text-xs--line-height) [&_small]:[grid-column:1_/_-1] [&_small]:w-full [&_small]:text-xs [&_small]:text-danger-text [&_small]:leading-(--text-xs--line-height)"
+              className="habit-weekday-select grid w-full grid-cols-7 gap-1"
               aria-label={t('habits.practiceDays')}
               value={value.weekdays.map(String)}
               onValueChange={(weekdays) => onChange({ weekdays: weekdays.map(Number) })}
@@ -209,11 +202,7 @@ export function HabitSettings({
                 <ToggleGroupItem
                   key={day}
                   value={String(day)}
-                  className={cn(
-                    value.weekdays.includes(day)
-                      ? 'selected [.habit-history-grid_button&]:[outline:1px_solid_var(--ring)] [.habit-history-grid_button&]:outline-offset-[1px] [.habit-weekday-select_button&]:border-link [.habit-weekday-select_button&]:[background:color-mix(in_srgb,_var(--primary)_20%,_transparent)] [.habit-weekday-select_button&]:text-link'
-                      : '',
-                  )}
+                  className="h-8 w-full min-w-0 max-w-9 justify-self-center rounded-full border border-separator p-0 text-xs text-muted-foreground aria-pressed:border-link aria-pressed:bg-primary/20 aria-pressed:text-link"
                 >
                   {dayNames[day]}
                 </ToggleGroupItem>
@@ -233,10 +222,7 @@ export function HabitSettings({
           <>
             <WorkspaceNumberField
               visibleLabel
-              className={cn(
-                'form-field flex min-w-0 flex-col gap-(--layout-field-gap)',
-                'habit-setting-row grid grid-cols-[minmax(0,_1fr)_minmax(0,_156px)] items-center gap-2 min-h-9 [&_>_label]:self-center',
-              )}
+              className="habit-setting-row min-h-(--control-height)"
               label={t('habits.weeklyTargetDays')}
               value={weekly}
               onValueChange={(text) => numeric(text, setWeekly, 'weeklyTarget', 1, 7)}
@@ -256,10 +242,7 @@ export function HabitSettings({
           <>
             <WorkspaceNumberField
               visibleLabel
-              className={cn(
-                'form-field flex min-w-0 flex-col gap-(--layout-field-gap)',
-                'habit-setting-row grid grid-cols-[minmax(0,_1fr)_minmax(0,_156px)] items-center gap-2 min-h-9 [&_>_label]:self-center',
-              )}
+              className="habit-setting-row min-h-(--control-height)"
               label={t('habits.intervalDays')}
               value={interval}
               onValueChange={(text) => numeric(text, setInterval, 'intervalDays', 1, 30)}

@@ -1,3 +1,4 @@
+import { cn } from 'cn';
 import {
   Activity,
   Apple,
@@ -34,7 +35,6 @@ import {
   House,
   Languages,
   Leaf,
-  type LucideProps,
   MessageCircle,
   Mic,
   Moon,
@@ -137,13 +137,13 @@ export function resolveHabitIcon(value: string) {
   return habitIcons.find((item) => item.id === value);
 }
 
-export function HabitGlyph({ value, size = 18 }: { value: string; size?: LucideProps['size'] }) {
+export function HabitGlyph({ value, className }: { value: string; className?: string }) {
   if (value === 'none') {
     return null;
   }
   const item = resolveHabitIcon(value);
   return item ? (
-    <item.icon size={size} className="inline-block shrink-0 align-middle" />
+    <item.icon className={cn('inline-block size-4.5 shrink-0 align-middle', className)} />
   ) : (
     <span className="habit-custom-glyph max-w-full truncate" aria-hidden="true">
       {value}

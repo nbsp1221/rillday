@@ -139,53 +139,105 @@ export function HabitWeekTable({
             )}
             style={habitColors(habit.color)}
           >
-            <Button
-              variant="ghost"
-              onClick={() => openDetail(habit, habitToday(habit))}
-              className={cn(
-                "habit-name flex h-auto min-w-0 items-center justify-start gap-3 border-0 bg-transparent p-4 text-left hover:bg-transparent dark:hover:bg-transparent [@container((min-width:_761px))]:[:root[data-density='compact']_&]:py-2 [@container((max-width:_760px))]:col-span-full [@container((max-width:_760px))]:p-3",
-                habit.kind === 'quantity' && !habit.archived && dates.includes(habitToday(habit))
-                  ? '[@container((max-width:_760px))]:pr-32'
-                  : '[@container((max-width:_760px))]:pr-14',
-              )}
-            >
-              <span
-                className="habit-symbol w-9 h-9 flex items-center justify-center rounded-lg [background:color-mix(in_srgb,_var(--habit-color,_var(--primary))_14%,_transparent)] text-[color:var(--habit-color,_var(--primary))] text-2xl shrink-0 leading-(--text-2xl--line-height) [.habit-detail-title_&]:w-12 [.habit-detail-title_&]:h-12 [.habit-detail-title_&]:m-auto [.habit-detail-title_&]:text-3xl [.habit-detail-title_&]:leading-(--text-3xl--line-height)"
-                aria-hidden="true"
+            <div className="habit-row-heading contents [@container((max-width:_760px))]:col-span-full [@container((max-width:_760px))]:grid [@container((max-width:_760px))]:grid-cols-[minmax(0,1fr)_auto] [@container((max-width:_760px))]:items-center">
+              <Button
+                variant="ghost"
+                onClick={() => openDetail(habit, habitToday(habit))}
+                className="habit-name h-auto min-w-0 transition-colors border-0 bg-transparent p-4 text-left hover:bg-transparent dark:hover:bg-transparent [@container((min-width:_761px))]:[:root[data-density='compact']_&]:py-2 [@container((max-width:_760px))]:p-2"
               >
-                <HabitGlyph value={habit.icon} />
-              </span>
-              <span className="flex min-w-0 flex-col gap-2">
-                <strong className="truncate text-sm font-medium [@container((max-width:_760px))]:whitespace-normal [@container((max-width:_760px))]:wrap-anywhere">
-                  {habit.name}
-                </strong>
-                <small className="flex min-w-0 flex-wrap items-center gap-1 text-xs font-normal text-secondary-foreground">
-                  <Flame className="size-3 inline-block shrink-0 align-middle" />
-                  {t(
-                    habit.frequency.startsWith('weekly')
-                      ? 'habits.weekStreakCount'
-                      : 'habits.dayStreakCount',
-                    {
-                      count: habitStats(
-                        habit,
-                        data.habitLogs,
-                        habitToday(habit),
-                        preferences.weekStartsOn,
-                      ).streak,
-                    },
+                <span className="habit-identity grid w-full min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-3 text-left">
+                  <span
+                    className="habit-symbol grid size-9 shrink-0 place-items-center rounded-lg bg-habit-color/15 text-2xl text-habit-color"
+                    aria-hidden="true"
+                  >
+                    <HabitGlyph value={habit.icon} />
+                  </span>
+                  <span className="habit-copy flex min-w-0 flex-col gap-2">
+                    <strong className="truncate text-sm font-medium [@container((max-width:_760px))]:whitespace-normal [@container((max-width:_760px))]:wrap-anywhere">
+                      {habit.name}
+                    </strong>
+                    <small className="flex min-w-0 flex-wrap items-center gap-1 text-xs font-normal text-secondary-foreground">
+                      <Flame className="size-3 inline-block shrink-0 align-middle" />
+                      {t(
+                        habit.frequency.startsWith('weekly')
+                          ? 'habits.weekStreakCount'
+                          : 'habits.dayStreakCount',
+                        {
+                          count: habitStats(
+                            habit,
+                            data.habitLogs,
+                            habitToday(habit),
+                            preferences.weekStartsOn,
+                          ).streak,
+                        },
+                      )}
+                      <span>·</span>
+                      {scheduleLabel(habit)}
+                      {habit.kind === 'quantity' ? ` · ${habit.goal} ${habit.unit}` : ''}
+                    </small>
+                    {habit.frequency === 'weekly-total' && (
+                      <HabitWeeklyProgress
+                        habit={habit}
+                        date={dates.includes(habitToday(habit)) ? habitToday(habit) : dates[6]}
+                      />
+                    )}
+                  </span>
+                </span>
+              </Button>
+              <div className="habit-menu-anchor grid grid-cols-[minmax(0,1fr)_32px] items-center gap-2 px-3 [@container((min-width:_761px))]:col-start-9 [@container((min-width:_761px))]:row-start-1 [@container((max-width:_760px))]:grid-flow-col [@container((max-width:_760px))]:auto-cols-max [@container((max-width:_760px))]:grid-cols-none [@container((max-width:_760px))]:px-1">
+                {habit.kind === 'quantity' &&
+                  !habit.archived &&
+                  dates.includes(habitToday(habit)) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!habitScheduled(habit, habitToday(habit))}
+                      title={t('habits.quickAdd', {
+                        step: habit.step ?? 1,
+                        unit: habit.unit,
+                        name: habit.name,
+                      })}
+                      aria-label={t('habits.quickAdd', {
+                        step: habit.step ?? 1,
+                        unit: habit.unit,
+                        name: habit.name,
+                      })}
+                      onClick={() => toggleLog(habit, habitToday(habit))}
+                      className="habit-quick-add col-start-1 [@container((max-width:_760px))]:col-auto min-w-0 max-w-full justify-self-end px-1.5 text-xs tabular-nums"
+                    >
+                      <Plus size={14} />
+                      <span className="min-w-0 truncate">{formatAmount(habit.step ?? 1)}</span>
+                    </Button>
                   )}
-                  <span>·</span>
-                  {scheduleLabel(habit)}
-                  {habit.kind === 'quantity' ? ` · ${habit.goal} ${habit.unit}` : ''}
-                </small>
-                {habit.frequency === 'weekly-total' && (
-                  <HabitWeeklyProgress
-                    habit={habit}
-                    date={dates.includes(habitToday(habit)) ? habitToday(habit) : dates[6]}
-                  />
-                )}
-              </span>
-            </Button>
+                <WorkspaceActions
+                  className="col-start-2 size-8 [@container((max-width:_760px))]:col-auto"
+                  triggerClassName="size-8 [.habit-row:hover_&]:opacity-100 [.habit-row:focus-within_&]:opacity-100 aria-expanded:opacity-100 [@container(max-width:_760px)]:opacity-100 [@media(hover:_none)]:opacity-100"
+                  label={t('common.namedMenu', { name: habit.name })}
+                  items={[
+                    {
+                      label: t('common.edit'),
+                      icon: <Pencil className="size-3.5 inline-block shrink-0 align-middle" />,
+                      action: () => onEdit(habit),
+                    },
+                    {
+                      label: habit.archived ? t('common.restore') : t('common.archive'),
+                      icon: habit.archived ? (
+                        <RotateCcw className="size-3.5 inline-block shrink-0 align-middle" />
+                      ) : (
+                        <Archive className="size-3.5 inline-block shrink-0 align-middle" />
+                      ),
+                      action: () => archive(habit),
+                    },
+                    {
+                      label: t('common.delete'),
+                      icon: <Trash2 className="size-3.5 inline-block shrink-0 align-middle" />,
+                      destructive: true,
+                      action: () => onDelete(habit),
+                    },
+                  ]}
+                />
+              </div>
+            </div>
             {dates.map((date) => (
               <HabitDayCell
                 key={date}
@@ -197,59 +249,6 @@ export function HabitWeekTable({
                 onLogChange={(action) => onLogChange(habit, date, action)}
               />
             ))}
-            <div className="habit-menu-anchor relative grid grid-cols-[minmax(0,1fr)_32px] items-center gap-2 px-3 [@container((max-width:_760px))]:w-28 [@container((max-width:_760px))]:px-0 [@container((max-width:_760px))]:absolute [@container((max-width:_760px))]:right-3 [@container((max-width:_760px))]:top-3">
-              {habit.kind === 'quantity' &&
-                !habit.archived &&
-                dates.includes(habitToday(habit)) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!habitScheduled(habit, habitToday(habit))}
-                    title={t('habits.quickAdd', {
-                      step: habit.step ?? 1,
-                      unit: habit.unit,
-                      name: habit.name,
-                    })}
-                    aria-label={t('habits.quickAdd', {
-                      step: habit.step ?? 1,
-                      unit: habit.unit,
-                      name: habit.name,
-                    })}
-                    onClick={() => toggleLog(habit, habitToday(habit))}
-                    className="habit-quick-add col-start-1 min-w-0 max-w-full justify-self-end px-1.5 text-xs tabular-nums"
-                  >
-                    <Plus size={14} />
-                    <span className="min-w-0 truncate">{formatAmount(habit.step ?? 1)}</span>
-                  </Button>
-                )}
-              <WorkspaceActions
-                className="col-start-2 size-8"
-                triggerClassName="size-8 [.habit-row:hover_&]:opacity-100 [.habit-row:focus-within_&]:opacity-100 aria-expanded:opacity-100 [@container(max-width:_760px)]:opacity-100 [@media(hover:_none)]:opacity-100"
-                label={t('common.namedMenu', { name: habit.name })}
-                items={[
-                  {
-                    label: t('common.edit'),
-                    icon: <Pencil className="size-3.5 inline-block shrink-0 align-middle" />,
-                    action: () => onEdit(habit),
-                  },
-                  {
-                    label: habit.archived ? t('common.restore') : t('common.archive'),
-                    icon: habit.archived ? (
-                      <RotateCcw className="size-3.5 inline-block shrink-0 align-middle" />
-                    ) : (
-                      <Archive className="size-3.5 inline-block shrink-0 align-middle" />
-                    ),
-                    action: () => archive(habit),
-                  },
-                  {
-                    label: t('common.delete'),
-                    icon: <Trash2 className="size-3.5 inline-block shrink-0 align-middle" />,
-                    destructive: true,
-                    action: () => onDelete(habit),
-                  },
-                ]}
-              />
-            </div>
           </div>
         </Fragment>
       ))}

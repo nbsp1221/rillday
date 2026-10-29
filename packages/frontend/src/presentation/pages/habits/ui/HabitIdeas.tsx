@@ -154,15 +154,19 @@ export function HabitIdeas({
             key={idea.id}
             variant="ghost"
             onClick={() => choose(idea)}
-            className="h-auto min-h-16 justify-start gap-3 whitespace-normal rounded-md border border-border p-3 text-left"
+            className="h-auto min-h-16 transition-colors whitespace-normal rounded-md border border-border p-3 text-left"
           >
-            <span
-              style={habitColors(idea.color)}
-              className="grid size-9 shrink-0 place-items-center rounded-lg bg-habit-color/15 text-habit-color"
-            >
-              <HabitGlyph value={idea.icon} />
+            <span className="habit-idea-identity grid w-full min-w-0 grid-cols-[36px_minmax(0,1fr)] items-center gap-3 text-left">
+              <span
+                style={habitColors(idea.color)}
+                className="grid size-9 shrink-0 place-items-center rounded-lg bg-habit-color/15 text-habit-color"
+              >
+                <HabitGlyph value={idea.icon} />
+              </span>
+              <span className="min-w-0 text-sm leading-snug wrap-anywhere">
+                {t(`habits.ideas.${idea.id}`)}
+              </span>
             </span>
-            <span className="text-sm leading-snug">{t(`habits.ideas.${idea.id}`)}</span>
           </Button>
         ))}
       </div>
