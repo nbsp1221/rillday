@@ -2,7 +2,7 @@ import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { access, cp, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { inspect, promisify } from 'node:util';
 import { type Browser, type Page, test as base, chromium, expect } from '@playwright/test';
@@ -27,7 +27,7 @@ const test = base.extend<{ native: Native }>({
   native: async ({}, provide) => {
     const driver = spawn('python', ['-u', helper], {
       windowsHide: true,
-      env: { ...process.env, PYTHONUTF8: '1' },
+      env: { ...process.env, PYTHONUTF8: '1', RUST_BACKTRACE: '1' },
       stdio: ['pipe', 'pipe', 'inherit'],
     });
     const protocol = createInterface({
@@ -527,6 +527,12 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       })
       .catch(() => undefined);
     if (desktop && owned?.pid) {
+      await testInfo
+        .attach('native-host-log', {
+          path: resolve(dirname(owned.exe), 'native-host.log'),
+          contentType: 'text/plain',
+        })
+        .catch(() => undefined);
       try {
         await testInfo.attach('native-processes', {
           body: JSON.stringify(

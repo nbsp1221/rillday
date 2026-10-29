@@ -3,12 +3,16 @@
 import ctypes as c
 from ctypes import wintypes as w
 import json
+import msvcrt
 import os
 from pathlib import Path
 import subprocess
 import sys
 import traceback
 import uuid
+
+for stream in (sys.stdin, sys.stdout, sys.stderr):
+    os.set_handle_inheritable(msvcrt.get_osfhandle(stream.fileno()), False)
 
 u = c.WinDLL("user32", use_last_error=True)
 k = c.WinDLL("kernel32", use_last_error=True)
@@ -216,12 +220,18 @@ def handle(request):
             startup = Startup()
             startup.cb = c.sizeof(startup)
             startup.desktop = "WinSta0\\" + name
-            startup.flags = 1
+            startup.flags = 1 | 0x100
             startup.show = 4
             process = Process()
             try:
-                checked(k.CreateProcessW(str(exe), None, None, None, False, 0, None,
-                                        str(exe.parent), c.byref(startup), c.byref(process)))
+                # GUI applications otherwise have no stderr for startup failures.
+                with (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
+                    startup.stdin = msvcrt.get_osfhandle(null.fileno())
+                    startup.stdout = startup.stderr = msvcrt.get_osfhandle(output.fileno())
+                    os.set_handle_inheritable(startup.stdin, True)
+                    os.set_handle_inheritable(startup.stdout, True)
+                    checked(k.CreateProcessW(str(exe), None, None, None, True, 0, None,
+                                            str(exe.parent), c.byref(startup), c.byref(process)))
             except BaseException as error:
                 try:
                     checked(u.SetThreadDesktop(original))
