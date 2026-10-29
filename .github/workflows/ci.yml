@@ -61,6 +61,8 @@ jobs:
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
+      - name: Trust the mounted checkout in the browser container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: pnpm/setup@v1
         with:
           cache: true

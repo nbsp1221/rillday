@@ -163,6 +163,56 @@ original = u.GetThreadDesktop(k.GetCurrentThreadId())
 desktop = None
 result = {"inputBefore": before, "desktop": name}
 try:
+    if request.get("diagnostics"):
+        pid = int(request["pid"])
+        exe = Path(request["exe"]).resolve()
+        assert exe.is_relative_to(root) and exe.name == "rillday-desktop.exe"
+        script = r"""
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$all = @(Get-CimInstance Win32_Process)
+$ids = [System.Collections.Generic.HashSet[int]]::new()
+if ($all | Where-Object { $_.ProcessId -eq OWNED_PID -and $_.ExecutablePath -eq 'OWNED_EXE' }) {
+    [void]$ids.Add(OWNED_PID)
+}
+do {
+    $added = $false
+    foreach ($process in $all) {
+        if ($ids.Contains([int]$process.ParentProcessId)) {
+            $added = $ids.Add([int]$process.ProcessId) -or $added
+        }
+    }
+} while ($added)
+ConvertTo-Json -Depth 3 -Compress -InputObject @($all | Where-Object { $ids.Contains([int]$_.ProcessId) } | ForEach-Object {
+    [pscustomobject]@{
+        pid = $_.ProcessId
+        parent = $_.ParentProcessId
+        name = $_.Name
+        commandLine = $_.CommandLine
+        version = if ($_.ExecutablePath) { (Get-Item -LiteralPath $_.ExecutablePath).VersionInfo.ProductVersion }
+    }
+})
+""".replace("OWNED_PID", str(pid)).replace("OWNED_EXE", str(exe).replace("'", "''"))
+        snapshot = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True, encoding="utf-8", errors="replace", timeout=15,
+            creationflags=0x08000000,
+        )
+        try:
+            result["processes"] = json.loads(snapshot.stdout) if snapshot.returncode == 0 else snapshot.stderr
+        except ValueError:
+            result["processInspectionError"] = snapshot.stdout + snapshot.stderr
+        handle = k.OpenProcess(0x1000, False, pid)
+        if handle:
+            try:
+                exit_code = w.DWORD()
+                checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
+                image = c.create_unicode_buffer(32768)
+                size = w.DWORD(len(image))
+                if k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)) and Path(image.value).resolve() == exe:
+                    result["hostExitCode"] = exit_code.value
+            finally:
+                k.CloseHandle(handle)
     if request["action"] == "wait-webview":
         wait_webview(request["pids"])
     elif request["action"] == "terminate":
@@ -211,7 +261,7 @@ try:
             def visit(hwnd, unused):
                 title = c.create_unicode_buffer(256)
                 u.GetWindowTextW(hwnd, title, len(title))
-                if title.value in ("Rillday", "Choose folder…"):
+                if request.get("diagnostics") or title.value in ("Rillday", "Choose folder…"):
                     pid = w.DWORD()
                     u.GetWindowThreadProcessId(hwnd, c.byref(pid))
                     window_class = c.create_unicode_buffer(256)
@@ -235,7 +285,8 @@ try:
                         return True
 
                     u.EnumChildWindows(hwnd, child_text, 0)
-                    result["windows"].append({"pid": pid.value, "class": window_class.value, "texts": texts})
+                    result["windows"].append({"pid": pid.value, "title": title.value,
+                                              "class": window_class.value, "texts": texts})
                     if request["action"] == "select" and title.value == "Choose folder…":
                         assert len(edits) == 1 and len(buttons) == 1, "Expected the Windows folder selection controls"
                         folder = Path(request["path"]).resolve()

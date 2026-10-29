@@ -68,6 +68,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   let browser: Browser | undefined;
   let webviewProcesses: number[] = [];
   let owned: { exe: string; pid?: number } | undefined;
+  let launch: NativeResult | undefined;
 
   async function disconnect() {
     await browser?.close().catch(() => undefined);
@@ -178,11 +179,12 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await freePort(port);
     desktop = `RilldayTest-${randomUUID()}`;
     owned = { exe: resolve(folder, 'rillday-desktop.exe') };
-    owned.pid = native({
+    launch = native({
       action: 'start',
       desktop,
       exe: owned.exe,
-    }).pid;
+    });
+    owned.pid = launch.pid;
     return connect();
   }
 
@@ -417,6 +419,34 @@ test('first-run selection, shared profiles and folder changes preserve offline w
         contentType: 'text/plain',
       })
       .catch(() => undefined);
+    if (desktop && owned?.pid) {
+      try {
+        await testInfo.attach('native-processes', {
+          body: JSON.stringify(
+            {
+              launch,
+              current: native({
+                action: 'inspect',
+                desktop,
+                diagnostics: true,
+                pid: owned.pid,
+                exe: owned.exe,
+              }),
+            },
+            null,
+            2,
+          ),
+          contentType: 'application/json',
+        });
+      } catch (inspectionError) {
+        await testInfo
+          .attach('native-inspection-error', {
+            body: JSON.stringify({ launch, inspectionError: String(inspectionError) }),
+            contentType: 'application/json',
+          })
+          .catch(() => undefined);
+      }
+    }
     await captureFailure().catch(() => undefined);
   } finally {
     await writeFile(testInfo.outputPath('fixture.json'), JSON.stringify({ fixture })).catch(
