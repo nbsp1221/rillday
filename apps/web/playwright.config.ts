@@ -12,6 +12,8 @@ export default defineConfig({
   testDir: './e2e/tests',
   outputDir: resolve(outputRoot, 'e2e'),
   workers: 1,
+  retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: Boolean(process.env.CI),
   forbidOnly: Boolean(process.env.CI),
   globalTimeout: 20 * 60 * 1000,
   reporter: [
@@ -25,7 +27,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     locale: 'en-US',
     timezoneId: 'Asia/Seoul',
-    trace: 'retain-on-failure',
+    trace: process.env.CI ? 'on-first-retry' : 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   webServer: {

@@ -1,4 +1,5 @@
 import { type Locator, expect, test } from '@playwright/test';
+import { settleAnimations } from '@repo/test-support/browser-appearance';
 
 async function width(panel: Locator) {
   return (await panel.boundingBox())!.width;
@@ -20,18 +21,7 @@ test('navigation restores preferred sidebar pixels after a hidden viewport chang
   await separator.focus();
   await separator.press('ArrowRight');
   await expect.poll(() => width(sidebar)).toBeGreaterThan(222);
-  await expect
-    .poll(() =>
-      page
-        .locator('.workspace-panels')
-        .evaluate(
-          (element) =>
-            element
-              .getAnimations({ subtree: true })
-              .filter((animation) => animation.playState === 'running').length,
-        ),
-    )
-    .toBe(0);
+  await settleAnimations(page.locator('.workspace-panels'));
   const preferred = await width(sidebar);
   await page.getByLabel('Habit', { exact: true }).click();
   await page.setViewportSize({ width: 1024, height: 900 });

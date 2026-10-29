@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
 import { browserToday } from '../support/clock';
 import { selectCalendarDate, setPickerRepeat, setPickerTime } from '../support/date-picker';

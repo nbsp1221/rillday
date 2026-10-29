@@ -153,6 +153,7 @@ Product colors live in `packages/frontend/src/presentation/app/entrypoint/worksp
 ```sh
 pnpm check
 pnpm test
+pnpm test:browser
 pnpm test:e2e
 ```
 
@@ -166,17 +167,21 @@ Keep local helpers in the owning tests' `support/` directory, such as `tests/sup
 
 Run one owner with `pnpm --filter @repo/domain test` or `pnpm --filter @repo/frontend test`. For a focused unit test, use `pnpm --filter @repo/frontend exec vitest run src/application/workspace/habits.test.ts`; for an integration feature, use `pnpm --filter @repo/frontend exec vitest run tests/sync/native-sync.test.ts`. Omit `run` for watch mode. Helpers use ordinary filenames and are not discovered as tests.
 
-`apps/web/playwright.config.ts` and `apps/web/e2e/` own browser cases and browser-only support. `packages/test-support` provides synthetic accounts, artifact cleanup and an injected server fixture; production modules never import it. The fixture accepts its consumer's server factory to avoid a dependency cycle.
+`apps/web/playwright.config.ts` and `apps/web/e2e/` own application journeys and browser-only support. Shared control contracts live beside the owning frontend component as `*.browser.test.ts`; Vitest excludes these files. `pnpm test:browser` runs them in a real browser through Playwright's component mount fixture and `packages/frontend/tests/browser/`. Its gallery imports the product theme and fonts without starting an application, storage or synchronization. Keep application wiring, responsive layout and persistence in the application journeys. `packages/test-support` provides shared appearance checks, synthetic accounts, artifact cleanup and an injected server fixture; production modules never import it. The fixture accepts its consumer's server factory to avoid a dependency cycle.
 
-Turbo caches deterministic suites and builds using their dependency graph, sources and semantic environment; CI restores its task cache by platform and lockfile. Keep caches scoped to the same runtime and platform. Server, system synchronization and E2E checks always execute. `pnpm test:all` runs Vitest and Playwright suites.
+Turbo caches deterministic suites and builds using their dependency graph, sources and semantic environment; CI restores its task cache by platform and lockfile. Keep caches scoped to the same runtime and platform. Server, system synchronization, component and E2E checks always execute. `pnpm test:all` runs unit, integration, component and application browser suites.
 
 Cached web builds always write to `apps/web/dist`. For an isolated build, use Vite directly: `pnpm --filter @repo/web exec vite build --outDir <directory>`. Set `RILLDAY_TEST_WEB_DIR` to that directory when running browser tests; their preview server inherits it.
 
-CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Formatting, lint, types and the full Vitest suite run first. Browser applications are built once and shared across three Playwright shards, each with one worker. The first shard also runs demo and landing tests. The official Playwright container supplies matching browsers, fonts and system libraries; keep its version aligned with `@playwright/test`. Every browser case still runs; successful and failed web runs retain HTML and JUnit reports for seven days.
+CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Formatting, lint, types and the full Vitest suite run first. Browser applications are built once and shared across three Playwright shards, each with one worker. The first shard also runs demo and landing tests; the second runs shared control contracts. The official Playwright container supplies matching browsers, fonts and system libraries; keep its version aligned with `@playwright/test`. Every browser case still runs; successful and failed web/component runs retain HTML and JUnit reports for seven days.
 
-Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
+CI retries a failed browser case once to collect a full trace, and treats a retry success as a failed gate through `failOnFlakyTests`. The first failure still captures a screenshot. Local runs keep first-attempt tracing and do not retry. A diagnostic retry never makes an intermittent failure pass CI.
 
-Run one browser shard locally with `pnpm --filter @repo/web test:e2e --shard=1/3`, after building the web application. Run `pnpm test:e2e` for all browser suites. Visual reference images belong beside their test and are specific to the browser and operating system; update them with Playwright's `--update-snapshots` only after inspecting the rendered change.
+Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. CI installs the pinned official `cargo-about` binary with checksum verification. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
+
+Run one browser shard locally with `pnpm --filter @repo/web test:e2e --shard=1/3`, after building the web application. Run `pnpm test:e2e` for all application browser suites. Visual reference images belong beside their test and are specific to the browser and operating system; update them with Playwright's `--update-snapshots` only after inspecting the rendered change.
+
+Run shared UI contracts with `pnpm --filter @repo/frontend test:browser`. `RILLDAY_TEST_COMPONENT_PORT` overrides the gallery's default port 4193. The gallery uses fresh browser contexts and runs independently of the application preview.
 
 Server tests clean up their temporary databases. Set `RILLDAY_TEST_KEEP_ARTIFACTS=1` to retain them for debugging. `RILLDAY_TEST_OUTPUT` selects fixture artifacts; Vitest keeps its default cache location.
 

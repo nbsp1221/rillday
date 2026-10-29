@@ -48,3 +48,9 @@
 **/*.p12
 **/storageState*.json
 **/auth.json
+**/tests
+**/e2e
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

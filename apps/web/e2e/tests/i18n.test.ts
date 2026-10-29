@@ -70,12 +70,16 @@ for (const language of ['ko', 'en'] as const) {
       });
       await trigger.click();
       await expect(page.getByRole('menuitemradio')).toHaveText(priorities);
-      const colors = await page
-        .getByRole('menuitemradio')
-        .evaluateAll((items) =>
-          items.map((item) => getComputedStyle(item.querySelector('svg')!).color),
-        );
-      expect(new Set(colors).size).toBe(4);
+      const flags = page.getByRole('menuitemradio').locator('svg.lucide-flag');
+      await expect(flags).toHaveCount(4);
+      await expect
+        .poll(async () => {
+          const colors = await flags.evaluateAll((icons) =>
+            icons.map((icon) => getComputedStyle(icon).color),
+          );
+          return new Set(colors).size;
+        })
+        .toBe(4);
       await page.getByRole('menuitemradio', { name: priority, exact: true }).click();
       await expect(trigger).toHaveAttribute('title', priority);
       await page.locator('#quick-add-input').fill(`Save {{count}} $t(common.save) ${index}`);

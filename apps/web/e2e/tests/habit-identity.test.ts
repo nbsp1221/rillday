@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
 

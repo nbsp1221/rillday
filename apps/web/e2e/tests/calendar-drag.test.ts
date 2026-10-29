@@ -451,7 +451,9 @@ test('empty month and undated previews follow their content headers instead of t
   );
 });
 
-test('rapid pointer dragging updates each date by the next frame', async ({ page }) => {
+test('calendar drop feedback follows pointer changes and cancellation preserves data', async ({
+  page,
+}) => {
   await seed(page);
   const source = (await page.locator(`[data-task-id="${fixtureId('source')}"]`).boundingBox())!;
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);

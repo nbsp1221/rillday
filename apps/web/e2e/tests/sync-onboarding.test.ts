@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password, setupAdministrator } from '@repo/test-support';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { reloadSavedPage } from '../support/navigation';
 
 const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));

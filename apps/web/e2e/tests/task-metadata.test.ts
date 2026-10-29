@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';

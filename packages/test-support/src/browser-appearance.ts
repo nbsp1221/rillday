@@ -1,5 +1,18 @@
-import type { Locator } from '@playwright/test';
+import { type Locator, expect } from '@playwright/test';
 import axe from 'axe-core';
+
+export async function settleAnimations(locator: Locator) {
+  await expect(locator).toBeVisible();
+  await expect
+    .poll(() =>
+      locator.evaluate((element) =>
+        element
+          .getAnimations({ subtree: true })
+          .some((animation) => animation.pending || animation.playState === 'running'),
+      ),
+    )
+    .toBe(false);
+}
 
 interface Color {
   alpha: number;

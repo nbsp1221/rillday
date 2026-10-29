@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { type Locator, type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
+import { settleAnimations } from '@repo/test-support/browser-appearance';
 const require = createRequire(import.meta.url);
 
 async function ready(page: Page) {
@@ -12,12 +13,6 @@ async function ready(page: Page) {
 async function resetExamples(page: Page) {
   await page.getByRole('button', { name: 'Demo', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Reset examples', exact: true }).click();
-}
-
-async function settleAnimations(overlay: Locator) {
-  await overlay.evaluate((element) =>
-    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
-  );
 }
 
 async function add(page: Page, title: string) {

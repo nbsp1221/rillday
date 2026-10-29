@@ -16,9 +16,10 @@ async function seed(page: Page) {
 }
 
 async function start(page: Page, row: Locator) {
+  await expect(page.locator('.task-drag-overlay')).toHaveCount(0);
   const handle = row.locator('.task-content');
   const box = (await handle.boundingBox())!;
-  await page.mouse.move(box.x + Math.min(60, box.width / 2), box.y + box.height / 2);
+  await handle.hover({ position: { x: Math.min(60, box.width / 2), y: box.height / 2 } });
   await page.mouse.down();
   await page.mouse.move(box.x + Math.min(60, box.width / 2) + 8, box.y + box.height / 2, {
     steps: 2,
