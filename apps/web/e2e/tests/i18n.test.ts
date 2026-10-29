@@ -173,7 +173,7 @@ for (const language of ['ko', 'en'] as const) {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.locator('#quick-add-input').fill('');
-    await page.getByLabel(/^(습관|Habit)$/, { exact: true }).click();
+    await page.getByLabel(/^(습관 트래커|Habit Tracker)$/, { exact: true }).click();
     await page.getByRole('button', { name: /^(습관 추가|Add habit)$/, exact: true }).click();
     await page
       .getByRole('button', { name: /^(직접 만들기|Create your own)$/, exact: true })

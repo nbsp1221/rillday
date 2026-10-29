@@ -6,6 +6,8 @@ The Daybreak mark uses Iris (`#7060c3`). Primary buttons use `#6450b2` with whit
 
 Shared components and semantic tokens define the interface across web and Windows. Reuse them for new screens; change a shared role before adding a competing local override.
 
+The muted palette supports interactive fills and readable secondary text. Quiet inset surfaces have their own token; they must not make shared ghost-button hover indistinguishable from its parent surface. Tabs use the official line variant with a persistent active indicator and readable inactive labels.
+
 ## Theme and layout
 
 Product colors, radii, typography and density tokens belong in `packages/frontend/src/presentation/app/entrypoint/workspace.css`. The UI package supplies the standard shadcn theme mappings and base layer. Official CLI output lives in `packages/ui/src/components` and is excluded from project linting and formatting; TypeScript, builds and interaction checks still cover it. Keep official generated components unchanged; compose their documented props, variants and library primitives in the renderer for product layouts. Do not add product selector stylesheets or parent selectors that change another component's private geometry. User-selected list, label and habit colors are data and remain independent of the theme.
@@ -33,6 +35,8 @@ Use Dropdown Menu and Context Menu for commands; use Popover for form editing. S
 Base UI `Field` associates a text-sized label with its sibling control. Blank form space must not activate the control. Do not wrap multiple controls in one label. Escape dismisses one overlay layer and returns focus to its opener; composition must not trigger dismissal or submission. Editing dialogs start in a field and destructive confirmations start on Cancel.
 
 Use the libraries' standard Menu, Select and Radio keyboard behavior without extra key handlers. Editing popovers use Base UI's `trap-focus` mode with its accessible Close part; capture suggestions remain non-modal. Search can open above a picker and restore its previous editor through the library's focus management.
+
+Habit appearance uses Lucide artwork, Base UI icon selection, React Aria color controls and Emoji Picker React's native emoji primitives. The picker library owns emoji search, localized datasets, keyboard navigation and virtualization. Bundle Korean and English data locally for offline use; product presentation owns theme tokens, catalogue choices and draft changes until Save.
 
 Primary buttons use readable contrasting text in both themes. Use the official outline variant with product danger colors for secondary deletion and the destructive variant for a confirmed primary deletion. Enabled hover, focus and disabled states must retain geometry. Normal text requires at least 4.5:1 contrast.
 

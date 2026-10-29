@@ -1,37 +1,16 @@
 import { Popover } from '@base-ui/react/popover';
 import { Radio } from '@base-ui/react/radio';
-import { Tabs } from '@base-ui/react/tabs';
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import { RadioGroup } from '@repo/ui/components/radio-group';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs';
+import { CircleOff, Palette, Shapes, Smile, X } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceColorPanel } from '#shared/ui/WorkspaceColorField';
+import { HabitEmojiPicker } from './HabitEmojiPicker';
 import { habitColors } from './habit-display';
 import { HabitGlyph, habitIcons } from './habit-icons';
-
-const emoji = [
-  '💧',
-  '🚶',
-  '🏃',
-  '🧘',
-  '📚',
-  '✍️',
-  '🎵',
-  '🌱',
-  '🪥',
-  '💊',
-  '🍎',
-  '🍳',
-  '🧹',
-  '🐕',
-  '🫶',
-  '☀️',
-  '🌙',
-  '🎨',
-  '💬',
-  '💰',
-];
 
 export function HabitAppearancePicker({
   icon,
@@ -67,16 +46,17 @@ export function HabitAppearancePicker({
         >
           <Popover.Popup
             aria-label={t('habits.appearance')}
-            className="habit-appearance-panel w-80 max-w-[calc(100vw-32px)] max-h-(--available-height) overflow-auto rounded-lg bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
+            className="habit-appearance-panel w-80 max-w-[calc(100vw-32px)] max-h-(--available-height) flex flex-col gap-3 overflow-hidden rounded-lg bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
           >
-            <Tabs.Root defaultValue="icons">
-              <Tabs.List className="mb-3 grid grid-cols-3 gap-1 rounded-md bg-muted p-1">
+            <Tabs defaultValue="icons" className="min-h-0 flex-1 gap-3">
+              <TabsList
+                variant="line"
+                className="w-full shrink-0"
+                aria-label={t('habits.appearance')}
+              >
                 {(['icons', 'emoji', 'color'] as const).map((tab) => (
-                  <Tabs.Tab
-                    key={tab}
-                    value={tab}
-                    className="min-h-8 rounded-sm px-2 text-sm text-muted-foreground hover:text-foreground data-active:bg-popover data-active:text-foreground data-active:shadow-xs"
-                  >
+                  <TabsTrigger key={tab} value={tab} className="text-muted-foreground">
+                    {tab === 'icons' ? <Shapes /> : tab === 'emoji' ? <Smile /> : <Palette />}
                     {t(
                       tab === 'icons'
                         ? 'common.icon'
@@ -84,10 +64,10 @@ export function HabitAppearancePicker({
                           ? 'common.color'
                           : 'habits.emoji',
                     )}
-                  </Tabs.Tab>
+                  </TabsTrigger>
                 ))}
-              </Tabs.List>
-              <Tabs.Panel value="icons" className="flex flex-col gap-3">
+              </TabsList>
+              <TabsContent value="icons" className="min-h-0 overflow-auto flex flex-col gap-3">
                 <Input
                   aria-label={t('habits.iconSearch')}
                   placeholder={t('habits.iconSearch')}
@@ -98,7 +78,7 @@ export function HabitAppearancePicker({
                   aria-label={t('common.icon')}
                   value={icon}
                   onValueChange={(icon: string) => onChange({ icon })}
-                  className="habit-icon-grid grid max-h-56 grid-cols-7 gap-1 overflow-auto p-1"
+                  className="habit-icon-grid grid max-h-56 grid-cols-7 justify-items-center gap-1 overflow-auto p-1"
                 >
                   {matches.map((item) => (
                     <Radio.Root
@@ -117,36 +97,27 @@ export function HabitAppearancePicker({
                 {!matches.length && (
                   <p className="text-sm text-muted-foreground">{t('habits.noIcons')}</p>
                 )}
-                <Button variant="ghost" size="sm" onClick={() => onChange({ icon: 'none' })}>
-                  {t('habits.noIcon')}
-                </Button>
-              </Tabs.Panel>
-              <Tabs.Panel value="emoji" className="flex flex-col gap-3">
-                <RadioGroup
-                  aria-label={t('habits.emoji')}
-                  value={icon}
-                  onValueChange={(icon: string) => onChange({ icon })}
-                  className="grid grid-cols-5 gap-1"
-                >
-                  {emoji.map((value) => (
-                    <Radio.Root
-                      key={value}
-                      value={value}
-                      aria-label={value}
-                      render={<button type="button" />}
-                      nativeButton
-                      className="grid min-h-10 place-items-center rounded-md border border-transparent text-xl hover:bg-overlay-hover data-checked:border-ring data-focus-visible:outline-2 data-focus-visible:outline-ring"
-                    >
-                      {value}
-                    </Radio.Root>
-                  ))}
-                </RadioGroup>
+              </TabsContent>
+              <TabsContent value="emoji" className="min-h-0 overflow-auto flex flex-col gap-3">
+                <HabitEmojiPicker onChange={(icon) => onChange({ icon })} />
                 <Input
                   aria-label={t('habits.customSymbol')}
                   placeholder={t('habits.customSymbol')}
                   maxLength={60}
                   value={symbol}
                   onChange={(event) => setSymbol(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === 'Enter' &&
+                      !event.nativeEvent.isComposing &&
+                      event.keyCode !== 229
+                    ) {
+                      event.preventDefault();
+                      if (symbol.trim()) {
+                        onChange({ icon: symbol.trim() });
+                      }
+                    }
+                  }}
                 />
                 <Button
                   variant="outline"
@@ -156,8 +127,8 @@ export function HabitAppearancePicker({
                 >
                   {t('habits.chooseSymbol')}
                 </Button>
-              </Tabs.Panel>
-              <Tabs.Panel value="color">
+              </TabsContent>
+              <TabsContent value="color" className="min-h-0 overflow-auto">
                 <WorkspaceColorPanel
                   label={t('common.color')}
                   value={color}
@@ -167,11 +138,18 @@ export function HabitAppearancePicker({
                     }
                   }}
                 />
-              </Tabs.Panel>
-            </Tabs.Root>
-            <Popover.Close render={<Button variant="ghost" size="sm" className="mt-3 w-full" />}>
-              {t('common.close')}
-            </Popover.Close>
+              </TabsContent>
+            </Tabs>
+            <div className="habit-appearance-actions flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
+              <Button variant="ghost" size="sm" onClick={() => onChange({ icon: 'none' })}>
+                <CircleOff className="size-4" />
+                {t('habits.noIcon')}
+              </Button>
+              <Popover.Close render={<Button variant="ghost" size="sm" />}>
+                <X className="size-4" />
+                {t('common.close')}
+              </Popover.Close>
+            </div>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

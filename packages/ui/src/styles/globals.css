@@ -3,6 +3,9 @@
 
 @source '../';
 @custom-variant dark (&:where(.dark, .dark *));
+/* shadcn orientation variants used by the Base UI components. */
+@custom-variant data-horizontal (&:where([data-orientation='horizontal']));
+@custom-variant data-vertical (&:where([data-orientation='vertical']));
 
 @theme inline {
   --color-accent: var(--accent);

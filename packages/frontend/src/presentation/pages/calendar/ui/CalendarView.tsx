@@ -224,7 +224,7 @@ export function CalendarView() {
                       className={cn(
                         'calendar-day [border-right:1px_solid_var(--grid-line)] [border-bottom:1px_solid_var(--grid-line)] py-[5px] px-1 min-w-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover [&:nth-child(7n)]:[border-right:0] relative',
                         !day.toPlainYearMonth().equals(anchorMonth)
-                          ? 'outside bg-surface-inset [.calendar-mini-month_button&]:opacity-25'
+                          ? 'outside bg-surface-inset'
                           : '',
                       )}
                       onDoubleClick={(event) => {
@@ -235,7 +235,7 @@ export function CalendarView() {
                         openComposer(date);
                       }}
                     >
-                      <div className="calendar-day-head [.calendar-day.outside_&_>_button:first-child]:text-muted-foreground [.calendar-day.outside_&_>_button:first-child]:opacity-50 flex items-center justify-between [flex-direction:row-reverse] mb-1 h-6 [&_button]:border-0 [&_button]:bg-transparent [&_button]:text-xs [&_button]:w-6 [&_button]:h-6 [&_button]:rounded-full [&_button]:p-0 [&_button]:leading-(--text-xs--line-height)">
+                      <div className="calendar-day-head [.calendar-day.outside_&_>_button:first-child]:text-muted-foreground flex items-center justify-between [flex-direction:row-reverse] mb-1 h-6 [&_button]:border-0 [&_button]:bg-transparent [&_button]:text-xs [&_button]:w-6 [&_button]:h-6 [&_button]:rounded-full [&_button]:p-0 [&_button]:leading-(--text-xs--line-height)">
                         <ButtonPrimitive
                           title={t('calendar.showDate', { date: formatDate(date) })}
                           onClick={() => {
