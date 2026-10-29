@@ -1,14 +1,15 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { once } from 'node:events';
 import { access, cp, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { inspect } from 'node:util';
-import { type Browser, type Page, chromium, expect, test } from '@playwright/test';
+import { createInterface } from 'node:readline/promises';
+import { inspect, promisify } from 'node:util';
+import { type Browser, type Page, test as base, chromium, expect } from '@playwright/test';
 import { freePort } from '@repo/test-support';
 import fs from 'fs-extra';
 import { verifyNativeSync } from './support/sync';
 
-test.skip(process.platform !== 'win32', 'Windows WebView2 integration');
 const helper = resolve(import.meta.dirname, 'windows-desktop.py');
 
 interface NativeResult {
@@ -16,21 +17,101 @@ interface NativeResult {
   inputAfter: string;
   desktop: string;
   pid?: number;
-  ready?: boolean;
   exists?: boolean;
-  windows?: { pid: number; class: string; texts: string[] }[];
+  windows?: { pid: number; class: string; texts: string[]; ready: boolean }[];
 }
 
-const native = (request: object) =>
-  JSON.parse(
-    execFileSync('python', [helper], {
-      input: JSON.stringify(request),
-      encoding: 'utf8',
+type Native = (request: object) => Promise<NativeResult>;
+
+const test = base.extend<{ native: Native }>({
+  native: async ({}, provide) => {
+    const driver = spawn('python', ['-u', helper], {
       windowsHide: true,
-      timeout: 'action' in request && request.action === 'start' ? 60_000 : 25_000,
       env: { ...process.env, PYTHONUTF8: '1' },
-    }),
-  ) as NativeResult;
+      stdio: ['pipe', 'pipe', 'inherit'],
+    });
+    const protocol = createInterface({
+      input: driver.stdout,
+      output: driver.stdin,
+      terminal: false,
+    });
+    const stopped = new AbortController();
+    let completed = false;
+    let driverError: Error | undefined;
+    let transportError: Error | undefined;
+    driver.once('error', (error) => {
+      driverError = error;
+      stopped.abort(error);
+    });
+    driver.once('close', (code, signal) => {
+      completed = true;
+      stopped.abort(new Error(`Native driver exited: ${code}, ${signal}`));
+    });
+
+    async function closeDriver() {
+      const exited = !completed
+        ? once(driver, 'close', { signal: AbortSignal.timeout(30_000) })
+        : Promise.resolve();
+      protocol.close();
+      driver.stdin.end();
+      try {
+        await exited;
+        if (driverError) {
+          throw driverError;
+        }
+        expect(driver.exitCode).toBe(0);
+      } catch (error) {
+        if (driver.pid && driver.exitCode === null && driver.signalCode === null) {
+          const closed = once(driver, 'close', { signal: AbortSignal.timeout(15_000) });
+          const cleanup = await Promise.allSettled([
+            promisify(execFile)('taskkill.exe', ['/PID', String(driver.pid), '/T', '/F'], {
+              windowsHide: true,
+              timeout: 10_000,
+            }),
+            closed,
+          ]);
+          const failures = cleanup.filter((result) => result.status === 'rejected');
+          if (failures.length) {
+            throw new Error(
+              `Native driver teardown failed: ${failures.map((result) => String(result.reason)).join('; ')}`,
+              { cause: error },
+            );
+          }
+        }
+        throw error;
+      }
+    }
+
+    try {
+      await provide(async (request) => {
+        if (transportError) {
+          throw transportError;
+        }
+        let line: string;
+        try {
+          line = await protocol.question(JSON.stringify(request) + '\n', {
+            signal: AbortSignal.any([AbortSignal.timeout(25_000), stopped.signal]),
+          });
+        } catch (error) {
+          // A late response cannot be assigned to a subsequent request after a timeout.
+          transportError = error instanceof Error ? error : new Error(String(error));
+          throw transportError;
+        }
+        const response = JSON.parse(line) as { result?: NativeResult; error?: string };
+        if (response.error) {
+          throw new Error(response.error);
+        }
+        if (!response.result) {
+          throw new Error('Native driver returned no result');
+        }
+        return response.result;
+      });
+    } finally {
+      await closeDriver();
+    }
+  },
+});
+test.skip(process.platform !== 'win32', 'Windows WebView2 integration');
 
 async function saved(page: Page) {
   await expect
@@ -40,7 +121,9 @@ async function saved(page: Page) {
     .toBe(true);
 }
 
-test('first-run selection, shared profiles and folder changes preserve offline work without touching user input', async ({}, testInfo) => {
+test('first-run selection, shared profiles and folder changes preserve offline work without touching user input', async ({
+  native,
+}, testInfo) => {
   if (typeof testInfo.config.metadata.executable !== 'string') {
     throw new Error(
       'Set RILLDAY_NATIVE_EXECUTABLE to an application built with tauri.test.conf.json',
@@ -98,43 +181,58 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   async function stop() {
     const currentDesktop = desktop;
     try {
-      try {
-        if (browser?.isConnected()) {
-          await rememberWebviewProcesses();
-        }
-      } finally {
-        if (desktop) {
-          try {
-            native({ action: 'close', desktop });
-            await expect
-              .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 30_000 })
-              .toBe(false);
-          } finally {
-            const status = native({ action: 'inspect', desktop });
-            if (status.exists && owned) {
-              const pids = new Set([
-                owned.pid,
-                ...(status.windows?.map((window) => window.pid) ?? []),
-              ]);
-              for (const pid of pids) {
-                if (pid) {
-                  native({ action: 'terminate', desktop, exe: owned.exe, pid });
-                }
+      if (currentDesktop) {
+        try {
+          await native({ action: 'close', desktop: currentDesktop });
+          await expect
+            .poll(
+              async () =>
+                (await native({ action: 'inspect', desktop: currentDesktop })).windows?.length,
+              { timeout: 30_000 },
+            )
+            .toBe(0);
+        } finally {
+          const status = await native({ action: 'inspect', desktop: currentDesktop });
+          if (status.windows?.length && owned) {
+            const pids = new Set([
+              owned.pid,
+              ...(status.windows?.map((window) => window.pid) ?? []),
+            ]);
+            for (const pid of pids) {
+              if (pid) {
+                await native({ action: 'terminate', desktop: currentDesktop, exe: owned.exe, pid });
               }
-              await expect
-                .poll(() => native({ action: 'inspect', desktop }).exists, { timeout: 5000 })
-                .toBe(false);
             }
+            await expect
+              .poll(
+                async () =>
+                  (await native({ action: 'inspect', desktop: currentDesktop })).windows?.length,
+                { timeout: 5000 },
+              )
+              .toBe(0);
           }
-          desktop = undefined;
-          owned = undefined;
         }
+        desktop = undefined;
+        owned = undefined;
       }
     } finally {
       await disconnect();
-      if (currentDesktop && webviewProcesses.length) {
-        native({ action: 'wait-webview', desktop: currentDesktop, pids: webviewProcesses });
-        webviewProcesses = [];
+      if (currentDesktop) {
+        try {
+          if (webviewProcesses.length) {
+            await native({
+              action: 'wait-webview',
+              desktop: currentDesktop,
+              pids: webviewProcesses,
+            });
+            webviewProcesses = [];
+          }
+        } finally {
+          await native({ action: 'release', desktop: currentDesktop });
+        }
+        await expect
+          .poll(async () => (await native({ action: 'inspect', desktop: currentDesktop })).exists)
+          .toBe(false);
       }
     }
   }
@@ -170,7 +268,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       .toBe(true);
     await expect(page!.locator('main').first()).toBeVisible();
     if (owned) {
-      owned.pid = native({ action: 'inspect', desktop }).windows?.find(
+      owned.pid = (await native({ action: 'inspect', desktop })).windows?.find(
         (window) => window.class !== '#32770',
       )?.pid;
     }
@@ -181,14 +279,12 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await freePort(port);
     desktop = `RilldayTest-${randomUUID()}`;
     owned = { exe: resolve(folder, 'rillday-desktop.exe') };
-    launch = native({
+    launch = await native({
       action: 'start',
       desktop,
       exe: owned.exe,
-      port,
     });
     owned.pid = launch.pid;
-    expect(launch.ready, JSON.stringify(launch)).toBe(true);
     return connect();
   }
 
@@ -246,11 +342,13 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     ).toBeVisible();
     await page.getByRole('button', { name: 'Choose folder…', exact: true }).click();
     await expect
-      .poll(() =>
-        native({ action: 'inspect', desktop }).windows?.some((window) => window.class === '#32770'),
+      .poll(async () =>
+        (await native({ action: 'inspect', desktop })).windows?.some(
+          (window) => window.class === '#32770' && window.ready,
+        ),
       )
       .toBe(true);
-    native({ action: 'cancel', desktop });
+    await native({ action: 'cancel', desktop });
     await expect(page.getByLabel('Current data folder')).toHaveText(defaultPath);
     await expect(access(locationFile)).rejects.toThrow();
     await expect(page.getByRole('button', { name: 'Open Rillday', exact: true })).toBeEnabled();
@@ -301,13 +399,13 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     async function chooseFolder(path = selected) {
       await page.getByRole('button', { name: 'Choose folder…', exact: true }).click();
       await expect
-        .poll(() =>
-          native({ action: 'inspect', desktop }).windows?.some(
-            (window) => window.class === '#32770',
+        .poll(async () =>
+          (await native({ action: 'inspect', desktop })).windows?.some(
+            (window) => window.class === '#32770' && window.ready,
           ),
         )
         .toBe(true);
-      const picker = native({ action: 'select', desktop, path });
+      const picker = await native({ action: 'select', desktop, path });
       await testInfo.attach('folder-picker', {
         body: JSON.stringify(picker),
         contentType: 'application/json',
@@ -387,11 +485,13 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     ).toBeVisible();
     await page.getByRole('button', { name: 'Choose folder…', exact: true }).click();
     await expect
-      .poll(() =>
-        native({ action: 'inspect', desktop }).windows?.some((window) => window.class === '#32770'),
+      .poll(async () =>
+        (await native({ action: 'inspect', desktop })).windows?.some(
+          (window) => window.class === '#32770' && window.ready,
+        ),
       )
       .toBe(true);
-    native({ action: 'select', desktop, path: selected });
+    await native({ action: 'select', desktop, path: selected });
     await expect(page.getByLabel('Current data folder')).toHaveText(selected);
     await page.getByRole('button', { name: 'Open Rillday', exact: true }).click();
     await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
@@ -432,7 +532,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
           body: JSON.stringify(
             {
               launch,
-              current: native({
+              current: await native({
                 action: 'inspect',
                 desktop,
                 diagnostics: true,
