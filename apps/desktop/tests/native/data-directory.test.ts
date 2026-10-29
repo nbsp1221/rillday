@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { access, cp, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { inspect } from 'node:util';
 import { type Browser, type Page, chromium, expect, test } from '@playwright/test';
 import { freePort } from '@repo/test-support';
 import fs from 'fs-extra';
@@ -15,6 +16,7 @@ interface NativeResult {
   inputAfter: string;
   desktop: string;
   pid?: number;
+  ready?: boolean;
   exists?: boolean;
   windows?: { pid: number; class: string; texts: string[] }[];
 }
@@ -25,7 +27,7 @@ const native = (request: object) =>
       input: JSON.stringify(request),
       encoding: 'utf8',
       windowsHide: true,
-      timeout: 25_000,
+      timeout: 'action' in request && request.action === 'start' ? 60_000 : 25_000,
       env: { ...process.env, PYTHONUTF8: '1' },
     }),
   ) as NativeResult;
@@ -146,14 +148,14 @@ test('first-run selection, shared profiles and folder changes preserve offline w
               await fetch(`http://127.0.0.1:${port}/json/version`, {
                 signal: AbortSignal.timeout(300),
               })
-            ).ok;
-          } catch {
-            return false;
+            ).status;
+          } catch (error) {
+            return inspect(error, { depth: 3 });
           }
         },
         { timeout: 30_000 },
       )
-      .toBe(true);
+      .toBe(200);
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     await rememberWebviewProcesses();
     let page: Page | undefined;
@@ -183,8 +185,10 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       action: 'start',
       desktop,
       exe: owned.exe,
+      port,
     });
     owned.pid = launch.pid;
+    expect(launch.ready, JSON.stringify(launch)).toBe(true);
     return connect();
   }
 
@@ -308,6 +312,9 @@ test('first-run selection, shared profiles and folder changes preserve offline w
         body: JSON.stringify(picker),
         contentType: 'application/json',
       });
+      const confirmation = page.getByRole('dialog', { name: 'Use this data folder?', exact: true });
+      await expect(confirmation).toBeVisible();
+      await expect(confirmation.getByText(path, { exact: true })).toBeVisible();
     }
 
     const invalid = resolve(fixture, 'unrelated');

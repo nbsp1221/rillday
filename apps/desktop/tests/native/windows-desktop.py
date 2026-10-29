@@ -7,6 +7,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 import uuid
 
 u = c.WinDLL("user32", use_last_error=True)
@@ -37,8 +40,6 @@ u.SendMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
 u.SendMessageW.restype = w.LPARAM
 u.PostMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
 k.CloseHandle.argtypes = [w.HANDLE]
-u.WaitForInputIdle.argtypes = [w.HANDLE, w.DWORD]
-u.WaitForInputIdle.restype = w.DWORD
 k.GetExitCodeProcess.argtypes = [w.HANDLE, c.POINTER(w.DWORD)]
 k.OpenProcess.argtypes = [w.DWORD, w.BOOL, w.DWORD]
 k.OpenProcess.restype = w.HANDLE
@@ -183,13 +184,17 @@ do {
         }
     }
 } while ($added)
+$listeners = @(Get-NetTCPConnection -State Listen)
 ConvertTo-Json -Depth 3 -Compress -InputObject @($all | Where-Object { $ids.Contains([int]$_.ProcessId) } | ForEach-Object {
+    $processId = $_.ProcessId
+    $version = if ($_.ExecutablePath) { (Get-Item -LiteralPath $_.ExecutablePath).VersionInfo.ProductVersion }
     [pscustomobject]@{
         pid = $_.ProcessId
         parent = $_.ParentProcessId
         name = $_.Name
         commandLine = $_.CommandLine
-        version = if ($_.ExecutablePath) { (Get-Item -LiteralPath $_.ExecutablePath).VersionInfo.ProductVersion }
+        version = $version
+        listeners = @($listeners | Where-Object { $_.OwningProcess -eq $processId } | Select-Object LocalAddress, LocalPort)
     }
 })
 """.replace("OWNED_PID", str(pid)).replace("OWNED_EXE", str(exe).replace("'", "''"))
@@ -238,12 +243,26 @@ ConvertTo-Json -Depth 3 -Compress -InputObject @($all | Where-Object { $ids.Cont
                                 str(exe.parent), c.byref(startup), c.byref(process)))
         result["pid"] = process.pid
         try:
-            # Keep the desktop alive until the new GUI thread has attached to it.
-            result["inputIdle"] = u.WaitForInputIdle(process.process, 10000)
-            exit_code = w.DWORD()
-            checked(k.GetExitCodeProcess(process.process, c.byref(exit_code)))
-            if exit_code.value != 259:
-                raise RuntimeError(f"Application exited during startup: {exit_code.value:#x}")
+            # Keep startup resources owned until CDP is ready or the process has exited.
+            port = int(request["port"])
+            assert 0 < port < 65536
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            deadline = time.monotonic() + 30
+            result["ready"] = False
+            while time.monotonic() < deadline:
+                exit_code = w.DWORD()
+                checked(k.GetExitCodeProcess(process.process, c.byref(exit_code)))
+                result["exitCode"] = exit_code.value
+                if exit_code.value != 259:
+                    break
+                try:
+                    with opener.open(f"http://127.0.0.1:{port}/json/version", timeout=0.3) as response:
+                        if response.status == 200:
+                            result["ready"] = True
+                            break
+                except (urllib.error.URLError, OSError) as error:
+                    result["connectionError"] = str(error)
+                time.sleep(0.1)
         except BaseException:
             terminate_owned(process.pid, exe)
             raise
@@ -292,7 +311,9 @@ ConvertTo-Json -Depth 3 -Compress -InputObject @($all | Where-Object { $ids.Cont
                         folder = Path(request["path"]).resolve()
                         assert folder.is_relative_to(root.resolve()) and folder.is_dir()
                         value = c.create_unicode_buffer(str(folder))
-                        checked(u.SendMessageW(edits[0], 0x0C, 0, c.addressof(value)))
+                        # Edit operations notify the shell, unlike replacing the control's caption.
+                        u.SendMessageW(edits[0], 0xB1, 0, -1)
+                        u.SendMessageW(edits[0], 0xC2, 1, c.addressof(value))
                         u.SendMessageW(buttons[0], 0xF5, 0, 0)
                     if request["action"] == "close":
                         checked(u.PostMessageW(hwnd, 0x10, 0, 0))
