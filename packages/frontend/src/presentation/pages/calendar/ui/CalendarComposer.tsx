@@ -1,10 +1,10 @@
-import { Field as FormField } from '@base-ui/react/field';
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import { type KeyboardEvent, useRef } from 'react';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceDialog } from '#shared/ui/WorkspaceDialog';
+import { WorkspaceField as FormField } from '#shared/ui/WorkspaceField';
 
 export function CalendarComposer({
   composer,
@@ -73,7 +73,7 @@ export function CalendarComposer({
       }
     >
       <div className="form-stack flex flex-col gap-(--layout-form-gap) [&_p]:m-0 [&_p]:text-sm [&_p]:leading-(--text-sm--line-height) [&_p]:text-muted-foreground">
-        <FormField.Root className={'form-field flex min-w-0 flex-col gap-(--layout-field-gap)'}>
+        <FormField.Root>
           <FormField.Label className="w-fit text-sm text-muted-foreground">
             {t('calendar.addOnDate', {
               date: `${formatDate(composer.date)}${composer.time ? ` ${timeLabel(composer.time)}` : ''}`,

@@ -32,6 +32,8 @@ Use Dropdown Menu and Context Menu for commands; use Popover for form editing. S
 
 Base UI `Field` associates a text-sized label with its sibling control. Blank form space must not activate the control. Do not wrap multiple controls in one label. Escape dismisses one overlay layer and returns focus to its opener; composition must not trigger dismissal or submission. Editing dialogs start in a field and destructive confirmations start on Cancel.
 
+Editable forms use Base UI `Form` and `WorkspaceField`, which composes Base UI labeling and validation with shadcn field presentation. The library owns validity, error visibility, control IDs and description associations. Validate ordinary forms on submission and revalidate edits after submission; retain deliberate field-level modes in contextual editors. Keep constraints and translated error messages in their owning feature. Use native constraints and `Field.Error` matches instead of duplicating error state or manually focusing invalid controls. Specialized numeric and choice controls can use Base UI primitives directly; read-only displays do not need editable-form validation.
+
 Use the libraries' standard Menu, Select and Radio keyboard behavior without extra key handlers. Editing popovers use Base UI's `trap-focus` mode with its accessible Close part; capture suggestions remain non-modal. Search can open above a picker and restore its previous editor through the library's focus management.
 
 Primary buttons use readable contrasting text in both themes. Use the official outline variant with product danger colors for secondary deletion and the destructive variant for a confirmed primary deletion. Enabled hover, focus and disabled states must retain geometry. Normal text requires at least 4.5:1 contrast.

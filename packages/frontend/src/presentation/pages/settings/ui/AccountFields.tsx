@@ -1,4 +1,3 @@
-import { Field, FieldDescription, FieldError, FieldLabel } from '@repo/ui/components/field';
 import { Input } from '@repo/ui/components/input';
 import {
   InputGroup,
@@ -7,8 +6,9 @@ import {
   InputGroupInput,
 } from '@repo/ui/components/input-group';
 import { Eye, EyeOff } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useState } from 'react';
 import { useI18n } from '#shared/i18n';
+import { WorkspaceField as Field } from '#shared/ui/WorkspaceField';
 
 export function AccountFields({
   email,
@@ -26,31 +26,15 @@ export function AccountFields({
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const id = useId();
-  const [error, setError] = useState('');
   return (
     <>
-      <Field className="gap-2" data-invalid={Boolean(error)}>
-        <FieldLabel htmlFor={id}>{t('auth.email')}</FieldLabel>
+      <Field.Root className="gap-2" name="email" disabled={disabled}>
+        <Field.Label>{t('auth.email')}</Field.Label>
         <Input
-          id={id}
           name="email"
           type="email"
           value={email}
-          onChange={(event) => {
-            setError('');
-            onEmailChange(event.target.value);
-          }}
-          onInvalid={(event) => {
-            event.preventDefault();
-            setError(
-              t(
-                event.currentTarget.validity.valueMissing
-                  ? 'auth.requiredField'
-                  : 'auth.invalidEmail',
-              ),
-            );
-          }}
+          onChange={(event) => onEmailChange(event.target.value)}
           autoComplete="username"
           autoCapitalize="none"
           autoCorrect="off"
@@ -58,12 +42,11 @@ export function AccountFields({
           maxLength={254}
           required
           disabled={disabled}
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? `${id}-error` : undefined}
           className="h-(--control-height) pointer-coarse:h-11"
         />
-        {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
-      </Field>
+        <Field.Error match="valueMissing">{t('auth.requiredField')}</Field.Error>
+        <Field.Error match="typeMismatch">{t('auth.invalidEmail')}</Field.Error>
+      </Field.Root>
       <PasswordField
         label={t('auth.password')}
         value={password}
@@ -89,44 +72,26 @@ export function PasswordField({
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const id = useId();
   const [visible, setVisible] = useState(false);
-  const [error, setError] = useState('');
   return (
-    <Field className="gap-2" data-invalid={Boolean(error)}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+    <Field.Root
+      className="gap-2"
+      name={newPassword ? 'new-password' : 'password'}
+      disabled={disabled}
+    >
+      <Field.Label>{label}</Field.Label>
       <InputGroup className="h-(--control-height) pointer-coarse:h-11">
         <InputGroupInput
-          className="h-full"
-          id={id}
+          className="h-full [&::-ms-reveal]:hidden"
           name={newPassword ? 'new-password' : 'password'}
           type={visible ? 'text' : 'password'}
           value={value}
-          onChange={(event) => {
-            setError('');
-            onChange(event.target.value);
-          }}
-          onInvalid={(event) => {
-            event.preventDefault();
-            setError(
-              t(
-                event.currentTarget.validity.valueMissing
-                  ? 'auth.requiredField'
-                  : 'auth.passwordLength',
-              ),
-            );
-          }}
+          onChange={(event) => onChange(event.target.value)}
           autoComplete={newPassword ? 'new-password' : 'current-password'}
           minLength={newPassword ? 12 : undefined}
           maxLength={128}
           required
           disabled={disabled}
-          aria-invalid={Boolean(error)}
-          aria-describedby={
-            [newPassword ? `${id}-help` : '', error ? `${id}-error` : '']
-              .filter(Boolean)
-              .join(' ') || undefined
-          }
         />
         <InputGroupAddon align="inline-end">
           <InputGroupButton
@@ -142,10 +107,10 @@ export function PasswordField({
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
-      {newPassword && (
-        <FieldDescription id={`${id}-help`}>{t('auth.passwordLength')}</FieldDescription>
-      )}
-      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
-    </Field>
+      {newPassword && <Field.Description>{t('auth.passwordLength')}</Field.Description>}
+      <Field.Error match="valueMissing">{t('auth.requiredField')}</Field.Error>
+      <Field.Error match="tooShort">{t('auth.passwordLength')}</Field.Error>
+      <Field.Error match="tooLong">{t('auth.passwordLength')}</Field.Error>
+    </Field.Root>
   );
 }
