@@ -32,7 +32,8 @@ export function HabitCheckin({
   onDateChange?: (date: string) => void;
   onChange: (action: HabitCheckinAction) => void;
 }) {
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, dateLocale } = useI18n();
+  const formatAmount = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 20 });
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState<number | null>(log?.value ?? 0);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -42,6 +43,8 @@ export function HabitCheckin({
   const disabled =
     habit.archived || date > habitToday(habit) || (!habitScheduled(habit, date) && !log);
   const value = log?.value ?? 0;
+  const unit = log?.unit ?? habit.unit;
+  const step = habit.step ?? 1;
   const done = habitDone(habit, log);
   const editingAmountRef = useRef(false);
   useEffect(() => {
@@ -125,65 +128,76 @@ export function HabitCheckin({
           {habit.archived ? t('habits.archiveReadOnly') : t('habits.notScheduled')}
         </p>
       )}
-      <div className="habit-checkin-value py-4 px-0 flex items-center justify-between gap-2 [&_>_strong]:text-2xl [&_>_strong]:font-medium [&_>_strong]:wrap-anywhere [&_>_strong]:min-w-0 [&_>_strong]:leading-(--text-2xl--line-height) [&_small]:text-xs [&_small]:font-normal [&_small]:text-muted-foreground [&_small]:leading-(--text-xs--line-height) [&_>_div]:flex [&_>_div]:gap-2 [&_>_div]:shrink-0">
-        <strong>
-          {log?.skipped ? t('habits.skipped') : value}
-          <small>
-            {' '}
-            {habit.frequency === 'weekly-total'
-              ? (log?.unit ?? habit.unit)
-              : `/ ${log?.goal ?? habit.goal} ${log?.unit ?? habit.unit}`}
-          </small>
-        </strong>
-        {habit.kind === 'quantity' && (
-          <div>
+      {habit.kind === 'boolean' && (
+        <div className="habit-checkin-value py-4 text-2xl font-medium">
+          <strong>
+            {log?.skipped ? t('habits.skipped') : value}
+            <small className="text-xs font-normal text-muted-foreground">
+              {' '}
+              {habit.frequency === 'weekly-total'
+                ? (log?.unit ?? habit.unit)
+                : `/ ${log?.goal ?? habit.goal} ${log?.unit ?? habit.unit}`}
+            </small>
+          </strong>
+        </div>
+      )}
+      {habit.kind === 'quantity' && (
+        <div className="habit-quantity-editor my-4 space-y-3">
+          {log?.skipped && <p className="text-sm text-muted-foreground">{t('habits.skipped')}</p>}
+          <WorkspaceNumberField
+            visibleLabel
+            showButtons={false}
+            label={t('habits.dailyTotal', { unit })}
+            value={amount}
+            min={0}
+            max={maximum}
+            step="any"
+            disabled={disabled}
+            onValueChange={setAmount}
+            onValueCommitted={commitAmount}
+            onFocus={() => {
+              editingAmountRef.current = true;
+            }}
+            onBlur={() => {
+              editingAmountRef.current = false;
+            }}
+            showError={invalid}
+            decrease={t('habits.decreaseCheckIn')}
+            increase={t('habits.increaseCheckIn')}
+            error={t('controls.numberRange', { minimum: 0, maximum })}
+          />
+          {habit.frequency !== 'weekly-total' && (
+            <p className="text-xs text-muted-foreground">
+              {t('habits.recordGoal', { goal: formatAmount.format(log?.goal ?? habit.goal), unit })}
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
-              size="icon"
               disabled={disabled || value <= 0}
-              aria-label={t('habits.decreaseCheckIn')}
+              aria-label={t('habits.subtractAmount', { amount: formatAmount.format(step), unit })}
               onClick={() => onChange({ type: 'step', direction: 'decrease' })}
-              className={'size-(--control-height)'}
+              className="min-w-0 tabular-nums"
             >
-              <Minus className="size-4 inline-block shrink-0 align-middle" />
+              <Minus className="size-3.5 shrink-0" />
+              <span className="truncate">
+                {formatAmount.format(step)} {unit}
+              </span>
             </Button>
             <Button
               variant="outline"
-              size="icon"
-              disabled={disabled}
-              aria-label={t('habits.increaseCheckIn')}
+              disabled={disabled || value + step > maximum}
+              aria-label={t('habits.addAmount', { amount: formatAmount.format(step), unit })}
               onClick={() => onChange({ type: 'step', direction: 'increase' })}
-              className={'size-(--control-height)'}
+              className="min-w-0 tabular-nums"
             >
-              <Plus className="size-4 inline-block shrink-0 align-middle" />
+              <Plus className="size-3.5 shrink-0" />
+              <span className="truncate">
+                {formatAmount.format(step)} {unit}
+              </span>
             </Button>
           </div>
-        )}
-      </div>
-      {habit.kind === 'quantity' && (
-        <WorkspaceNumberField
-          className="mb-3"
-          visibleLabel
-          showButtons={false}
-          label={t('habits.checkInAmount')}
-          value={amount}
-          min={0}
-          max={maximum}
-          step="any"
-          disabled={disabled}
-          onValueChange={setAmount}
-          onValueCommitted={commitAmount}
-          onFocus={() => {
-            editingAmountRef.current = true;
-          }}
-          onBlur={() => {
-            editingAmountRef.current = false;
-          }}
-          showError={invalid}
-          decrease={t('habits.decreaseCheckIn')}
-          increase={t('habits.increaseCheckIn')}
-          error={t('controls.numberRange', { minimum: 0, maximum })}
-        />
+        </div>
       )}
       {habit.frequency !== 'weekly-total' && (
         <Button

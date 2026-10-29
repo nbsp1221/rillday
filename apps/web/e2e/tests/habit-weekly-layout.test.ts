@@ -54,9 +54,6 @@ for (const theme of ['Dark', 'Light']) {
         rows.map((row) => {
           const bounds = row.getBoundingClientRect();
           const menu = row.querySelector('.row-menu-trigger')!.getBoundingClientRect();
-          const quickButton = row.querySelector('.habit-quick-add');
-          const quick = quickButton?.getBoundingClientRect();
-          const quickLabel = quickButton?.querySelector('span');
           const name = row.querySelector('.habit-name')!;
           const icon = name.querySelector('.habit-symbol')!.getBoundingClientRect();
           const title = name.querySelector('strong')!.getBoundingClientRect();
@@ -94,17 +91,11 @@ for (const theme of ['Dark', 'Light']) {
             descriptionAxisError: Math.abs(description.left - title.left),
             progressAxisError: progress ? Math.abs(progress.left - title.left) : 0,
             glyphSize: name.querySelector('.habit-symbol svg')!.getBoundingClientRect().width,
-            quickGap: quick ? menu.left - quick.right : undefined,
-            quickHeight: quick?.height,
-            quickLabelFits:
-              !quickLabel ||
-              quickLabel.scrollWidth <= Math.ceil(quickLabel.getBoundingClientRect().width),
             cells,
           };
         }),
       );
       expect(rows).toHaveLength(4);
-      expect(rows.every((row) => row.quickLabelFits)).toBe(true);
       expect(rows.every((row) => row.nameAndActionsSeparate && row.nameCenterReachable)).toBe(true);
       expect(rows.every((row) => row.leadingInsetError < 0.5)).toBe(true);
       expect(rows.every((row) => Math.abs(row.titleGap - 12) < 0.5)).toBe(true);
@@ -118,11 +109,6 @@ for (const theme of ['Dark', 'Light']) {
           Math.min(...rows.map((row) => row.iconInset)),
       ).toBeLessThan(0.5);
       expect(rows.every((row) => row.cells.every((delta) => delta < 1))).toBe(true);
-      expect(
-        rows
-          .filter((row) => row.quickGap !== undefined)
-          .every((row) => Math.abs(row.quickGap! - 8) < 0.5 && row.quickHeight === 32),
-      ).toBe(true);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
         false,
       );

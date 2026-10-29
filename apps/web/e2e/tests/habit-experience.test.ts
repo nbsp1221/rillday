@@ -17,13 +17,15 @@ test('weekly quantity targets, optional grouping and quick records share the rea
   const row = page.locator('.habit-row').filter({ hasText: 'Weekly study' });
   await expect(row).toBeVisible();
   await context.setOffline(true);
-  await row.locator('.habit-quick-add').click();
-  await row.locator('.habit-quick-add').click();
+  await row.locator('.habit-day.today').click();
+  await page.getByRole('button', { name: 'Add 10 min', exact: true }).click();
+  await page.getByRole('button', { name: 'Add 10 min', exact: true }).click();
   await expect(page.locator('.habit-detail')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '20');
   await row.locator('.habit-day.today').click();
   await expect(page.locator('.habit-record-panel .habit-finish')).toHaveCount(0);
-  const amount = page.getByLabel('Check-in amount', { exact: true });
+  const amount = page.getByRole('textbox', { name: /^Daily total/ });
   await amount.fill('22.5');
   await page.getByLabel('Check-in note', { exact: true }).fill('Offline practice');
   await page.keyboard.press('Escape');

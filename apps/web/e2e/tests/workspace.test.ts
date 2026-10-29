@@ -585,7 +585,9 @@ for (const language of ['ko', 'en']) {
         .fill('3');
       await page.getByRole('button', { name: text('저장', 'Save'), exact: true }).click();
       await page.locator('.habit-name').filter({ hasText: 'Flow habit' }).click();
-      const amount = page.getByLabel(text('체크인 수량', 'Check-in amount'), { exact: true });
+      const amount = page.getByRole('textbox', {
+        name: new RegExp(text('^하루 총량', '^Daily total')),
+      });
       await amount.fill('2');
       await amount.press('Tab');
       await page

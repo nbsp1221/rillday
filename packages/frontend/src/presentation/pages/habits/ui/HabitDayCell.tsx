@@ -66,7 +66,7 @@ export function HabitDayCell({
   } else if (recorded) {
     state = 'recorded';
   }
-  const shape = state === 'recorded' ? 'rounded-md' : 'rounded-full';
+  const shape = habit.kind === 'quantity' ? 'rounded-md' : 'rounded-full';
   let status: string;
   if (unavailable) {
     status = t('habits.notScheduled');
@@ -90,14 +90,14 @@ export function HabitDayCell({
     mark = <Minus size={14} />;
   } else if (log?.skipped) {
     mark = <SkipForward size={14} />;
-  } else if (done) {
-    mark = <Check size={15} strokeWidth={2.5} />;
-  } else if (recorded) {
+  } else if (habit.kind === 'quantity') {
     mark = (
       <span className="block max-w-full truncate px-0.5 text-xs font-medium tabular-nums">
         {formatAmount(amount)}
       </span>
     );
+  } else if (done) {
+    mark = <Check size={15} strokeWidth={2.5} />;
   }
 
   const controlStyles = cn(

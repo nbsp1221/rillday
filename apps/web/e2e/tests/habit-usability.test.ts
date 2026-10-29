@@ -10,7 +10,7 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
   await page.getByLabel('Habit Tracker', { exact: true }).click();
   const opener = page.locator('.habit-name').filter({ hasText: 'Drink enough water' });
   await opener.click();
-  const amount = page.getByLabel('Check-in amount', { exact: true });
+  const amount = page.getByRole('textbox', { name: /^Daily total/ });
   await amount.fill('');
   await expect(amount).toHaveValue('');
   await page.getByLabel('Check-in note', { exact: true }).click();
@@ -156,17 +156,17 @@ test('archiving closes details, keeps records read-only and supports undo', asyn
   await page.locator('.toast').getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(habit).toBeVisible();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toHaveValue('5');
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toHaveValue('5');
   await page.getByRole('button', { name: 'Archive habit', exact: true }).click();
   await page.getByLabel('Archived habits', { exact: true }).click();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toBeDisabled();
   await expect(page.getByLabel('Check-in note', { exact: true })).toBeDisabled();
   await expect(page.locator('.habit-finish')).toBeDisabled();
   await page.getByRole('button', { name: 'Restore habit', exact: true }).click();
   await page.getByLabel('Archived habits', { exact: true }).click();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toHaveValue('5');
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toHaveValue('5');
 });
 
 test('habit cards update quantity progress and retain it after reload', async ({ page }) => {
@@ -177,9 +177,11 @@ test('habit cards update quantity progress and retain it after reload', async ({
   await expect(progress).toHaveAttribute('aria-valuemax', '3');
   const water = page.locator('.habit-row').filter({ hasText: 'Drink enough water' });
   const today = (await browserToday(page)).toString();
+  await water.locator('.habit-day.today').click();
   for (let count = 0; count < 3; count++) {
-    await water.locator('.habit-quick-add').click();
+    await page.getByRole('button', { name: 'Add 1 cups', exact: true }).click();
   }
+  await page.keyboard.press('Escape');
   await expect(progress).toHaveAttribute('aria-valuenow', '2');
   await expect(page.locator('.habit-detail')).toHaveCount(0);
   await expect

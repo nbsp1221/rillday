@@ -100,7 +100,9 @@ test('historical habit controls retain the rule their click uses after the goal 
     .toBe(0);
   await expect(historical).toHaveAccessibleName(historicalName!);
   await expect(historical).not.toBeChecked();
-  await row.locator('.habit-quick-add').click();
+  await today.click();
+  await page.getByRole('button', { name: 'Add 1 cups', exact: true }).click();
+  await page.keyboard.press('Escape');
   await expect
     .poll(
       async () =>
@@ -158,6 +160,15 @@ test('quantity goal, unit suggestions and fractional check-in step save exactly 
       );
     })
     .toEqual({ goal: 3.5, step: 0.25, unit: 'cups', frequency: 'weekly', weeklyTarget: 4 });
+  await page.locator('.habit-day.today').click();
+  const addAmount = page.getByRole('button', { name: 'Add 0.25 cups', exact: true });
+  await addAmount.click();
+  await addAmount.click();
+  await expect(page.getByRole('textbox', { name: 'Daily total (cups)', exact: true })).toHaveValue(
+    '0.5',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.habit-day.today')).toHaveText('0.5');
   await page.reload();
   await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').first().click();

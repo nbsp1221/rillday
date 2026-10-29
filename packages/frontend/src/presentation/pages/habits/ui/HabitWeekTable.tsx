@@ -9,7 +9,6 @@ import {
   habitAt,
   habitDayProgress,
   habitLogFor,
-  habitScheduled,
   habitStats,
   habitToday,
 } from '#application';
@@ -20,11 +19,11 @@ import { WorkspaceActions } from '#shared/ui/WorkspaceActions';
 import { HabitDayCell } from './HabitDayCell';
 import { HabitProgressRing } from './HabitProgressRing';
 import { HabitWeeklyProgress } from './HabitWeeklyProgress';
-import { habitColors, useHabitAmountFormat, useHabitDisplay } from './habit-display';
+import { habitColors, useHabitDisplay } from './habit-display';
 import { HabitGlyph } from './habit-icons';
 
 const weekColumns =
-  'grid-cols-[minmax(200px,_6fr)_repeat(7,_minmax(36px,_1fr))_136px] [@container((max-width:_760px))]:grid-cols-[repeat(7,_minmax(0,_1fr))]';
+  'grid-cols-[minmax(200px,_6fr)_repeat(7,_minmax(36px,_1fr))_56px] [@container((max-width:_760px))]:grid-cols-[repeat(7,_minmax(0,_1fr))]';
 
 interface HabitWeekTableProps {
   dates: string[];
@@ -57,7 +56,6 @@ export function HabitWeekTable({
   const { preferences } = useAppPreferences();
   const { data } = useWorkspace();
   const { dayNames, scheduleLabel } = useHabitDisplay();
-  const formatAmount = useHabitAmountFormat();
   const habits = data.habits.filter((habit) => habit.archived === showArchived);
   const grouped = habits.some((habit) => habit.timeOfDay && habit.timeOfDay !== 'anytime');
   const groupOrder = ['morning', 'afternoon', 'evening', 'anytime'];
@@ -184,33 +182,9 @@ export function HabitWeekTable({
                   </span>
                 </span>
               </Button>
-              <div className="habit-menu-anchor grid grid-cols-[minmax(0,1fr)_32px] items-center gap-2 px-3 [@container((min-width:_761px))]:col-start-9 [@container((min-width:_761px))]:row-start-1 [@container((max-width:_760px))]:grid-flow-col [@container((max-width:_760px))]:auto-cols-max [@container((max-width:_760px))]:grid-cols-none [@container((max-width:_760px))]:px-1">
-                {habit.kind === 'quantity' &&
-                  !habit.archived &&
-                  dates.includes(habitToday(habit)) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!habitScheduled(habit, habitToday(habit))}
-                      title={t('habits.quickAdd', {
-                        step: habit.step ?? 1,
-                        unit: habit.unit,
-                        name: habit.name,
-                      })}
-                      aria-label={t('habits.quickAdd', {
-                        step: habit.step ?? 1,
-                        unit: habit.unit,
-                        name: habit.name,
-                      })}
-                      onClick={() => toggleLog(habit, habitToday(habit))}
-                      className="habit-quick-add col-start-1 [@container((max-width:_760px))]:col-auto min-w-0 max-w-full justify-self-end px-1.5 text-xs tabular-nums"
-                    >
-                      <Plus size={14} />
-                      <span className="min-w-0 truncate">{formatAmount(habit.step ?? 1)}</span>
-                    </Button>
-                  )}
+              <div className="habit-menu-anchor flex items-center justify-end px-3 [@container((min-width:_761px))]:col-start-9 [@container((min-width:_761px))]:row-start-1 [@container((max-width:_760px))]:px-1">
                 <WorkspaceActions
-                  className="col-start-2 size-8 [@container((max-width:_760px))]:col-auto"
+                  className="size-8"
                   triggerClassName="size-8 [.habit-row:hover_&]:opacity-100 [.habit-row:focus-within_&]:opacity-100 aria-expanded:opacity-100 [@container(max-width:_760px)]:opacity-100 [@media(hover:_none)]:opacity-100"
                   label={t('common.namedMenu', { name: habit.name })}
                   items={[
