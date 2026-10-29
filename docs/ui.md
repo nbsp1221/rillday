@@ -6,7 +6,7 @@ The Daybreak mark uses Iris (`#7060c3`). Primary buttons use `#6450b2` with whit
 
 Shared components and semantic tokens define the interface across web and Windows. Reuse them for new screens; change a shared role before adding a competing local override.
 
-The muted palette supports interactive fills and readable secondary text. Quiet inset surfaces have their own token; they must not make shared ghost-button hover indistinguishable from its parent surface. Tabs use the official line variant with a persistent active indicator and readable inactive labels.
+The muted palette supports interactive fills and readable secondary text. Quiet inset surfaces have their own token; they must not make shared ghost-button hover indistinguishable from its parent surface. Tabs use the official line variant with a persistent active indicator and readable inactive labels. Habit day controls use the same shape for their status marker, hover surface and keyboard focus, with equal width and height inside the date column.
 
 ## Theme and layout
 

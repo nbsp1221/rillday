@@ -16,10 +16,10 @@ import { HabitCheckin } from './HabitCheckin';
 import { habitColors, useHabitAmountFormat } from './habit-display';
 
 const markerStyles = {
-  'complete': 'rounded-full bg-habit-color text-habit-on-color',
-  'recorded': 'rounded-md bg-habit-color/15 text-foreground',
-  'empty': 'rounded-full border-muted-foreground',
-  'skipped': 'rounded-full border-dashed border-muted-foreground text-muted-foreground',
+  'complete': 'bg-habit-color text-habit-on-color',
+  'recorded': 'bg-habit-color/15 text-foreground',
+  'empty': 'border-muted-foreground',
+  'skipped': 'border-dashed border-muted-foreground text-muted-foreground',
   'future': 'text-muted-foreground',
   'not-scheduled': 'text-muted-foreground',
 };
@@ -61,6 +61,7 @@ export function HabitDayCell({
   } else if (recorded) {
     state = 'recorded';
   }
+  const shape = state === 'recorded' ? 'rounded-md' : 'rounded-full';
   let status: string;
   if (unavailable) {
     status = t('habits.notScheduled');
@@ -112,7 +113,8 @@ export function HabitDayCell({
       onClick={habit.kind === 'quantity' ? undefined : onToggle}
       data-state={state}
       className={cn(
-        'habit-day relative grid h-9 w-[min(36px,100%)] place-items-center rounded-md border-0 bg-transparent p-0 disabled:opacity-100',
+        'habit-day relative grid aspect-square h-auto w-[min(36px,100%)] place-items-center border-0 bg-transparent p-0 disabled:opacity-100',
+        shape,
         date === today && 'today',
         done && 'done',
       )}
@@ -121,6 +123,7 @@ export function HabitDayCell({
         aria-hidden="true"
         className={cn(
           'habit-day-mark relative grid size-7 place-items-center overflow-hidden border border-transparent',
+          shape,
           markerStyles[state],
         )}
       >

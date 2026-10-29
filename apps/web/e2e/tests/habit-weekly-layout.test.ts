@@ -163,4 +163,68 @@ for (const theme of ['Dark', 'Light']) {
       );
     expect(statLabelsFit).toBe(true);
   });
+
+  test(`day hover and focus follow the marker shape without moving or shrinking it in ${theme}`, async ({
+    page,
+  }) => {
+    await openWeek(page, theme);
+    for (const width of [1183, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const state of ['complete', 'recorded', 'empty']) {
+        const cell = page.locator(`.habit-day[data-state="${state}"]:not(:disabled)`).first();
+        const mark = cell.locator('.habit-day-mark');
+        await page.mouse.move(0, 0);
+        const before = await cell.boundingBox();
+        const marker = (await mark.boundingBox())!;
+        const shape = await cell.evaluate((el) => getComputedStyle(el).borderRadius);
+        expect(before!.width).toBeGreaterThanOrEqual(24);
+        expect(Math.abs(before!.height - before!.width)).toBeLessThan(0.5);
+        expect(Math.abs(before!.x + before!.width / 2 - marker.x - marker.width / 2)).toBeLessThan(
+          0.5,
+        );
+        expect(
+          Math.abs(before!.y + before!.height / 2 - marker.y - marker.height / 2),
+        ).toBeLessThan(0.5);
+        await expect(mark).toHaveCSS('border-radius', shape);
+        expect(Number.parseFloat(shape)).toBeGreaterThanOrEqual(state === 'recorded' ? 4 : 14);
+        const background = await cell.evaluate((el) => getComputedStyle(el).backgroundColor);
+        const ink = await mark.evaluate((el) => getComputedStyle(el).color);
+        await cell.hover();
+        await cell.evaluate(async (el) =>
+          Promise.all(el.getAnimations().map((animation) => animation.finished)),
+        );
+        expect(await cell.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+          background,
+        );
+        expect(await cell.boundingBox()).toEqual(before);
+        expect(await mark.boundingBox()).toEqual(marker);
+        await expect(mark).toHaveCSS('color', ink);
+        expect((await appearance(mark)).contrast).toBeGreaterThanOrEqual(4.5);
+        await cell.focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await expect(cell).toBeFocused();
+        expect(await cell.evaluate((el) => el.matches(':focus-visible'))).toBe(true);
+        expect(await cell.evaluate((el) => getComputedStyle(el).boxShadow)).not.toBe('none');
+        await expect(cell).toHaveCSS('border-radius', shape);
+      }
+    }
+    const quantity = page.locator('.habit-day[data-state="recorded"]:not(:disabled)').first();
+    await quantity.click();
+    await expect(page.locator('.habit-record-panel')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(quantity).toBeFocused();
+    const cells = page.locator('.habit-day');
+    const completedIndex = await cells.evaluateAll((cells) =>
+      cells.findIndex(
+        (cell) => cell.getAttribute('aria-pressed') === 'true' && !cell.matches(':disabled'),
+      ),
+    );
+    expect(completedIndex).toBeGreaterThanOrEqual(0);
+    const toggle = cells.nth(completedIndex);
+    await toggle.press('Space');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await toggle.press('Space');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  });
 }
