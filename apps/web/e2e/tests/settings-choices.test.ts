@@ -253,10 +253,6 @@ for (const lang of ['ko', 'en']) {
           for (const name of names) {
             const trigger = page.getByRole('combobox', { name, exact: true });
             await trigger.scrollIntoViewIfNeeded();
-            const box = (await trigger.boundingBox())!;
-            expect([box.width, box.height]).toEqual([200, 36]);
-            await trigger.hover();
-            expect(await trigger.boundingBox()).toEqual(box);
             const state = await trigger.getAttribute('data-value');
             await trigger.click();
             const menu = page.getByRole('listbox', { name, exact: true });

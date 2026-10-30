@@ -81,7 +81,7 @@ Windows builds produce one application binary and an NSIS installer. `scripts/pr
 
 The build uses Tauri's `--no-binary-patching` option so both downloads contain the identical executable. Rillday does not use Tauri's updater plugin; per-installer-format updater metadata is unnecessary.
 
-Run `apps/desktop/tests/installer.ps1 -Installer INSTALLER -Archive ZIP -OutputDirectory OUTPUT` only in a disposable Windows user profile or VM; it rejects existing application data or installation records. CI verifies installation, reinstallation, and binary equality between installed and ZIP applications.
+Run `apps/desktop/tests/installer.ps1 -Installer INSTALLER -Archive ZIP -OutputDirectory OUTPUT` with PowerShell 7 in a disposable Windows user profile or VM; it rejects existing application data, folder preferences or installation records. Release verification checks installation, reinstallation, binary equality and actual first-run rendering from both downloads through Windows UI Automation.
 
 For native GUI tests on a signed-in Windows desktop with Python 3 and WebView2, build with the dedicated test identifier:
 
@@ -179,19 +179,25 @@ Turbo caches deterministic suites and builds using their dependency graph, sourc
 
 Cached web builds always write to `apps/web/dist`. For an isolated build, use Vite directly: `pnpm --filter @repo/web exec vite build --outDir <directory>`. Set `RILLDAY_TEST_WEB_DIR` to that directory when running browser tests; their preview server inherits it.
 
-CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Formatting, lint, types and the full Vitest suite run first. Browser applications are built once and shared across three Playwright shards, each with one worker. The first shard also runs demo and landing tests; the second runs shared control contracts. The official Playwright container supplies matching browsers, fonts and system libraries; keep its version aligned with `@playwright/test`. Every browser case still runs; successful and failed web/component runs retain HTML and JUnit reports for seven days.
+CI runs on pull requests and pushes to `main`, cancelling superseded runs for the same ref. Static checks, browser builds, Node.js tests and native tests run independently. Static checks cover formatting, lint, types, Rust formatting, generated assets and version consistency. Node.js tests include package-owned unit and integration suites plus release-tool tests.
+
+Browser applications are built once and shared with the browser jobs. Web UI and E2E tests use three shards, each with one worker; sharding changes scheduling, not coverage. Shared component, desktop first-run UI, demo and landing tests run in a separate job. The official Playwright container supplies matching browsers, fonts and system libraries; keep its version aligned with `@playwright/test`. Every browser case still runs; successful and failed runs retain reports for seven days.
 
 CI retries a failed browser case once to collect a full trace, and treats a retry success as a failed gate through `failOnFlakyTests`. The first failure still captures a screenshot. Local runs keep first-attempt tracing and do not retry. A diagnostic retry never makes an intermittent failure pass CI.
 
-Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. CI installs the pinned official `cargo-about` binary with checksum verification. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
+Native checks run Rust tests on Linux and Windows, with Cargo dependencies cached by platform and toolchain. Windows also builds an isolated test application and verifies first-run folder selection, single-instance behavior, native restart, offline storage and synchronization. Its identifier and profiles are separate from the installed application. CI installs the pinned official `cargo-about` binary with checksum verification.
 
-The isolated native test configuration enables CDP through Tauri's browser options on an OS-assigned loopback port. Tests discover the endpoint from WebView2's `DevToolsActivePort` file inside the fixture profile. `RILLDAY_TEST_OUTPUT` selects the native fixture, report and result directories as well as browser artifacts.
+Release preparation reruns source CI before building the NSIS/ZIP downloads and the multi-architecture container candidate. Installer tests exercise the real downloads; container tests exercise the exact candidate digest on AMD64 and ARM64. These checks must pass before draft creation. A manual release-workflow run also verifies Windows packaging without publishing an image or creating a release. Pull requests retain native runtime tests but do not build these distribution artifacts, so packaging-only failures may first appear during release preparation.
+
+The native fixture sets `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` only for its child processes, using an available loopback port and Playwright's WebView2 CDP connection. On restart it waits for a new browser endpoint instead of reconnecting to the retiring browser. It does not override the application's data folder. `RILLDAY_TEST_OUTPUT` selects fixture, report and result directories as well as browser artifacts.
 
 Run local Windows native tests from a non-administrator shell. They use a separate desktop without switching user input. GitHub-hosted Windows jobs explicitly select `RILLDAY_NATIVE_DESKTOP=runner` to use their disposable VM's desktop; this mode is rejected outside GitHub-hosted runners. Both modes control only the fixture executable's windows and wait for its processes to exit before releasing resources.
 
 Run one browser shard locally with `pnpm --filter @repo/web test:e2e --shard=1/3`, after building the web application. Run `pnpm test:e2e` for all application browser suites. Visual reference images belong beside their test and are specific to the browser and operating system; update them with Playwright's `--update-snapshots` only after inspecting the rendered change.
 
 Run shared UI contracts with `pnpm --filter @repo/frontend test:browser`. `RILLDAY_TEST_COMPONENT_PORT` overrides the gallery's default port 4193. The gallery uses fresh browser contexts and runs independently of the application preview.
+
+`pnpm --filter @repo/desktop test:browser` checks the desktop first-run screen's language and theme in a browser on port 4194. Its test entry uses Tauri's official IPC mock; native tests separately exercise the real folder picker, filesystem and restart.
 
 Server tests clean up their temporary databases. Set `RILLDAY_TEST_KEEP_ARTIFACTS=1` to retain them for debugging. `RILLDAY_TEST_OUTPUT` selects fixture artifacts; Vitest keeps its default cache location.
 
