@@ -1,6 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod data_directory;
+mod restart;
+
+use tauri::Manager;
 
 #[tauri::command]
 fn data_directory_setup(directory: tauri::State<data_directory::DataDirectory>) -> Option<String> {
@@ -24,16 +27,8 @@ async fn data_directory_choose(title: String) -> Option<String> {
 }
 
 #[tauri::command]
-async fn data_directory_use(
-    app: tauri::AppHandle,
-    directory: tauri::State<'_, data_directory::DataDirectory>,
-    path: String,
-) -> Result<(), String> {
-    directory
-        .select(std::path::Path::new(&path))
-        .map_err(|error| error.to_string())?;
-    app.request_restart();
-    Ok(())
+async fn data_directory_use(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    restart::activate(app, path).await
 }
 
 fn credential(app: &tauri::AppHandle, key: &str) -> Result<keyring::Entry, String> {
@@ -97,6 +92,13 @@ fn main() {
         tauri::utils::config::AppDirectoriesOverride::Root(directory.path.clone()),
     );
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(directory)
         .invoke_handler(tauri::generate_handler![
             credential_read,

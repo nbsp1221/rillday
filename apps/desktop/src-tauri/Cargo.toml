@@ -9,9 +9,16 @@ publish = false
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "~2.12", features = [] }
 keyring = "=4.2.0"
 dirs = "7"
 dunce = "1"
 tempfile = "3"
 rfd = "0.17"
+
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[target."cfg(windows)".dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"

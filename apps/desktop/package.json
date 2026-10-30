@@ -11,7 +11,8 @@
     "build:renderer": "vite build",
     "typecheck": "tsc && tsc -p tsconfig.browser.json",
     "test": "vitest run",
-    "test:native": "playwright test"
+    "test:native": "playwright test",
+    "test:browser": "playwright test --config tests/browser/playwright.config.ts"
   },
   "dependencies": {
     "@repo/frontend": "workspace:*",

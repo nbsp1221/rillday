@@ -262,6 +262,27 @@ def handle(request):
             result["released"] = True
         elif action == "wait-webview":
             wait_webview(request["pids"])
+        elif action == "relaunch":
+            assert owner, "Preserve an unowned desktop"
+            startup = Startup()
+            startup.cb = c.sizeof(startup)
+            startup.desktop = "WinSta0\\" + desktop_name
+            process = Process()
+            checked(k.CreateProcessW(str(owner["exe"]), None, None, None, False, 0, None,
+                                     str(owner["exe"].parent), c.byref(startup), c.byref(process)))
+            owner["pids"].add(process.pid)
+            try:
+                if k.WaitForSingleObject(process.process, 15000) != 0:
+                    raise RuntimeError("A second launch did not return to the running application")
+                exit_code = w.DWORD()
+                checked(k.GetExitCodeProcess(process.process, c.byref(exit_code)))
+                result["exitCode"] = exit_code.value
+            finally:
+                try:
+                    terminate_owned([process.pid], owner["exe"])
+                finally:
+                    k.CloseHandle(process.thread)
+                    k.CloseHandle(process.process)
         elif action == "terminate":
             exe = Path(request["exe"]).resolve()
             assert owner and exe == owner["exe"], "Preserve an unrelated application"
