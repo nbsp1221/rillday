@@ -16,6 +16,7 @@ interface NativeResult {
   inputBefore: string;
   inputAfter: string;
   desktop: string;
+  isolated: boolean;
   pid?: number;
   exists?: boolean;
   windows?: { pid: number; class: string; texts: string[]; ready: boolean }[];
@@ -218,6 +219,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     } finally {
       await disconnect();
       if (currentDesktop) {
+        let isolated: boolean;
         try {
           if (webviewProcesses.length) {
             await native({
@@ -228,11 +230,11 @@ test('first-run selection, shared profiles and folder changes preserve offline w
             webviewProcesses = [];
           }
         } finally {
-          await native({ action: 'release', desktop: currentDesktop });
+          isolated = (await native({ action: 'release', desktop: currentDesktop })).isolated;
         }
         await expect
           .poll(async () => (await native({ action: 'inspect', desktop: currentDesktop })).exists)
-          .toBe(false);
+          .toBe(!isolated);
       }
     }
   }

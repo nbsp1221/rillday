@@ -1,8 +1,8 @@
-"""Run test-owned windows on a separate desktop without switching user input."""
+"""Control only fixture-owned windows, isolating local runs from user input."""
 
 import ctypes as c
 from ctypes import wintypes as w
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack
 import json
 import msvcrt
 import os
@@ -12,11 +12,6 @@ import sys
 import traceback
 import uuid
 
-LUA_TOKEN = 0x4
-TOKEN_ELEVATION = 20
-TOKEN_INTEGRITY_LEVEL = 25
-MEDIUM_INTEGRITY = 8192
-SE_GROUP_INTEGRITY = 0x20
 CREATE_SUSPENDED = 0x4
 
 for stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -24,7 +19,9 @@ for stream in (sys.stdin, sys.stdout, sys.stderr):
 
 u = c.WinDLL("user32", use_last_error=True)
 k = c.WinDLL("kernel32", use_last_error=True)
-a = c.WinDLL("advapi32", use_last_error=True)
+shell = c.WinDLL("shell32", use_last_error=True)
+shell.IsUserAnAdmin.argtypes = []
+shell.IsUserAnAdmin.restype = w.BOOL
 callback_type = c.WINFUNCTYPE(w.BOOL, w.HWND, w.LPARAM)
 u.CreateDesktopW.argtypes = [w.LPCWSTR, w.LPCWSTR, c.c_void_p, w.DWORD, w.DWORD, c.c_void_p]
 u.CreateDesktopW.restype = w.HANDLE
@@ -35,7 +32,6 @@ u.SetThreadDesktop.argtypes = [w.HANDLE]
 u.GetThreadDesktop.argtypes = [w.DWORD]
 u.GetThreadDesktop.restype = w.HANDLE
 k.GetCurrentThreadId.restype = w.DWORD
-k.GetCurrentProcess.restype = w.HANDLE
 k.ResumeThread.argtypes = [w.HANDLE]
 k.ResumeThread.restype = w.DWORD
 k.WaitForMultipleObjects.argtypes = [w.DWORD, c.POINTER(w.HANDLE), w.BOOL, w.DWORD]
@@ -62,28 +58,6 @@ k.OpenProcess.restype = w.HANDLE
 k.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, c.POINTER(w.DWORD)]
 k.WaitForSingleObject.argtypes = [w.HANDLE, w.DWORD]
 k.WaitForSingleObject.restype = w.DWORD
-k.LocalFree.argtypes = [w.HANDLE]
-k.LocalFree.restype = w.HANDLE
-a.CreateRestrictedToken.argtypes = [w.HANDLE, w.DWORD, w.DWORD, c.c_void_p,
-                                    w.DWORD, c.c_void_p, w.DWORD, c.c_void_p, c.POINTER(w.HANDLE)]
-a.ConvertStringSidToSidW.argtypes = [w.LPCWSTR, c.POINTER(c.c_void_p)]
-a.GetLengthSid.argtypes = [c.c_void_p]
-a.GetLengthSid.restype = w.DWORD
-a.SetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD]
-a.GetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]
-a.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, c.POINTER(w.HANDLE)]
-a.DuplicateToken.argtypes = [w.HANDLE, c.c_int, c.POINTER(w.HANDLE)]
-a.CheckTokenMembership.argtypes = [w.HANDLE, c.c_void_p, c.POINTER(w.BOOL)]
-a.GetSidSubAuthorityCount.argtypes = [c.c_void_p]
-a.GetSidSubAuthorityCount.restype = c.POINTER(c.c_ubyte)
-a.GetSidSubAuthority.argtypes = [c.c_void_p, w.DWORD]
-a.GetSidSubAuthority.restype = c.POINTER(w.DWORD)
-
-
-class SidAndAttributes(c.Structure):
-    _fields_ = [("sid", c.c_void_p), ("attributes", w.DWORD)]
-
-
 class Startup(c.Structure):
     _fields_ = [("cb", w.DWORD), ("reserved", w.LPWSTR), ("desktop", w.LPWSTR),
                 ("title", w.LPWSTR), ("x", w.DWORD), ("y", w.DWORD),
@@ -97,9 +71,9 @@ class Process(c.Structure):
     _fields_ = [("process", w.HANDLE), ("thread", w.HANDLE), ("pid", w.DWORD), ("tid", w.DWORD)]
 
 
-a.CreateProcessAsUserW.argtypes = [w.HANDLE, w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p,
-                                  w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR,
-                                  c.POINTER(Startup), c.POINTER(Process)]
+k.CreateProcessW.argtypes = [w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p,
+                            w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR,
+                            c.POINTER(Startup), c.POINTER(Process)]
 
 
 def checked(value):
@@ -113,58 +87,6 @@ def send_message(hwnd, message, wparam, lparam):
     c.set_last_error(0)
     if not u.SendMessageTimeoutW(hwnd, message, wparam, lparam, 0x2, 5000, c.byref(result)):
         raise c.WinError(c.get_last_error() or 1460)
-
-
-@contextmanager
-def normal_user_token():
-    # WebView2 needs an unelevated host on a desktop without Explorer.
-    # https://github.com/MicrosoftEdge/WebView2Feedback/issues/2005
-    with ExitStack() as resources:
-        source = w.HANDLE()
-        checked(a.OpenProcessToken(k.GetCurrentProcess(), 0x8B, c.byref(source)))
-        resources.callback(k.CloseHandle, source)
-        token = w.HANDLE()
-        checked(a.CreateRestrictedToken(source, LUA_TOKEN, 0, None, 0, None, 0, None, c.byref(token)))
-        resources.callback(k.CloseHandle, token)
-        sid = c.c_void_p()
-        checked(a.ConvertStringSidToSidW("S-1-16-8192", c.byref(sid)))
-        resources.callback(k.LocalFree, sid)
-        label = SidAndAttributes(sid, SE_GROUP_INTEGRITY)
-        checked(a.SetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, c.byref(label),
-                                      c.sizeof(label) + a.GetLengthSid(sid)))
-        yield token
-
-
-def process_privileges(process):
-    token = w.HANDLE()
-    checked(a.OpenProcessToken(process, 0x8 | 0x2, c.byref(token)))
-    try:
-        elevation = w.DWORD()
-        needed = w.DWORD()
-        checked(a.GetTokenInformation(token, TOKEN_ELEVATION, c.byref(elevation), c.sizeof(elevation), c.byref(needed)))
-        a.GetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, None, 0, c.byref(needed))
-        if c.get_last_error() != 122:
-            raise c.WinError(c.get_last_error())
-        information = c.create_string_buffer(needed.value)
-        checked(a.GetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, information, len(information), c.byref(needed)))
-        label = c.cast(information, c.POINTER(SidAndAttributes)).contents
-        count = a.GetSidSubAuthorityCount(label.sid)[0]
-        integrity = a.GetSidSubAuthority(label.sid, count - 1)[0]
-        memberships = {}
-        with ExitStack() as resources:
-            identification = w.HANDLE()
-            checked(a.DuplicateToken(token, 1, c.byref(identification)))
-            resources.callback(k.CloseHandle, identification)
-            for name, value in (("administrator", "S-1-5-32-544"), ("powerUser", "S-1-5-32-547")):
-                sid = c.c_void_p()
-                checked(a.ConvertStringSidToSidW(value, c.byref(sid)))
-                resources.callback(k.LocalFree, sid)
-                member = w.BOOL()
-                checked(a.CheckTokenMembership(identification, sid, c.byref(member)))
-                memberships[name] = bool(member.value)
-        return {"elevated": bool(elevation.value), "integrityLevel": integrity, **memberships}
-    finally:
-        k.CloseHandle(token)
 
 
 def check_test_binary(executable):
@@ -273,7 +195,34 @@ def wait_webview(pids):
 
 
 root = (Path(os.environ.get("RILLDAY_TEST_OUTPUT", str(Path(__file__).resolve().parents[2] / ".cache" / "tests"))) / "native").resolve()
+mode = os.environ.get("RILLDAY_NATIVE_DESKTOP", "isolated")
+if mode not in ("isolated", "runner"):
+    raise ValueError("Unknown native desktop mode")
+runner_desktop = mode == "runner"
+# Shared desktops are reserved for disposable hosted VMs, never user sessions.
+if runner_desktop and not (os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"):
+    raise RuntimeError("The visible desktop is allowed only on GitHub-hosted runners")
 owners = {}
+
+
+def owned_window_pid(hwnd, owner):
+    pid = w.DWORD()
+    u.GetWindowThreadProcessId(hwnd, c.byref(pid))
+    if not pid.value:
+        return None
+    process = k.OpenProcess(0x1000, False, pid.value)
+    if not process:
+        if pid.value in owner["pids"] and c.get_last_error() != 87:
+            raise c.WinError(c.get_last_error())
+        return None
+    try:
+        image = c.create_unicode_buffer(32768)
+        size = w.DWORD(len(image))
+        if not k.QueryFullProcessImageNameW(process, 0, image, c.byref(size)):
+            return None
+        return pid.value if Path(image.value).resolve() == owner["exe"] else None
+    finally:
+        k.CloseHandle(process)
 
 
 def release(name):
@@ -297,7 +246,8 @@ def handle(request):
     original = u.GetThreadDesktop(k.GetCurrentThreadId())
     desktop = None
     failure = None
-    result = {"inputBefore": before, "desktop": name}
+    desktop_name = before if runner_desktop else name
+    result = {"inputBefore": before, "desktop": name, "isolated": not runner_desktop}
     try:
         action = request["action"]
         owner = owners.get(name)
@@ -321,27 +271,32 @@ def handle(request):
             assert exe.is_relative_to(root) and exe.name == "rillday-desktop.exe"
             check_test_binary(exe)
             assert owner is None, "Preserve an existing desktop"
-            existing = u.OpenDesktopW(name, 0, False, 0xC7)
-            if existing:
-                checked(u.CloseDesktop(existing))
-                raise RuntimeError("Preserve an existing desktop")
-            creator = checked(u.CreateDesktopW(name, None, None, 0, 0xC7, None))
+            if runner_desktop:
+                creator = checked(u.OpenDesktopW(desktop_name, 0, False, 0xC7))
+            else:
+                if shell.IsUserAnAdmin():
+                    raise RuntimeError("Run local native verification from a non-administrator shell")
+                existing = u.OpenDesktopW(name, 0, False, 0xC7)
+                if existing:
+                    checked(u.CloseDesktop(existing))
+                    raise RuntimeError("Preserve an existing desktop")
+                creator = checked(u.CreateDesktopW(name, None, None, 0, 0xC7, None))
             startup = Startup()
             startup.cb = c.sizeof(startup)
-            startup.desktop = "WinSta0\\" + name
+            startup.desktop = "WinSta0\\" + desktop_name
             startup.flags = 1 | 0x100
             startup.show = 4
             process = Process()
             try:
                 # GUI applications otherwise have no stderr for startup failures.
-                with normal_user_token() as token, (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
+                with (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
                     startup.stdin = msvcrt.get_osfhandle(null.fileno())
                     startup.stdout = startup.stderr = msvcrt.get_osfhandle(output.fileno())
                     os.set_handle_inheritable(startup.stdin, True)
                     os.set_handle_inheritable(startup.stdout, True)
                     arguments = (str(exe), None, None, None, True, CREATE_SUSPENDED, None,
                                  str(exe.parent), c.byref(startup), c.byref(process))
-                    checked(a.CreateProcessAsUserW(token, *arguments))
+                    checked(k.CreateProcessW(*arguments))
             except BaseException as error:
                 try:
                     checked(u.SetThreadDesktop(original))
@@ -349,15 +304,10 @@ def handle(request):
                 except BaseException as cleanup_error:
                     error.add_note(f"Desktop creation cleanup failed: {cleanup_error}")
                 raise
-            # The driver owns this desktop across application restarts until release.
+            # Keep our desktop reference until every owned application exits.
             owners[name] = {"desktop": creator, "process": process.process,
                             "pid": process.pid, "exe": exe, "pids": {process.pid}}
             try:
-                result["privileges"] = process_privileges(process.process)
-                assert result["privileges"] == {"elevated": False, "integrityLevel": MEDIUM_INTEGRITY,
-                                                "administrator": False, "powerUser": False}, (
-                    f"Native verification requires a normal-user process at Medium integrity: {result['privileges']}"
-                )
                 if k.ResumeThread(process.thread) == 0xFFFFFFFF:
                     raise c.WinError(c.get_last_error())
             finally:
@@ -370,7 +320,7 @@ def handle(request):
             assert action in ("inspect", "select", "cancel", "close"), "Unknown native action"
             if action != "inspect":
                 assert owner, "Preserve an unowned desktop"
-            desktop = u.OpenDesktopW(name, 0, False, 0xC7)
+            desktop = u.OpenDesktopW(desktop_name, 0, False, 0xC7)
             result["exists"] = bool(desktop)
             if owner:
                 result["windows"] = []
@@ -381,15 +331,16 @@ def handle(request):
                 @callback_type
                 def visit(hwnd, unused):
                     try:
+                        pid = owned_window_pid(hwnd, owner)
+                        if pid is None:
+                            return True
                         title = c.create_unicode_buffer(256)
                         u.GetWindowTextW(hwnd, title, len(title))
                         if request.get("diagnostics") or title.value in ("Rillday", "Choose folder…"):
-                            pid = w.DWORD()
-                            u.GetWindowThreadProcessId(hwnd, c.byref(pid))
                             window_class = c.create_unicode_buffer(256)
                             u.GetClassNameW(hwnd, window_class, len(window_class))
                             if window_class.value == "Tauri Window" or (window_class.value == "#32770" and title.value == "Choose folder…"):
-                                owner["pids"].add(pid.value)
+                                owner["pids"].add(pid)
                             texts, edits, buttons, views = [], [], [], []
 
                             @callback_type
@@ -409,7 +360,7 @@ def handle(request):
                                 return True
 
                             u.EnumChildWindows(hwnd, child_text, 0)
-                            result["windows"].append({"pid": pid.value, "title": title.value,
+                            result["windows"].append({"pid": pid, "title": title.value,
                                                       "class": window_class.value, "texts": texts,
                                                       "ready": bool(views and edits and buttons)})
                             if action == "select" and title.value == "Choose folder…":
@@ -463,22 +414,25 @@ def cleanup():
     errors = []
     for name, owner in list(owners.items()):
         try:
+            enumeration_errors = []
+
             @callback_type
             def visit(hwnd, unused):
-                title = c.create_unicode_buffer(256)
-                u.GetWindowTextW(hwnd, title, len(title))
-                window_class = c.create_unicode_buffer(256)
-                u.GetClassNameW(hwnd, window_class, len(window_class))
-                if window_class.value == "Tauri Window" or (window_class.value == "#32770" and title.value == "Choose folder…"):
-                    pid = w.DWORD()
-                    u.GetWindowThreadProcessId(hwnd, c.byref(pid))
-                    owner["pids"].add(pid.value)
-                return True
+                try:
+                    pid = owned_window_pid(hwnd, owner)
+                    if pid is not None:
+                        owner["pids"].add(pid)
+                    return True
+                except BaseException as error:
+                    enumeration_errors.append(error)
+                    return False
 
             if owner["desktop"]:
                 c.set_last_error(0)
                 enumerated = u.EnumDesktopWindows(owner["desktop"], visit, 0)
                 enumeration_error = c.get_last_error()
+                if enumeration_errors:
+                    raise enumeration_errors[0]
                 if not enumerated and enumeration_error:
                     raise c.WinError(enumeration_error)
         except BaseException as error:

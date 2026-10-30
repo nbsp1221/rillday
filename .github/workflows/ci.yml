@@ -166,6 +166,7 @@ jobs:
         working-directory: .
         env:
           RILLDAY_NATIVE_EXECUTABLE: ${{ github.workspace }}\apps\desktop\src-tauri\target\release\rillday-desktop.exe
+          RILLDAY_NATIVE_DESKTOP: runner
         run: pnpm --filter @repo/desktop test:native
       - uses: actions/upload-artifact@v7
         if: failure() && runner.os == 'Windows'
