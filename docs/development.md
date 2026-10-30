@@ -185,7 +185,7 @@ CI retries a failed browser case once to collect a full trace, and treats a retr
 
 Desktop checks run Rust tests on Linux and Windows, with Cargo dependencies and installed tools cached by platform and toolchain. CI installs the pinned official `cargo-about` binary with checksum verification. Windows builds and verifies the NSIS/ZIP downloads, then builds an isolated test application for first-run folder selection, offline storage and synchronization. The test identifier and profiles are separate from the installed application. The `web` aggregate status requires all browser shards, both desktop jobs and both container architectures to succeed. Release preparation uses the same checks before producing a draft.
 
-The isolated native test configuration enables CDP through Tauri's browser options on loopback port 9223. The runner refuses to start when that port is occupied. `RILLDAY_TEST_OUTPUT` selects the native fixture, report and result directories as well as browser artifacts.
+The isolated native test configuration enables CDP through Tauri's browser options on an OS-assigned loopback port. Tests discover the endpoint from WebView2's `DevToolsActivePort` file inside the fixture profile. `RILLDAY_TEST_OUTPUT` selects the native fixture, report and result directories as well as browser artifacts.
 
 Run local Windows native tests from a non-administrator shell. They use a separate desktop without switching user input. GitHub-hosted Windows jobs explicitly select `RILLDAY_NATIVE_DESKTOP=runner` to use their disposable VM's desktop; this mode is rejected outside GitHub-hosted runners. Both modes control only the fixture executable's windows and wait for its processes to exit before releasing resources.
 

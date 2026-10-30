@@ -7,7 +7,7 @@
         "title": "Rillday",
         "width": 1120,
         "height": 760,
-        "additionalBrowserArgs": "--remote-debugging-port=9223 --enable-automation --lang=en-US --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
+        "additionalBrowserArgs": "--remote-debugging-port=0 --enable-automation --lang=en-US --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
       }
     ]
   }

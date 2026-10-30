@@ -6,7 +6,6 @@ import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { inspect, promisify } from 'node:util';
 import { type Browser, type Page, test as base, chromium, expect } from '@playwright/test';
-import { freePort } from '@repo/test-support';
 import fs from 'fs-extra';
 import { verifyNativeSync } from './support/sync';
 
@@ -140,12 +139,6 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   const defaultPath = resolve(process.env.LOCALAPPDATA!, identifier);
   const configuration = resolve(process.env.APPDATA!, identifier);
   const locationFile = resolve(configuration, 'rillday-data-directory');
-  const testConfig = JSON.parse(
-    await readFile(resolve(import.meta.dirname, 'tauri.test.conf.json'), 'utf8'),
-  ) as { app: { windows: { additionalBrowserArgs: string }[] } };
-  const port = Number(
-    testConfig.app.windows[0].additionalBrowserArgs.match(/--remote-debugging-port=(\d+)/)?.[1],
-  );
   await expect(access(defaultPath)).rejects.toThrow();
   await expect(access(configuration)).rejects.toThrow();
   let failed = false;
@@ -239,24 +232,37 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     }
   }
 
-  async function connect() {
+  async function connect(profile = defaultPath) {
+    let endpoint: string | undefined;
     await expect
       .poll(
         async () => {
           try {
-            return (
-              await fetch(`http://127.0.0.1:${port}/json/version`, {
-                signal: AbortSignal.timeout(300),
-              })
-            ).status;
+            const [port, target] = (
+              await readFile(resolve(profile, 'EBWebView', 'DevToolsActivePort'), 'utf8')
+            )
+              .trim()
+              .split(/\r?\n/);
+            if (!/^\d+$/.test(port) || !target?.startsWith('/devtools/browser/')) {
+              return false;
+            }
+            const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+              signal: AbortSignal.timeout(300),
+            });
+            if (!response.ok) {
+              return false;
+            }
+            const version = (await response.json()) as { webSocketDebuggerUrl?: string };
+            endpoint = `ws://127.0.0.1:${port}${target}`;
+            return version.webSocketDebuggerUrl === endpoint;
           } catch (error) {
             return inspect(error, { depth: 3 });
           }
         },
         { timeout: 30_000 },
       )
-      .toBe(200);
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+      .toBe(true);
+    browser = await chromium.connectOverCDP(endpoint!);
     await rememberWebviewProcesses();
     let page: Page | undefined;
     await expect
@@ -278,7 +284,6 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   }
 
   async function start(folder: string) {
-    await freePort(port);
     desktop = `RilldayTest-${randomUUID()}`;
     owned = { exe: resolve(folder, 'rillday-desktop.exe') };
     launch = await native({
@@ -383,6 +388,8 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       recursive: true,
       errorOnExist: true,
       force: false,
+      // A copied discovery file can still point to the source profile's browser.
+      filter: (source) => source !== resolve(defaultPath, 'EBWebView', 'DevToolsActivePort'),
     });
     page = await start(moved);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
@@ -439,20 +446,9 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     );
     await chooseFolder();
     await page.getByRole('button', { name: 'Save and restart', exact: true }).click();
-    await expect
-      .poll(
-        async () => {
-          try {
-            return (await fetch(`http://127.0.0.1:${port}/json/list`)).ok && page.isClosed();
-          } catch {
-            return page.isClosed();
-          }
-        },
-        { timeout: 30_000 },
-      )
-      .toBe(true);
+    await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
     await disconnect();
-    page = await connect();
+    page = await connect(selected);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await page.getByLabel('Habit', { exact: true }).click();
     await expect(page.getByText('Desktop habit', { exact: true })).toBeVisible();
@@ -498,7 +494,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await page.getByRole('button', { name: 'Open Rillday', exact: true }).click();
     await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
     await disconnect();
-    page = await connect();
+    page = await connect(selected);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
     await verifyNativeSync(page, testInfo);
     await writeFile(
