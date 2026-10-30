@@ -12,10 +12,7 @@ import sys
 import traceback
 import uuid
 
-SAFER_SCOPEID_USER = 2
-SAFER_LEVELID_NORMALUSER = 0x20000
-SAFER_LEVEL_OPEN = 1
-SAFER_TOKEN_NULL_IF_EQUAL = 1
+LUA_TOKEN = 0x4
 TOKEN_ELEVATION = 20
 TOKEN_INTEGRITY_LEVEL = 25
 MEDIUM_INTEGRITY = 8192
@@ -38,6 +35,7 @@ u.SetThreadDesktop.argtypes = [w.HANDLE]
 u.GetThreadDesktop.argtypes = [w.DWORD]
 u.GetThreadDesktop.restype = w.HANDLE
 k.GetCurrentThreadId.restype = w.DWORD
+k.GetCurrentProcess.restype = w.HANDLE
 k.ResumeThread.argtypes = [w.HANDLE]
 k.ResumeThread.restype = w.DWORD
 k.WaitForMultipleObjects.argtypes = [w.DWORD, c.POINTER(w.HANDLE), w.BOOL, w.DWORD]
@@ -66,15 +64,16 @@ k.WaitForSingleObject.argtypes = [w.HANDLE, w.DWORD]
 k.WaitForSingleObject.restype = w.DWORD
 k.LocalFree.argtypes = [w.HANDLE]
 k.LocalFree.restype = w.HANDLE
-a.SaferCreateLevel.argtypes = [w.DWORD, w.DWORD, w.DWORD, c.POINTER(w.HANDLE), c.c_void_p]
-a.SaferComputeTokenFromLevel.argtypes = [w.HANDLE, w.HANDLE, c.POINTER(w.HANDLE), w.DWORD, c.c_void_p]
-a.SaferCloseLevel.argtypes = [w.HANDLE]
+a.CreateRestrictedToken.argtypes = [w.HANDLE, w.DWORD, w.DWORD, c.c_void_p,
+                                    w.DWORD, c.c_void_p, w.DWORD, c.c_void_p, c.POINTER(w.HANDLE)]
 a.ConvertStringSidToSidW.argtypes = [w.LPCWSTR, c.POINTER(c.c_void_p)]
 a.GetLengthSid.argtypes = [c.c_void_p]
 a.GetLengthSid.restype = w.DWORD
 a.SetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD]
 a.GetTokenInformation.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]
 a.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, c.POINTER(w.HANDLE)]
+a.DuplicateToken.argtypes = [w.HANDLE, c.c_int, c.POINTER(w.HANDLE)]
+a.CheckTokenMembership.argtypes = [w.HANDLE, c.c_void_p, c.POINTER(w.BOOL)]
 a.GetSidSubAuthorityCount.argtypes = [c.c_void_p]
 a.GetSidSubAuthorityCount.restype = c.POINTER(c.c_ubyte)
 a.GetSidSubAuthority.argtypes = [c.c_void_p, w.DWORD]
@@ -98,10 +97,9 @@ class Process(c.Structure):
     _fields_ = [("process", w.HANDLE), ("thread", w.HANDLE), ("pid", w.DWORD), ("tid", w.DWORD)]
 
 
-k.CreateProcessW.argtypes = [w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p,
-                            w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR,
-                            c.POINTER(Startup), c.POINTER(Process)]
-a.CreateProcessAsUserW.argtypes = [w.HANDLE, *k.CreateProcessW.argtypes]
+a.CreateProcessAsUserW.argtypes = [w.HANDLE, w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p,
+                                  w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR,
+                                  c.POINTER(Startup), c.POINTER(Process)]
 
 
 def checked(value):
@@ -122,26 +120,24 @@ def normal_user_token():
     # WebView2 needs an unelevated host on a desktop without Explorer.
     # https://github.com/MicrosoftEdge/WebView2Feedback/issues/2005
     with ExitStack() as resources:
-        level = w.HANDLE()
-        checked(a.SaferCreateLevel(SAFER_SCOPEID_USER, SAFER_LEVELID_NORMALUSER,
-                                  SAFER_LEVEL_OPEN, c.byref(level), None))
-        resources.callback(a.SaferCloseLevel, level)
+        source = w.HANDLE()
+        checked(a.OpenProcessToken(k.GetCurrentProcess(), 0x8B, c.byref(source)))
+        resources.callback(k.CloseHandle, source)
         token = w.HANDLE()
-        checked(a.SaferComputeTokenFromLevel(level, None, c.byref(token), SAFER_TOKEN_NULL_IF_EQUAL, None))
-        if token:
-            resources.callback(k.CloseHandle, token)
-            sid = c.c_void_p()
-            checked(a.ConvertStringSidToSidW("S-1-16-8192", c.byref(sid)))
-            resources.callback(k.LocalFree, sid)
-            label = SidAndAttributes(sid, SE_GROUP_INTEGRITY)
-            checked(a.SetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, c.byref(label),
-                                          c.sizeof(label) + a.GetLengthSid(sid)))
+        checked(a.CreateRestrictedToken(source, LUA_TOKEN, 0, None, 0, None, 0, None, c.byref(token)))
+        resources.callback(k.CloseHandle, token)
+        sid = c.c_void_p()
+        checked(a.ConvertStringSidToSidW("S-1-16-8192", c.byref(sid)))
+        resources.callback(k.LocalFree, sid)
+        label = SidAndAttributes(sid, SE_GROUP_INTEGRITY)
+        checked(a.SetTokenInformation(token, TOKEN_INTEGRITY_LEVEL, c.byref(label),
+                                      c.sizeof(label) + a.GetLengthSid(sid)))
         yield token
 
 
 def process_privileges(process):
     token = w.HANDLE()
-    checked(a.OpenProcessToken(process, 0x8, c.byref(token)))
+    checked(a.OpenProcessToken(process, 0x8 | 0x2, c.byref(token)))
     try:
         elevation = w.DWORD()
         needed = w.DWORD()
@@ -154,7 +150,19 @@ def process_privileges(process):
         label = c.cast(information, c.POINTER(SidAndAttributes)).contents
         count = a.GetSidSubAuthorityCount(label.sid)[0]
         integrity = a.GetSidSubAuthority(label.sid, count - 1)[0]
-        return {"elevated": bool(elevation.value), "integrityLevel": integrity}
+        memberships = {}
+        with ExitStack() as resources:
+            identification = w.HANDLE()
+            checked(a.DuplicateToken(token, 1, c.byref(identification)))
+            resources.callback(k.CloseHandle, identification)
+            for name, value in (("administrator", "S-1-5-32-544"), ("powerUser", "S-1-5-32-547")):
+                sid = c.c_void_p()
+                checked(a.ConvertStringSidToSidW(value, c.byref(sid)))
+                resources.callback(k.LocalFree, sid)
+                member = w.BOOL()
+                checked(a.CheckTokenMembership(identification, sid, c.byref(member)))
+                memberships[name] = bool(member.value)
+        return {"elevated": bool(elevation.value), "integrityLevel": integrity, **memberships}
     finally:
         k.CloseHandle(token)
 
@@ -333,10 +341,7 @@ def handle(request):
                     os.set_handle_inheritable(startup.stdout, True)
                     arguments = (str(exe), None, None, None, True, CREATE_SUSPENDED, None,
                                  str(exe.parent), c.byref(startup), c.byref(process))
-                    if token:
-                        checked(a.CreateProcessAsUserW(token, *arguments))
-                    else:
-                        checked(k.CreateProcessW(*arguments))
+                    checked(a.CreateProcessAsUserW(token, *arguments))
             except BaseException as error:
                 try:
                     checked(u.SetThreadDesktop(original))
@@ -349,7 +354,10 @@ def handle(request):
                             "pid": process.pid, "exe": exe, "pids": {process.pid}}
             try:
                 result["privileges"] = process_privileges(process.process)
-                assert result["privileges"] == {"elevated": False, "integrityLevel": MEDIUM_INTEGRITY}, "Native verification requires a normal-user process at Medium integrity"
+                assert result["privileges"] == {"elevated": False, "integrityLevel": MEDIUM_INTEGRITY,
+                                                "administrator": False, "powerUser": False}, (
+                    f"Native verification requires a normal-user process at Medium integrity: {result['privileges']}"
+                )
                 if k.ResumeThread(process.thread) == 0xFFFFFFFF:
                     raise c.WinError(c.get_last_error())
             finally:
