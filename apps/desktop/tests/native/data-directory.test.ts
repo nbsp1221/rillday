@@ -27,30 +27,38 @@ type Native = (request: object) => Promise<NativeResult>;
 
 const test = base.extend<{ native: Native; debuggingPort: number }>({
   debuggingPort: async ({}, provide) => {
+    const configuration = JSON.parse(
+      await readFile(resolve(import.meta.dirname, 'tauri.test.conf.json'), 'utf8'),
+    ) as { app: { windows: { additionalBrowserArgs: string }[] } };
+    const match = configuration.app.windows[0].additionalBrowserArgs.match(
+      /--remote-debugging-port=(\d+)/,
+    );
+    if (!match) {
+      throw new Error('The native test configuration must specify its debugging port');
+    }
+    const port = Number(match[1]);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error('The native debugging port must be between 1 and 65535');
+    }
     const listener = createServer();
     try {
-      listener.listen(0, '127.0.0.1');
+      listener.listen(port, '127.0.0.1');
       await once(listener, 'listening');
-      const address = listener.address();
-      if (!address || typeof address === 'string') {
-        throw new Error('Could not allocate a native debugging port');
-      }
       await promisify(listener.close.bind(listener))();
-      await provide(address.port);
+      await provide(port);
     } finally {
       if (listener.listening) {
         await promisify(listener.close.bind(listener))();
       }
     }
   },
-  native: async ({ debuggingPort }, provide) => {
+  native: async ({}, provide) => {
     const driver = spawn('python', ['-u', helper], {
       windowsHide: true,
       env: {
         ...process.env,
         PYTHONUTF8: '1',
         RUST_BACKTRACE: '1',
-        WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${debuggingPort}`,
       },
       stdio: ['pipe', 'pipe', 'inherit'],
     });
@@ -170,7 +178,6 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   let failure: unknown;
   let desktop: string | undefined;
   let browser: Browser | undefined;
-  let webviewProcesses: number[] = [];
   let owned: { exe: string; pid?: number } | undefined;
   let launch: NativeResult | undefined;
   let previousEndpoint: string | undefined;
@@ -188,72 +195,31 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     }
   }
 
-  async function rememberWebviewProcesses() {
-    const session = await browser!.newBrowserCDPSession();
-    try {
-      const { processInfo } = await session.send('SystemInfo.getProcessInfo');
-      webviewProcesses = processInfo.map((process) => process.id);
-    } finally {
-      await session.detach();
-    }
-  }
-
   async function stop() {
     const currentDesktop = desktop;
     try {
       if (currentDesktop) {
-        try {
-          await native({ action: 'close', desktop: currentDesktop });
-          await expect
-            .poll(
-              async () =>
-                (await native({ action: 'inspect', desktop: currentDesktop })).windows?.length,
-              { timeout: 30_000 },
-            )
-            .toBe(0);
-        } finally {
-          const status = await native({ action: 'inspect', desktop: currentDesktop });
-          if (status.windows?.length && owned) {
-            const pids = new Set([
-              owned.pid,
-              ...(status.windows?.map((window) => window.pid) ?? []),
-            ]);
-            for (const pid of pids) {
-              if (pid) {
-                await native({ action: 'terminate', desktop: currentDesktop, exe: owned.exe, pid });
-              }
-            }
-            await expect
-              .poll(
-                async () =>
-                  (await native({ action: 'inspect', desktop: currentDesktop })).windows?.length,
-                { timeout: 5000 },
-              )
-              .toBe(0);
-          }
-        }
-        desktop = undefined;
-        owned = undefined;
+        await native({ action: 'close', desktop: currentDesktop });
+        await expect
+          .poll(
+            async () =>
+              (await native({ action: 'inspect', desktop: currentDesktop })).windows?.length,
+            { timeout: 30_000 },
+          )
+          .toBe(0);
       }
     } finally {
-      await disconnect();
-      if (currentDesktop) {
-        let isolated: boolean;
-        try {
-          if (webviewProcesses.length) {
-            await native({
-              action: 'wait-webview',
-              desktop: currentDesktop,
-              pids: webviewProcesses,
-            });
-            webviewProcesses = [];
-          }
-        } finally {
-          isolated = (await native({ action: 'release', desktop: currentDesktop })).isolated;
+      try {
+        await disconnect();
+      } finally {
+        if (currentDesktop) {
+          const { isolated } = await native({ action: 'release', desktop: currentDesktop });
+          desktop = undefined;
+          owned = undefined;
+          await expect
+            .poll(async () => (await native({ action: 'inspect', desktop: currentDesktop })).exists)
+            .toBe(!isolated);
         }
-        await expect
-          .poll(async () => (await native({ action: 'inspect', desktop: currentDesktop })).exists)
-          .toBe(!isolated);
       }
     }
   }
@@ -282,7 +248,6 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       .toBe(true);
     browser = await chromium.connectOverCDP(endpoint!);
     previousEndpoint = endpoint;
-    await rememberWebviewProcesses();
     let page: Page | undefined;
     await expect
       .poll(() => {

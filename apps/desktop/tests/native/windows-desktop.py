@@ -2,17 +2,19 @@
 
 import ctypes as c
 from ctypes import wintypes as w
-from contextlib import ExitStack
 import json
 import msvcrt
 import os
 from pathlib import Path
-import subprocess
 import sys
+import time
 import traceback
 import uuid
 
 CREATE_SUSPENDED = 0x4
+JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION = 1
+JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
 
 for stream in (sys.stdin, sys.stdout, sys.stderr):
     os.set_handle_inheritable(msvcrt.get_osfhandle(stream.fileno()), False)
@@ -34,8 +36,6 @@ u.GetThreadDesktop.restype = w.HANDLE
 k.GetCurrentThreadId.restype = w.DWORD
 k.ResumeThread.argtypes = [w.HANDLE]
 k.ResumeThread.restype = w.DWORD
-k.WaitForMultipleObjects.argtypes = [w.DWORD, c.POINTER(w.HANDLE), w.BOOL, w.DWORD]
-k.WaitForMultipleObjects.restype = w.DWORD
 u.OpenInputDesktop.argtypes = [w.DWORD, w.BOOL, w.DWORD]
 u.OpenInputDesktop.restype = w.HANDLE
 u.GetUserObjectInformationW.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]
@@ -58,6 +58,35 @@ k.OpenProcess.restype = w.HANDLE
 k.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, c.POINTER(w.DWORD)]
 k.WaitForSingleObject.argtypes = [w.HANDLE, w.DWORD]
 k.WaitForSingleObject.restype = w.DWORD
+k.TerminateProcess.argtypes = [w.HANDLE, w.UINT]
+k.CreateJobObjectW.argtypes = [c.c_void_p, w.LPCWSTR]
+k.CreateJobObjectW.restype = w.HANDLE
+k.SetInformationJobObject.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD]
+k.QueryInformationJobObject.argtypes = [w.HANDLE, c.c_int, c.c_void_p, w.DWORD, c.c_void_p]
+k.AssignProcessToJobObject.argtypes = [w.HANDLE, w.HANDLE]
+k.IsProcessInJob.argtypes = [w.HANDLE, w.HANDLE, c.POINTER(w.BOOL)]
+k.TerminateJobObject.argtypes = [w.HANDLE, w.UINT]
+
+
+class BasicLimits(c.Structure):
+    _fields_ = [("process_time", c.c_int64), ("job_time", c.c_int64),
+                ("flags", w.DWORD), ("minimum_working_set", c.c_size_t),
+                ("maximum_working_set", c.c_size_t), ("active_limit", w.DWORD),
+                ("affinity", c.c_size_t), ("priority", w.DWORD), ("scheduling", w.DWORD)]
+
+
+class ExtendedLimits(c.Structure):
+    _fields_ = [("basic", BasicLimits), ("io", c.c_uint64 * 6),
+                ("process_memory", c.c_size_t), ("job_memory", c.c_size_t),
+                ("peak_process_memory", c.c_size_t), ("peak_job_memory", c.c_size_t)]
+
+
+class JobAccounting(c.Structure):
+    _fields_ = [("times", c.c_int64 * 4), ("page_faults", w.DWORD),
+                ("total_processes", w.DWORD), ("active_processes", w.DWORD),
+                ("terminated_processes", w.DWORD)]
+
+
 class Startup(c.Structure):
     _fields_ = [("cb", w.DWORD), ("reserved", w.LPWSTR), ("desktop", w.LPWSTR),
                 ("title", w.LPWSTR), ("x", w.DWORD), ("y", w.DWORD),
@@ -121,77 +150,28 @@ def input_desktop():
         checked(u.CloseDesktop(handle))
 
 
-def terminate_owned(pids, executable):
-    errors = []
-    with ExitStack() as resources:
-        handles = []
-        for pid in pids:
-            try:
-                handle = k.OpenProcess(0x1000 | 0x100000, False, pid)
-                if not handle and c.get_last_error() == 87:
-                    continue
-                checked(handle)
-                resources.callback(k.CloseHandle, handle)
-                exit_code = w.DWORD()
-                checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
-                if exit_code.value != 259:
-                    continue
-                image = c.create_unicode_buffer(32768)
-                size = w.DWORD(len(image))
-                checked(k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)))
-                assert Path(image.value).resolve() == executable, "Preserve an unrelated process"
-                handles.append((pid, handle))
-            except BaseException as error:
-                errors.append(error)
-        if handles:
-            assert len(handles) <= 64, "WaitForMultipleObjects supports at most 64 handles"
-            values = (w.HANDLE * len(handles))(*(handle for pid, handle in handles))
-            state = k.WaitForMultipleObjects(len(handles), values, True, 5000)
-            if state == 258:
-                # Hold all process handles while terminating the owned trees in one operation.
-                arguments = [argument for pid, handle in handles
-                             if k.WaitForSingleObject(handle, 0) == 258
-                             for argument in ("/PID", str(pid))]
-                if arguments:
-                    try:
-                        subprocess.run(["taskkill.exe", *arguments, "/T", "/F"],
-                                       capture_output=True, timeout=10, creationflags=0x08000000)
-                    except BaseException as error:
-                        errors.append(error)
-                state = k.WaitForMultipleObjects(len(handles), values, True, 5000)
-            if state == 0xFFFFFFFF:
-                errors.append(c.WinError(c.get_last_error()))
-            elif state != 0:
-                errors.append(RuntimeError("Owned applications did not exit"))
-    if errors:
-        raise BaseExceptionGroup("Owned application cleanup failed", errors)
-
-
-def wait_webview(pids):
-    handles = []
+def create_job():
+    job = checked(k.CreateJobObjectW(None, None))
+    limits = ExtendedLimits()
+    limits.basic.flags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
     try:
-        assert 0 < len(pids) <= 64
-        for pid in pids:
-            handle = k.OpenProcess(0x1000 | 0x100000, False, pid)
-            if not handle and c.get_last_error() == 87:
-                continue
-            checked(handle)
-            handles.append(handle)
-            exit_code = w.DWORD()
-            checked(k.GetExitCodeProcess(handle, c.byref(exit_code)))
-            if exit_code.value != 259:
-                continue
-            image = c.create_unicode_buffer(32768)
-            size = w.DWORD(len(image))
-            checked(k.QueryFullProcessImageNameW(handle, 0, image, c.byref(size)))
-            assert Path(image.value).name.lower() == "msedgewebview2.exe"
-        if handles:
-            values = (w.HANDLE * len(handles))(*handles)
-            if k.WaitForMultipleObjects(len(handles), values, True, 15000) != 0:
-                raise RuntimeError("Owned WebView2 processes did not exit")
-    finally:
-        for handle in handles:
-            k.CloseHandle(handle)
+        checked(k.SetInformationJobObject(job, JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, c.byref(limits), c.sizeof(limits)))
+        return job
+    except BaseException:
+        k.CloseHandle(job)
+        raise
+
+
+def wait_job(job, seconds):
+    deadline = time.monotonic() + seconds
+    while True:
+        accounting = JobAccounting()
+        checked(k.QueryInformationJobObject(job, JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION, c.byref(accounting), c.sizeof(accounting), None))
+        if accounting.active_processes == 0:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
 
 
 root = (Path(os.environ.get("RILLDAY_TEST_OUTPUT", str(Path(__file__).resolve().parents[2] / ".cache" / "tests"))) / "native").resolve()
@@ -212,10 +192,12 @@ def owned_window_pid(hwnd, owner):
         return None
     process = k.OpenProcess(0x1000, False, pid.value)
     if not process:
-        if pid.value in owner["pids"] and c.get_last_error() != 87:
-            raise c.WinError(c.get_last_error())
         return None
     try:
+        member = w.BOOL()
+        checked(k.IsProcessInJob(process, owner["job"], c.byref(member)))
+        if not member.value:
+            return None
         image = c.create_unicode_buffer(32768)
         size = w.DWORD(len(image))
         if not k.QueryFullProcessImageNameW(process, 0, image, c.byref(size)):
@@ -228,13 +210,23 @@ def owned_window_pid(hwnd, owner):
 def release(name):
     owner = owners.get(name)
     if owner:
-        # A missing window does not prove that its application process exited.
-        terminate_owned(owner["pids"], owner["exe"])
-        if owner["desktop"]:
-            checked(u.CloseDesktop(owner["desktop"]))
-            owner["desktop"] = None
-        checked(k.CloseHandle(owner["process"]))
-        del owners[name]
+        try:
+            # The job owns the entire restart/WebView2 tree, even without a CDP connection.
+            if not wait_job(owner["job"], 15):
+                checked(k.TerminateJobObject(owner["job"], 1))
+                if not wait_job(owner["job"], 5):
+                    raise RuntimeError("The owned application job did not exit")
+                raise RuntimeError("The owned application job required forced termination")
+        finally:
+            try:
+                checked(k.CloseHandle(owner["job"]))
+            finally:
+                try:
+                    if owner["desktop"]:
+                        checked(u.CloseDesktop(owner["desktop"]))
+                finally:
+                    checked(k.CloseHandle(owner["process"]))
+                    del owners[name]
 
 
 def handle(request):
@@ -256,22 +248,26 @@ def handle(request):
             checked(k.GetExitCodeProcess(owner["process"], c.byref(exit_code)))
             result["hostPid"] = owner["pid"]
             result["hostExitCode"] = exit_code.value
+            accounting = JobAccounting()
+            checked(k.QueryInformationJobObject(owner["job"], JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION, c.byref(accounting), c.sizeof(accounting), None))
+            result["activeProcesses"] = accounting.active_processes
 
         if action == "release":
             release(name)
             result["released"] = True
-        elif action == "wait-webview":
-            wait_webview(request["pids"])
         elif action == "relaunch":
             assert owner, "Preserve an unowned desktop"
             startup = Startup()
             startup.cb = c.sizeof(startup)
             startup.desktop = "WinSta0\\" + desktop_name
             process = Process()
-            checked(k.CreateProcessW(str(owner["exe"]), None, None, None, False, 0, None,
-                                     str(owner["exe"].parent), c.byref(startup), c.byref(process)))
-            owner["pids"].add(process.pid)
+            checked(k.CreateProcessW(str(owner["exe"]), None, None, None, False,
+                                     CREATE_SUSPENDED, None, str(owner["exe"].parent),
+                                     c.byref(startup), c.byref(process)))
             try:
+                checked(k.AssignProcessToJobObject(owner["job"], process.process))
+                if k.ResumeThread(process.thread) == 0xFFFFFFFF:
+                    raise c.WinError(c.get_last_error())
                 if k.WaitForSingleObject(process.process, 15000) != 0:
                     raise RuntimeError("A second launch did not return to the running application")
                 exit_code = w.DWORD()
@@ -279,14 +275,13 @@ def handle(request):
                 result["exitCode"] = exit_code.value
             finally:
                 try:
-                    terminate_owned([process.pid], owner["exe"])
+                    if k.WaitForSingleObject(process.process, 0) == 258:
+                        checked(k.TerminateProcess(process.process, 1))
+                        if k.WaitForSingleObject(process.process, 5000) != 0:
+                            raise RuntimeError("The second-launch process did not exit")
                 finally:
                     k.CloseHandle(process.thread)
                     k.CloseHandle(process.process)
-        elif action == "terminate":
-            exe = Path(request["exe"]).resolve()
-            assert owner and exe == owner["exe"], "Preserve an unrelated application"
-            terminate_owned([request["pid"]], exe)
         elif action == "start":
             exe = Path(request["exe"]).resolve()
             assert exe.is_relative_to(root) and exe.name == "rillday-desktop.exe"
@@ -308,7 +303,9 @@ def handle(request):
             startup.flags = 1 | 0x100
             startup.show = 4
             process = Process()
+            job = None
             try:
+                job = create_job()
                 # GUI applications otherwise have no stderr for startup failures.
                 with (exe.parent / "native-host.log").open("ab", buffering=0) as output, open(os.devnull, "rb") as null:
                     startup.stdin = msvcrt.get_osfhandle(null.fileno())
@@ -318,16 +315,23 @@ def handle(request):
                     arguments = (str(exe), None, None, None, True, CREATE_SUSPENDED, None,
                                  str(exe.parent), c.byref(startup), c.byref(process))
                     checked(k.CreateProcessW(*arguments))
+                    checked(k.AssignProcessToJobObject(job, process.process))
             except BaseException as error:
                 try:
-                    checked(u.SetThreadDesktop(original))
+                    if process.process:
+                        checked(k.TerminateProcess(process.process, 1))
+                        k.WaitForSingleObject(process.process, 5000)
+                        k.CloseHandle(process.thread)
+                        k.CloseHandle(process.process)
+                    if job:
+                        checked(k.CloseHandle(job))
                     checked(u.CloseDesktop(creator))
                 except BaseException as cleanup_error:
                     error.add_note(f"Desktop creation cleanup failed: {cleanup_error}")
                 raise
             # Keep our desktop reference until every owned application exits.
             owners[name] = {"desktop": creator, "process": process.process,
-                            "pid": process.pid, "exe": exe, "pids": {process.pid}}
+                            "pid": process.pid, "exe": exe, "job": job}
             try:
                 if k.ResumeThread(process.thread) == 0xFFFFFFFF:
                     raise c.WinError(c.get_last_error())
@@ -360,8 +364,6 @@ def handle(request):
                         if request.get("diagnostics") or title.value in ("Rillday", "Choose folder…"):
                             window_class = c.create_unicode_buffer(256)
                             u.GetClassNameW(hwnd, window_class, len(window_class))
-                            if window_class.value == "Tauri Window" or (window_class.value == "#32770" and title.value == "Choose folder…"):
-                                owner["pids"].add(pid)
                             texts, edits, buttons, views = [], [], [], []
 
                             @callback_type
@@ -433,29 +435,9 @@ def handle(request):
 
 def cleanup():
     errors = []
-    for name, owner in list(owners.items()):
+    for name in list(owners):
         try:
-            enumeration_errors = []
-
-            @callback_type
-            def visit(hwnd, unused):
-                try:
-                    pid = owned_window_pid(hwnd, owner)
-                    if pid is not None:
-                        owner["pids"].add(pid)
-                    return True
-                except BaseException as error:
-                    enumeration_errors.append(error)
-                    return False
-
-            if owner["desktop"]:
-                c.set_last_error(0)
-                enumerated = u.EnumDesktopWindows(owner["desktop"], visit, 0)
-                enumeration_error = c.get_last_error()
-                if enumeration_errors:
-                    raise enumeration_errors[0]
-                if not enumerated and enumeration_error:
-                    raise c.WinError(enumeration_error)
+            handle({"action": "close", "desktop": name})
         except BaseException as error:
             errors.append(error)
         finally:
