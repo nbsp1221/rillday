@@ -11,3 +11,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - miniflare@5.20261019.2-beta
   - wrangler@4.152.0
+  - react-resizable-panels@4.15.1
+
+patchedDependencies:
+  '@base-ui/react@1.9.0': patches/@base-ui__react@1.9.0.patch
+  react-resizable-panels@4.15.1: patches/react-resizable-panels@4.15.1.patch

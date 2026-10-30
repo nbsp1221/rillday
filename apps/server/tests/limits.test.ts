@@ -45,9 +45,10 @@ test('password admission remains limited to two jobs while document requests rem
   }
 
   const results = await Promise.all(requests);
-  for (const response of results) {
-    expect([200, 503]).toContain(response.status);
+  expect(results.filter((response) => response.status === 200)).toHaveLength(2);
+  const refused = results.filter((response) => response.status === 503);
+  expect(refused).toHaveLength(6);
+  for (const response of refused) {
+    expect(await response.json()).toMatchObject({ error: 'auth_busy' });
   }
-  expect(results.map((response) => response.status)).toContain(200);
-  expect(results.map((response) => response.status)).toContain(503);
 });

@@ -1,4 +1,5 @@
 import { type Locator, expect, test } from '@playwright/test';
+import { settleAnimations } from '@repo/test-support/browser-appearance';
 
 async function width(panel: Locator) {
   return (await panel.boundingBox())!.width;
@@ -20,18 +21,7 @@ test('navigation restores preferred sidebar pixels after a hidden viewport chang
   await separator.focus();
   await separator.press('ArrowRight');
   await expect.poll(() => width(sidebar)).toBeGreaterThan(222);
-  await expect
-    .poll(() =>
-      page
-        .locator('.workspace-panels')
-        .evaluate(
-          (element) =>
-            element
-              .getAnimations({ subtree: true })
-              .filter((animation) => animation.playState === 'running').length,
-        ),
-    )
-    .toBe(0);
+  await settleAnimations(page.locator('.workspace-panels'));
   const preferred = await width(sidebar);
   await page.getByLabel('Habit', { exact: true }).click();
   await page.setViewportSize({ width: 1024, height: 900 });
@@ -371,4 +361,33 @@ test('detail card fills its panel throughout opening, resizing and repeated clos
     await page.getByLabel('Close task details', { exact: true }).click();
     await expect(card).toHaveCount(0);
   }
+});
+
+test('keyboard resizing uses the current group width before ResizeObserver delivery', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 950 });
+  await page.goto('/');
+  const input = page.getByLabel('Quick add task', { exact: true });
+  await input.fill('Immediate resize boundary');
+  await input.press('Enter');
+  await page.locator('.task-title').click();
+  const sidebar = page.locator('.task-sidebar');
+  const separator = page.getByRole('separator', { name: 'Content sidebar width', exact: true });
+  await expect(page.locator('.detail-pane')).toBeVisible();
+  await separator.press('End');
+  await expect.poll(() => width(sidebar)).toBe(367);
+
+  await page.evaluate(() => {
+    const group = document.querySelector<HTMLElement>('.workspace-panels')!;
+    const nextWidth = group.clientWidth + 416;
+    group.style.minWidth = `${nextWidth}px`;
+    group.style.width = `${nextWidth}px`;
+    group.getBoundingClientRect();
+    // Exercise input before the pending size observation, without a settling delay.
+    document
+      .querySelector<HTMLElement>('[aria-label="Content sidebar width"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  });
+  await expect.poll(() => width(sidebar)).toBe(480);
 });

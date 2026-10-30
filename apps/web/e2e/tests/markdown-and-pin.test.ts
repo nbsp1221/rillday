@@ -35,7 +35,13 @@ test('every priority keeps one semantic color across menu, detail circle, rest, 
     ] as const) {
       await trigger.click();
       const item = page.getByRole('menuitemradio', { name, exact: true });
-      const color = await item.evaluate((el) => getComputedStyle(el).color);
+      let color = '';
+      await expect
+        .poll(async () => {
+          color = await item.evaluate((el) => getComputedStyle(el).color);
+          return color;
+        })
+        .not.toBe('');
       await item.click();
       await expect(trigger).toHaveAttribute('title', name);
       for (const state of ['rest', 'hover', 'focus']) {
@@ -47,13 +53,15 @@ test('every priority keeps one semantic color across menu, detail circle, rest, 
           await page.keyboard.press('Tab');
           await trigger.focus();
         }
-        expect(await trigger.evaluate((el) => getComputedStyle(el).color)).toBe(color);
+        await expect(trigger).toHaveCSS('color', color);
       }
-      expect(
-        await page
-          .locator('.td-title-row .td-complete')
-          .evaluate((el) => getComputedStyle(el, '::before').borderTopColor),
-      ).toBe(color);
+      await expect
+        .poll(() =>
+          page
+            .locator('.td-title-row .td-complete')
+            .evaluate((el) => getComputedStyle(el, '::before').borderTopColor),
+        )
+        .toBe(color);
       await expect.poll(async () => (await storedWorkspace(page)).tasks[0].priority).toBe(value);
     }
   }

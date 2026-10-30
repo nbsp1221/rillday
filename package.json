@@ -30,10 +30,11 @@
     "format:check": "oxfmt --check .",
     "test": "turbo run test && pnpm test:release",
     "test:e2e": "turbo run test:e2e",
+    "test:browser": "turbo run test:browser",
     "start:server": "pnpm start",
     "server:maintenance": "pnpm --filter @repo/server maintenance",
     "preview": "pnpm --filter @repo/web preview",
-    "test:all": "pnpm test && pnpm test:e2e",
+    "test:all": "pnpm test && pnpm test:browser && pnpm test:e2e",
     "lint:check": "pnpm check:boundaries && pnpm lint:oxlint && pnpm lint:eslint"
   },
   "devDependencies": {

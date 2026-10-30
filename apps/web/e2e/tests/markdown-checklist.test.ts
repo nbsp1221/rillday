@@ -23,20 +23,7 @@ for (const theme of ['Light', 'Dark'] as const) {
     const item = editor.getByRole('checkbox', { name: 'Review current projects', exact: true });
     await expect(item).toBeChecked();
 
-    // A checkmark has two joined strokes, not the four sides of a rotated box.
-    const borders = await item.evaluate((element) => {
-      const glyph = getComputedStyle(element, '::after');
-      return {
-        top: parseFloat(glyph.borderTopWidth),
-        right: parseFloat(glyph.borderRightWidth),
-        bottom: parseFloat(glyph.borderBottomWidth),
-        left: parseFloat(glyph.borderLeftWidth),
-      };
-    });
-    expect(borders.top).toBe(0);
-    expect(borders.left).toBe(0);
-    expect(borders.right).toBeGreaterThan(0);
-    expect(borders.bottom).toBe(borders.right);
+    await expect(item).toHaveScreenshot(`checked-${theme.toLowerCase()}.png`);
 
     await item.click({ position: { x: 14, y: 14 } });
     await expect(item).not.toBeChecked();

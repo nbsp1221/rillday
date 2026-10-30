@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { type Page, expect, test } from '@playwright/test';
@@ -654,6 +654,11 @@ test('a downloaded backup above 10MiB restores through the file picker', async (
   const source = await download.path();
   expect(source).not.toBeNull();
   expect(readFileSync(source).byteLength).toBeGreaterThan(10 * 1024 * 1024);
+  await seedWorkspace(page, emptyWorkspace());
+  await page.reload();
+  expect((await storedWorkspace(page)).tasks).toEqual([]);
+  await page.getByLabel('Settings and backup', { exact: true }).click();
+  await page.getByRole('button', { name: 'Data and backups', exact: true }).click();
   await page.locator('input[type=file]').first().setInputFiles(source);
   await expect(page.getByRole('dialog', { name: 'Import backup', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Import', exact: true }).click();
@@ -662,7 +667,15 @@ test('a downloaded backup above 10MiB restores through the file picker', async (
   await page.reload();
   const restored = (await storedWorkspace(page)).tasks;
   expect(restored).toHaveLength(11);
-  expect(restored.every((task) => task.notes.length === 1048576)).toBe(true);
+
+  const fingerprints = (tasks: typeof restored) =>
+    tasks.map(({ id, title, notes }) => ({
+      id,
+      title,
+      notes: createHash('sha256').update(notes).digest('hex'),
+    }));
+
+  expect(fingerprints(restored)).toEqual(fingerprints(data.tasks));
 });
 
 test('populated demo has isolated storage and retains edits without reseeding or touching the normal workspace', async ({

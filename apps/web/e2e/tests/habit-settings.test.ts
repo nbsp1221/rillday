@@ -328,16 +328,22 @@ for (const width of [320, 900]) {
     expect(geometry.overflow).toBe(false);
     const footer = (await page.locator('.modal-footer').boundingBox())!;
     expect(footer.y + footer.height).toBeLessThanOrEqual(600 - 8);
+    const selectedFrequency = page.getByRole('option', {
+      name: /^At regular intervals/,
+      selected: true,
+    });
     await page.getByRole('combobox', { name: 'Frequency', exact: true }).click();
     await expect(page.locator('.choice-field-panel')).toBeVisible();
     const menu = (await page.locator('.choice-field-panel').boundingBox())!;
     expect(menu.x).toBeGreaterThanOrEqual(8);
     expect(menu.x + menu.width).toBeLessThanOrEqual(width - 8);
+    await expect(selectedFrequency).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.locator('.choice-field-panel')).toBeHidden();
     await expect(page.getByRole('textbox', { name: 'Interval (days)', exact: true })).toBeFocused();
     await page.getByRole('combobox', { name: 'Frequency', exact: true }).click();
     await expect(page.locator('.choice-field-panel')).toBeVisible();
+    await expect(selectedFrequency).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.locator('.choice-field-panel')).toBeHidden();
   });

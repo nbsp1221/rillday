@@ -1,21 +1,26 @@
-import { expect, test } from '@playwright/test';
-import { appearance } from '../support/appearance';
+import { type Page, expect, test } from '@playwright/test';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
-import { browserToday } from '../support/clock';
 import { selectCalendarDate, setPickerRepeat, setPickerTime } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
+async function openWorkspace(page: Page) {
+  await page.goto('/');
+  await page.getByLabel('Quick add task', { exact: true }).waitFor();
+  // Initialize Date subclasses before installing the browser clock.
+  await page.clock.setFixedTime(new Date('2026-10-31T03:00:00Z'));
+}
+
 test('task dates share semantic colors in both palettes and languages without hover or selection fading', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openWorkspace(page);
   const input = page.locator('#quick-add-input');
   await input.fill('Date color check !1');
   await input.press('Enter');
   await input.press('Escape');
-  const today = await browserToday(page);
-  const dates = [...[-1, 0, 1, 14].map((days) => today.add({ days }).toString()), ''];
+  const dates = ['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-14', ''];
   for (const language of ['ko', 'en']) {
     for (const theme of ['dark', 'light']) {
       await page.getByLabel(/^(설정과 백업|Settings and backup)$/).click();
@@ -114,7 +119,7 @@ for (const theme of ['dark', 'light']) {
   test(`completion and deletion override date urgency and restore the active tone in ${theme}`, async ({
     page,
   }) => {
-    await page.goto('/');
+    await openWorkspace(page);
     await page.getByLabel('Settings and backup', { exact: true }).click();
     await page
       .locator('.settings-nav')
@@ -143,7 +148,7 @@ for (const theme of ['dark', 'light']) {
     expect((await appearance(row.locator('.row-date'))).color).toBe(todayColor);
     await row.locator('.task-title').click();
     await page.locator('.td-date-button').click();
-    const past = (await browserToday(page)).subtract({ days: 1 }).toString();
+    const past = '2026-10-30';
     await selectCalendarDate(page, past);
     await page.keyboard.press('Escape');
     await page.getByLabel('Task actions menu', { exact: true }).click();
