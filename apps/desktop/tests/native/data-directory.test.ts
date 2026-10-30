@@ -1,7 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { access, cp, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { inspect, promisify } from 'node:util';
@@ -148,6 +148,89 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   let webviewProcesses: number[] = [];
   let owned: { exe: string; pid?: number } | undefined;
   let launch: NativeResult | undefined;
+  const profiles = new Set([defaultPath]);
+  const restartBaselines: Record<string, unknown>[] = [];
+  let connection: { profile: string; endpoint?: string } | undefined;
+
+  async function discoveryFiles() {
+    return Promise.all(
+      [...profiles].map(async (profile) => {
+        const file = resolve(profile, 'EBWebView', 'DevToolsActivePort');
+        try {
+          const [content, metadata] = await Promise.all([readFile(file, 'utf8'), stat(file)]);
+          return { profile, file, content, modifiedAt: metadata.mtime.toISOString() };
+        } catch (error) {
+          return { profile, file, error: String(error) };
+        }
+      }),
+    );
+  }
+
+  async function beforeRestart(label: string) {
+    const record: Record<string, unknown> = {
+      label,
+      at: new Date().toISOString(),
+      connection: { ...connection },
+      discovery: await discoveryFiles(),
+    };
+    let session;
+    try {
+      session = await browser!.newBrowserCDPSession();
+      const results = await Promise.allSettled([
+        session.send('SystemInfo.getProcessInfo'),
+        session.send('Browser.getBrowserCommandLine'),
+      ]);
+      for (const [index, name] of ['processInfo', 'browserCommandLine'].entries()) {
+        const result = results[index];
+        record[name] =
+          result.status === 'fulfilled' ? result.value : { error: String(result.reason) };
+      }
+    } catch (error) {
+      record.error = String(error);
+    } finally {
+      await session?.detach().catch((error) => {
+        record.detachError = String(error);
+      });
+    }
+    restartBaselines.push(record);
+  }
+
+  async function captureTransportFailure() {
+    const record: Record<string, unknown> = {
+      at: new Date().toISOString(),
+      connection,
+      restartBaselines,
+      discovery: await discoveryFiles(),
+    };
+    try {
+      const { stdout } = await promisify(execFile)(
+        'pwsh',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-File',
+          resolve(import.meta.dirname, 'windows-diagnostics.ps1'),
+        ],
+        {
+          windowsHide: true,
+          timeout: 15_000,
+          maxBuffer: 1024 * 1024,
+          env: {
+            ...process.env,
+            RILLDAY_TEST_OUTPUT: resolve(process.env.RILLDAY_TEST_OUTPUT ?? '.cache/tests'),
+            RILLDAY_NATIVE_DIAGNOSTICS: JSON.stringify({ fixture, profiles: [...profiles] }),
+          },
+        },
+      );
+      record.windows = JSON.parse(stdout);
+    } catch (error) {
+      record.windows = { error: String(error) };
+    }
+    await testInfo.attach('native-transport', {
+      body: JSON.stringify(record, null, 2),
+      contentType: 'application/json',
+    });
+  }
 
   async function disconnect() {
     await browser?.close().catch(() => undefined);
@@ -233,6 +316,9 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   }
 
   async function connect(profile = defaultPath) {
+    profiles.add(profile);
+    const connecting: { profile: string; endpoint?: string } = { profile };
+    connection = connecting;
     let endpoint: string | undefined;
     await expect
       .poll(
@@ -254,6 +340,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
             }
             const version = (await response.json()) as { webSocketDebuggerUrl?: string };
             endpoint = `ws://127.0.0.1:${port}${target}`;
+            connecting.endpoint = endpoint;
             return version.webSocketDebuggerUrl === endpoint;
           } catch (error) {
             return inspect(error, { depth: 3 });
@@ -360,6 +447,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await expect(access(locationFile)).rejects.toThrow();
     await expect(page.getByRole('button', { name: 'Open Rillday', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Open Rillday', exact: true }).focus();
+    await beforeRestart('first-run default folder');
     await page.getByRole('button', { name: 'Open Rillday', exact: true }).press('Enter');
     await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
     await disconnect();
@@ -445,6 +533,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       await realpath(defaultPath),
     );
     await chooseFolder();
+    await beforeRestart('switch to copied folder');
     await page.getByRole('button', { name: 'Save and restart', exact: true }).click();
     await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
     await disconnect();
@@ -491,6 +580,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       .toBe(true);
     await native({ action: 'select', desktop, path: selected });
     await expect(page.getByLabel('Current data folder')).toHaveText(selected);
+    await beforeRestart('open existing folder');
     await page.getByRole('button', { name: 'Open Rillday', exact: true }).click();
     await expect.poll(() => page.isClosed(), { timeout: 30_000 }).toBe(true);
     await disconnect();
@@ -518,6 +608,14 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   } catch (error) {
     failed = true;
     failure = error;
+    await captureTransportFailure().catch(async (diagnosticError) => {
+      await testInfo
+        .attach('native-transport-error', {
+          body: String(diagnosticError),
+          contentType: 'text/plain',
+        })
+        .catch(() => undefined);
+    });
     await testInfo
       .attach('native-error', {
         body: error instanceof Error ? (error.stack ?? error.message) : String(error),
