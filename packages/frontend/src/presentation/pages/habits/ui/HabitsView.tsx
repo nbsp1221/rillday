@@ -1,4 +1,3 @@
-import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Button } from '@repo/ui/components/button';
 import { Toggle } from '@repo/ui/components/toggle';
 import { cn } from 'cn';
@@ -9,7 +8,6 @@ import {
   type Habit,
   type HabitCheckinAction,
   addDays,
-  createHabitDraft,
   dateKey,
   habitDayProgress,
   habitToday,
@@ -22,6 +20,7 @@ import { WorkspaceDialog } from '#shared/ui/WorkspaceDialog';
 import { WorkspaceHeader } from '../../../shared/ui/WorkspaceHeader';
 import { HabitDetail } from './HabitDetail';
 import { HabitEditor } from './HabitEditor';
+import { HabitIdeas } from './HabitIdeas';
 import { HabitProgressRing } from './HabitProgressRing';
 import { HabitWeekTable } from './HabitWeekTable';
 
@@ -34,11 +33,13 @@ export function HabitsView() {
   const { data, apply, persistence, notify, selectTask, runOperation } = useWorkspace();
   const [anchor, setAnchor] = useState(() => dateKey());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [choosingIdea, setChoosingIdea] = useState(false);
   const [editor, setEditor] = useState<Habit | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [deleting, setDeleting] = useState<Habit | null>(null);
   const [logDate, setLogDate] = useState(() => dateKey());
   const [statsMonth, setStatsMonth] = useState(() => dateKey());
+  const addRef = useRef<HTMLButtonElement>(null);
   const detailRef = useRef<HTMLElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const [narrow, setNarrow] = useState(() => matchMedia('(max-width:899px)').matches);
@@ -91,11 +92,7 @@ export function HabitsView() {
   }
 
   function toggleLog(habit: Habit, date: string) {
-    runOperation(() => {
-      if (persistence.toggleHabit(habit.id, date) === 'quantity') {
-        openDetail(habit, date);
-      }
-    });
+    runOperation(() => persistence.toggleHabit(habit.id, date));
   }
 
   function archive(habit: Habit) {
@@ -126,7 +123,7 @@ export function HabitsView() {
   const todayProgress = habitDayProgress(data.habits, data.habitLogs, today);
 
   return (
-    <section className="habits-view [--habit-inset:var(--layout-page-inset)] relative h-full min-h-0 flex min-w-0 bg-background text-foreground [&_button]:text-inherit [&_button]:cursor-pointer [&_button:disabled]:cursor-default [&_button:disabled]:opacity-35 [&_button:focus-visible]:[outline:2px_solid_var(--ring)] [&_button:focus-visible]:outline-offset-2 [@media(max-width:_899px)]:[--habit-inset:var(--layout-page-inset-compact)]">
+    <section className="habits-view [--habit-inset:var(--layout-page-inset)] relative flex h-full min-h-0 min-w-0 bg-background text-foreground [@media(max-width:_899px)]:[--habit-inset:var(--layout-page-inset-compact)]">
       <div
         className="habits-main flex-1 min-w-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover [container-type:inline-size]"
         inert={narrow && Boolean(selected)}
@@ -144,13 +141,15 @@ export function HabitsView() {
           >
             <Archive className="size-4 inline-block shrink-0 align-middle" />
           </Toggle>
-          <ButtonPrimitive
-            onClick={() => setEditor(createHabitDraft(t('habits.times')))}
+          <Button
+            variant="ghost"
+            ref={addRef}
+            onClick={() => setChoosingIdea(true)}
             className={'habits-add [.workspace-actions_>_&]:text-link'}
           >
             <Plus className="size-4 inline-block shrink-0 align-middle" />
             {t('habits.add')}
-          </ButtonPrimitive>
+          </Button>
         </WorkspaceHeader>
         <div className="habits-summary flex items-center justify-between my-(--layout-section-gap) mx-(--habit-inset) gap-6 [&_h2]:m-0 [&_h2]:font-semibold [&_h2]:text-xl [&_h2]:leading-(--text-xl--line-height) [&_p]:text-xs [&_p]:text-muted-foreground [&_p]:[margin:8px_0_0] [&_p]:leading-(--text-xs--line-height) [@media(max-width:_899px)]:gap-4 [@media(max-width:_380px)]:[&_h2]:text-lg [@media(max-width:_380px)]:[&_h2]:leading-(--text-lg--line-height)">
           <div>
@@ -176,7 +175,7 @@ export function HabitsView() {
             />
           )}
         </div>
-        <div className="habits-week-nav flex items-center gap-3 [margin:0_var(--habit-inset)_16px] justify-between text-muted-foreground text-sm leading-(--text-sm--line-height) [&_button]:w-8 [&_button]:h-8 [&_button]:p-0 [&_button]:border-0 [&_button]:rounded-sm [&_button]:bg-transparent [&_button]:grid [&_button]:place-items-center [&_button]:text-muted-foreground [&_button]:shrink-0 [&_button:hover]:bg-surface-hover [&_button:hover]:text-foreground [@media(max-width:_899px)]:gap-2 [@media(max-width:_380px)]:items-start [@media(max-width:_380px)]:flex-col [@media(max-width:_380px)]:gap-2">
+        <div className="habits-week-nav flex items-center justify-between gap-3 [margin:0_var(--habit-inset)_16px] text-sm text-muted-foreground [@media(max-width:_899px)]:gap-2 [@media(max-width:_380px)]:flex-col [@media(max-width:_380px)]:items-start">
           <span className="habit-week-range">
             {new TemporalIntl.DateTimeFormat(dateLocale, {
               year: 'numeric',
@@ -185,26 +184,32 @@ export function HabitsView() {
             }).formatRange(Temporal.PlainDate.from(dates[0]), Temporal.PlainDate.from(dates[6]))}
           </span>
           <div className="habit-week-controls flex items-center gap-1 shrink-0 [@media(max-width:_380px)]:self-end">
-            <ButtonPrimitive
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
               aria-label={t('dates.previousWeek')}
               onClick={() => setAnchor(addDays(anchor, -7))}
             >
               <ChevronLeft className="size-4 inline-block shrink-0 align-middle" />
-            </ButtonPrimitive>
-            <ButtonPrimitive
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setAnchor(today)}
-              className={
-                'habits-today [.habits-week-nav_&]:w-auto [.habits-week-nav_&]:py-1 [.habits-week-nav_&]:px-2 [.habits-week-nav_&]:whitespace-nowrap'
-              }
+              className="habits-today text-muted-foreground"
             >
               {t('dates.thisWeek')}
-            </ButtonPrimitive>
-            <ButtonPrimitive
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
               aria-label={t('dates.nextWeek')}
               onClick={() => setAnchor(addDays(anchor, 7))}
             >
               <ChevronRight className="size-4 inline-block shrink-0 align-middle" />
-            </ButtonPrimitive>
+            </Button>
           </div>
         </div>
         <HabitWeekTable
@@ -214,10 +219,11 @@ export function HabitsView() {
           selectedId={selectedId}
           openDetail={openDetail}
           toggleLog={toggleLog}
+          onLogChange={setLog}
           archive={archive}
           onEdit={(habit) => setEditor(structuredClone(habit))}
           onDelete={setDeleting}
-          onCreate={() => setEditor(createHabitDraft(t('habits.times')))}
+          onCreate={() => setChoosingIdea(true)}
         />
       </div>
       {selected && (
@@ -265,14 +271,26 @@ export function HabitsView() {
           }
         />
       )}
+      {choosingIdea && (
+        <HabitIdeas
+          finalFocus={addRef}
+          onClose={() => setChoosingIdea(false)}
+          onChoose={(habit) => {
+            setChoosingIdea(false);
+            setEditor(habit);
+          }}
+        />
+      )}
       {editor && (
         <HabitEditor
           key={editor.id}
           initialHabit={editor}
+          finalFocus={data.habits.some((habit) => habit.id === editor.id) ? undefined : addRef}
           close={() => setEditor(null)}
           onSaved={(saved) => {
-            setSelectedId(saved.id);
-            setLogDate(habitToday(saved));
+            if (selectedId === saved.id) {
+              setLogDate(habitToday(saved));
+            }
             setEditor(null);
           }}
         />

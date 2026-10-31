@@ -6,6 +6,8 @@ The Daybreak mark uses Iris (`#7060c3`). Primary buttons use `#6450b2` with whit
 
 Shared components and semantic tokens define the interface across web and Windows. Reuse them for new screens; change a shared role before adding a competing local override.
 
+The muted palette supports interactive fills and readable secondary text. Quiet inset surfaces have their own token; they must not make shared ghost-button hover indistinguishable from its parent surface. Tabs use the official line variant with a persistent active indicator and readable inactive labels. Boolean habit days use checkboxes with stable habit/date labels and checked semantics. Hover changes the control's own fill, border or inset emphasis; keyboard focus has a separate visible ring. Quantity records use buttons that open their editor. Layout cells must not paint a larger hover surface around either control.
+
 ## Theme and layout
 
 Product colors, radii, typography and density tokens belong in `packages/frontend/src/presentation/app/entrypoint/workspace.css`. The UI package supplies the standard shadcn theme mappings and base layer. Official CLI output lives in `packages/ui/src/components` and is excluded from project linting and formatting; TypeScript, builds and interaction checks still cover it. Keep official generated components unchanged; compose their documented props, variants and library primitives in the renderer for product layouts. Do not add product selector stylesheets or parent selectors that change another component's private geometry. User-selected list, label and habit colors are data and remain independent of the theme.
@@ -36,6 +38,8 @@ Editable forms use Base UI `Form` and `WorkspaceField`, which composes Base UI l
 
 Use the libraries' standard Menu, Select and Radio keyboard behavior without extra key handlers. Editing popovers use Base UI's `trap-focus` mode with its accessible Close part; capture suggestions remain non-modal. Search can open above a picker and restore its previous editor through the library's focus management.
 
+Habit appearance uses Lucide artwork, Base UI icon selection, React Aria color controls and Emoji Picker React's native emoji primitives. The picker library owns emoji search, localized datasets, keyboard navigation and virtualization. Bundle Korean and English data locally for offline use; product presentation owns theme tokens, catalogue choices and draft changes until Save.
+
 Primary buttons use readable contrasting text in both themes. Use the official outline variant with product danger colors for secondary deletion and the destructive variant for a confirmed primary deletion. Enabled hover, focus and disabled states must retain geometry. Normal text requires at least 4.5:1 contrast.
 
 ## Dates and identity fields
@@ -44,7 +48,11 @@ Capture and task details share the date, time, duration and repeat controls. Pic
 
 Color fields show a small swatch and current value in one 36px control. Presets and custom color editing open in a compact popover, rather than expanding the parent form. React Aria owns color parsing, keyboard interaction and accessible color controls. Its standard HEX field accepts three or six digits and rejects invalid characters immediately. Partial input must not overwrite a valid saved value. Parent Save/Cancel owns the edit transaction.
 
-Habit identity uses the shared SVG resolver, localized icon names and keyboard selection. Preserve existing unknown imported glyphs. Goal/frequency controls show only relevant fields, use Base UI NumberField with locale-aware parsing and product bounds and commit through the modal. Completed history-date hover retains the habit color and contrast-aware numeral color.
+Habit ideas and direct creation use the same editor. Its appearance picker combines searchable SVG icons, emoji and the shared color panel. Goal/frequency controls show only relevant fields and use Base UI NumberField with locale-aware parsing and domain bounds. Optional morning, afternoon and evening groups organize the weekly list independently of reminders. Quantity date cells open the shared record editor with an explicit date, unit, daily total and labeled amount shortcuts. Fixed additions and total replacement are distinct operations; quantities remain visible after reaching their goal. The same editor serves habit details and preserves notes, skip and reset actions. Completed history-date hover retains the habit color and contrast-aware numeral color.
+
+Weekly quantity targets accumulate actual amounts across the selected calendar week, independently of weekly targets measured in distinct successful days. Their progress and streaks measure weeks, not completed days. Goal changes take effect at a week boundary; historical amounts retain their recorded units. Entries with a different unit are identified and excluded from the current target rather than converted.
+
+The habit week header and rows share one column definition. A full-width content grid reserves a 36px leading icon slot and 12px text gap inside each row button, independently of the button’s default content alignment. Icons begin 16px inside the card; titles, supporting text and weekly progress share the next column. Keep the icon slot when no icon is selected. Row management menus occupy a fixed final slot separate from date-based recording. On narrow screens, the name and actions occupy separate header grid cells above the seven dates; overlay positioning must not create invisible hit areas over the name. Today's date has a filled primary badge and `aria-current="date"`; progress meters remain separate. Boolean days use a paired-color checkmark when complete and an empty outline when unlogged. Quantity days use numeric tiles, including zero and above-goal amounts; goal achievement adds a paired-color fill. Unavailable days use a dash. Each control owns its appearance through the shared Button and local presentation classes; screen containers must not override descendant button colors or opacity.
 
 ## Capture and task editing
 
@@ -62,6 +70,6 @@ Keep equivalent menu and keyboard actions. Task rows support Up/Down, Home/End, 
 
 ## Localization and verification
 
-All visible text and accessible names use the shared Korean/English catalog. Format dates, quantities and calendar labels consistently. User-authored content is not translated. Use the same translated area labels in navigation, page headings and startup choices.
+All visible text and accessible names use the shared Korean/English catalog. Format dates, quantities and calendar labels consistently. User-authored content is not translated. English top-level area names use title case. Use the same translated area labels in navigation, page headings and startup choices; supporting copy and field labels use sentence case.
 
 For shared UI changes, check both themes and languages, narrow and short layouts, long text, mouse hover, visible keyboard focus, touch targets and reduced motion. Measure stable control bounds, content insets, label/value axes and clipping in the rendered interface. Test nested overlays, Escape focus return, composition, Save/Cancel and persistence as relevant to the change.

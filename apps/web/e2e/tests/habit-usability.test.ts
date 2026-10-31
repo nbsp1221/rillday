@@ -55,7 +55,7 @@ async function openHabits(page: Page) {
   await page.reload();
   await page.locator('.quick-add').waitFor();
   await page.clock.setFixedTime(new Date(`${today}T03:00:00Z`));
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
 }
 
 test('quantity drafts can be cleared, validated and committed; Escape saves notes and restores the opener', async ({
@@ -64,16 +64,18 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
   await openHabits(page);
   const opener = page.locator('.habit-name').filter({ hasText: 'Drink enough water' });
   await opener.click();
-  const amount = page.getByLabel('Check-in amount', { exact: true });
+  const amount = page.getByRole('textbox', { name: /^Daily total/ });
   await amount.fill('');
   await expect(amount).toHaveValue('');
   await page.getByLabel('Check-in note', { exact: true }).click();
-  await expect(amount).toHaveValue('5');
+  await expect(amount).toHaveValue('');
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await amount.fill('-3');
   await amount.press('Enter');
-  await expect(amount).toHaveValue('5');
+  await expect(amount).toHaveValue('-3');
+  await expect(amount).toHaveAttribute('aria-invalid', 'true');
   await amount.fill('3.5');
-  await amount.press('Enter');
+  await amount.press('Tab');
   await expect(amount).toHaveValue('3.5');
   const note = page.getByLabel('Check-in note', { exact: true });
   await note.fill('Note after updating quantity');
@@ -89,7 +91,7 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
     })
     .toEqual({ value: 3.5, note: 'Note after updating quantity' });
   await reloadSavedPage(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await opener.click();
   await expect(amount).toHaveValue('3.5');
   await expect(note).toHaveValue('Note after updating quantity');
@@ -203,17 +205,17 @@ test('archiving closes details, keeps records read-only and supports undo', asyn
   await page.locator('.toast').getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(habit).toBeVisible();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toHaveValue('5');
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toHaveValue('5');
   await page.getByRole('button', { name: 'Archive habit', exact: true }).click();
   await page.getByLabel('Archived habits', { exact: true }).click();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toBeDisabled();
   await expect(page.getByLabel('Check-in note', { exact: true })).toBeDisabled();
   await expect(page.locator('.habit-finish')).toBeDisabled();
   await page.getByRole('button', { name: 'Restore habit', exact: true }).click();
   await page.getByLabel('Archived habits', { exact: true }).click();
   await habit.click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toHaveValue('5');
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toHaveValue('5');
 });
 
 test('habit cards update quantity progress and retain it after reload', async ({ page }) => {
@@ -222,11 +224,13 @@ test('habit cards update quantity progress and retain it after reload', async ({
   await expect(progress).toHaveAttribute('aria-valuenow', '1');
   await expect(progress).toHaveAttribute('aria-valuemax', '4');
   const water = page.locator('.habit-row').filter({ hasText: 'Drink enough water' });
+  await water.locator('.habit-day.today').click();
   for (let count = 0; count < 3; count++) {
-    await water.locator('.habit-day.today').click();
+    await page.getByRole('button', { name: 'Add 1 cups', exact: true }).click();
   }
+  await page.keyboard.press('Escape');
   await expect(progress).toHaveAttribute('aria-valuenow', '2');
-  await page.getByLabel('Close details', { exact: true }).click();
+  await expect(page.locator('.habit-detail')).toHaveCount(0);
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);
@@ -236,7 +240,7 @@ test('habit cards update quantity progress and retain it after reload', async ({
     })
     .toBe(8);
   await reloadSavedPage(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(progress).toHaveAttribute('aria-valuenow', '2');
 });
 
@@ -245,10 +249,10 @@ test('a check-in edit retains its selected date when the current day crosses a m
 }) => {
   await openHabits(page);
   await page.locator('.habit-name').filter({ hasText: 'Drink enough water' }).click();
-  await expect(page.getByLabel('Check-in amount', { exact: true })).toHaveValue('5');
+  await expect(page.getByRole('textbox', { name: /^Daily total/ })).toHaveValue('5');
 
   await page.clock.setFixedTime(new Date('2026-11-01T03:00:00Z'));
-  const amount = page.getByLabel('Check-in amount', { exact: true });
+  const amount = page.getByRole('textbox', { name: /^Daily total/ });
   await amount.fill('7.5');
   await amount.press('Enter');
   const note = page.getByLabel('Check-in note', { exact: true });

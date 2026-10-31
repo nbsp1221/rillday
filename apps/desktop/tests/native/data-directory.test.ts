@@ -310,10 +310,12 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await page.locator('#quick-add-input').fill(title);
     await page.locator('#quick-add-input').press('Enter');
     await expect(page.getByText(title, { exact: true })).toBeVisible();
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+    await page.getByRole('button', { name: 'Create your own', exact: true }).click();
     await page.getByLabel('Habit name', { exact: true }).fill('Desktop habit');
     await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+    await page.locator('.habit-name').filter({ hasText: 'Desktop habit' }).click();
     await page
       .locator('.habit-checkin')
       .getByRole('button', { name: 'Complete', exact: true })
@@ -335,7 +337,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     });
     page = await start(moved);
     await expect(page.getByText(title, { exact: true })).toBeVisible();
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await expect(page.getByText('Desktop habit', { exact: true })).toBeVisible();
     await page.getByText('Desktop habit', { exact: true }).click();
     await expect(page.locator('.habit-finish')).toContainText('Mark incomplete');
@@ -392,7 +394,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
     await disconnect();
     page = await connect();
     await expect(page.getByText(title, { exact: true })).toBeVisible();
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await expect(page.getByText('Desktop habit', { exact: true })).toBeVisible();
     await page.getByLabel('Settings and backup', { exact: true }).click();
     await page.getByRole('button', { name: 'Data and backups', exact: true }).click();

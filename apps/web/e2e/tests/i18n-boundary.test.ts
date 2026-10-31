@@ -197,19 +197,28 @@ for (const language of ['ko', 'en'] as const) {
         : ['Day', 'Week', 'Month', 'Year', 'Agenda'],
     );
     await page.keyboard.press('Escape');
-    await page.getByLabel(language === 'ko' ? '습관' : 'Habit', { exact: true }).click();
+    await page
+      .getByLabel(language === 'ko' ? '습관 트래커' : 'Habit Tracker', { exact: true })
+      .click();
     await page
       .getByRole('button', { name: language === 'ko' ? '습관 추가' : 'Add habit', exact: true })
       .click();
     await page
-      .getByLabel(language === 'ko' ? '습관 아이콘' : 'Habit icon', { exact: true })
+      .getByRole('button', {
+        name: language === 'ko' ? '직접 만들기' : 'Create your own',
+        exact: true,
+      })
       .click();
-    await expect(page.locator('.habit-icon-panel').getByRole('radio')).toHaveCount(24);
+    await page
+      .getByRole('button', { name: language === 'ko' ? '모양' : 'Appearance', exact: true })
+      .click();
+    await expect(page.locator('.habit-icon-grid').getByRole('radio')).toHaveCount(64);
     await expect(
       page.getByRole('radio', { name: language === 'ko' ? '원' : 'Circle', exact: true }),
     ).toBeVisible();
-    await page.keyboard.press('Escape');
-    await page.getByLabel(language === 'ko' ? '색상' : 'Color', { exact: true }).click();
+    await page
+      .getByRole('tab', { name: language === 'ko' ? '색상' : 'Color', exact: true })
+      .click();
     await page
       .getByRole('button', {
         name: language === 'ko' ? '사용자 지정 색상' : 'Custom color',

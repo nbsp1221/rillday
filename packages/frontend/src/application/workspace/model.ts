@@ -1,4 +1,10 @@
-import { type HabitRule, type Priority, type QuadrantKey, createWorkspace } from '@repo/domain';
+import {
+  type HabitRule,
+  type HabitTimeOfDay,
+  type Priority,
+  type QuadrantKey,
+  createWorkspace,
+} from '@repo/domain';
 import { createDomainContext, deviceZone } from '../context.ts';
 import { presentWorkspace } from './present-workspace.ts';
 
@@ -49,7 +55,8 @@ export interface Habit {
   goal: number;
   unit: string;
   kind: 'boolean' | 'quantity';
-  frequency: 'daily' | 'weekdays' | 'weekly' | 'interval';
+  frequency: HabitRule['frequency'];
+  timeOfDay?: HabitTimeOfDay;
   weekdays: number[];
   weeklyTarget: number;
   reminderTime: string | null;

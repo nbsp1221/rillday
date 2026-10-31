@@ -69,7 +69,7 @@ test('primary navigation and task context remain separate across view changes', 
   await input.press('Enter');
   await page.locator('.task-sidebar .sidebar-item').filter({ hasText: 'Today' }).click();
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
-  for (const area of ['Eisenhower Matrix', 'Calendar', 'Habit']) {
+  for (const area of ['Eisenhower Matrix', 'Calendar', 'Habit Tracker']) {
     await page.getByLabel(area, { exact: true }).click();
     await expect(
       page.getByRole('navigation', { name: 'Main navigation', exact: true }),
@@ -238,7 +238,7 @@ test('rail controls share alignment, hit areas and edge spacing across viewport 
     expect(geometry.insetTop).toBe(geometry.insetBottom);
     expect(geometry.insetLeft).toBe(geometry.insetRight);
     expect(geometry.insetTop).toBe(geometry.insetLeft);
-    for (const area of ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit']) {
+    for (const area of ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit Tracker']) {
       await page.getByLabel(area, { exact: true }).click();
       await expect(page.getByLabel(area, { exact: true })).toHaveAttribute('aria-current', 'page');
     }
@@ -329,7 +329,13 @@ test('task typography retains its role on narrow screens and icon geometry stays
     );
   }
   await page.getByLabel('Close task details', { exact: true }).click();
-  for (const area of ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit', 'Settings and backup']) {
+  for (const area of [
+    'Tasks',
+    'Eisenhower Matrix',
+    'Calendar',
+    'Habit Tracker',
+    'Settings and backup',
+  ]) {
     await page.getByLabel(area, { exact: true }).click();
     await expect(page.locator('.workspace-header h1')).toHaveCSS('font-size', '20px');
     await expect(page.locator('.workspace-caption, .workspace-count, .save-indicator')).toHaveCount(
@@ -391,7 +397,7 @@ test('bundled Pretendard actually renders Korean and Latin and primary area labe
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await chooseChoice(page, page.getByLabel('Language', { exact: true }), 'en');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
-  for (const title of ['Eisenhower Matrix', 'Calendar', 'Habit']) {
+  for (const title of ['Eisenhower Matrix', 'Calendar', 'Habit Tracker']) {
     await page.getByLabel(title, { exact: true }).click();
     await expect(page.locator('.workspace-header h1')).toHaveText(title);
     await page.mouse.move(500, 500);

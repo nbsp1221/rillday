@@ -89,7 +89,7 @@ test('detail editor portals never add page height across task scopes, matrix, ca
       await page.getByLabel('Close task details', { exact: true }).click();
       await expectViewportHeight(page);
     }
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await expectViewportHeight(page);
     await expect(page.locator('.mdxeditor-popup-container')).toHaveCount(0);
     await page.getByLabel('Tasks', { exact: true }).click();

@@ -1,7 +1,19 @@
 import type { CSSProperties } from 'react';
+import { useMemo } from 'react';
 import type { Habit } from '#application';
 import { useAppPreferences } from '#entities/preferences';
 import { useI18n } from '#shared/i18n';
+
+export function useHabitAmountFormat() {
+  const { dateLocale } = useI18n();
+  return useMemo(() => {
+    const numbers = new Intl.NumberFormat(dateLocale, {
+      notation: 'compact',
+      maximumSignificantDigits: 3,
+    });
+    return (value: number) => numbers.format(value);
+  }, [dateLocale]);
+}
 
 export function habitColors(color: string): CSSProperties & {
   '--habit-color': string;
@@ -26,6 +38,8 @@ export function useHabitDisplay() {
 
   function scheduleLabel(habit: Habit) {
     switch (habit.frequency) {
+      case 'weekly-total':
+        return t('habits.frequencyWeeklyTotal');
       case 'weekly':
         return t('habits.weeklyDays', { count: habit.weeklyTarget });
       case 'weekdays':

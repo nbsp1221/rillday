@@ -13,6 +13,7 @@ import {
   removeHabit,
   taskData,
   validateWorkspace,
+  weeklyHabitAmount,
 } from '@repo/domain';
 import { produce } from 'immer';
 import { expect, test } from 'vitest';
@@ -257,6 +258,81 @@ test('semantic choices project safe quantities and preserve the independent corr
         ),
       ),
     ).toThrow('edit_conflict');
+  } finally {
+    for (const replica of replicas) {
+      Automerge.free(replica);
+    }
+    await repository.close();
+  }
+});
+
+test('weekly goals retain grouping and add concurrent offline amounts when real replicas reconnect', async () => {
+  const { store, repository } = await fixture();
+  const habitId = context.newId();
+  const replicas: Automerge.Doc<WorkspaceDocument>[] = [];
+  try {
+    await repository.commit(
+      produce(repository.getSnapshot().workspace, (draft) => {
+        createHabit(
+          draft,
+          habitId,
+          {
+            name: 'Weekly practice',
+            color: '#7eb4b4',
+            icon: 'guitar',
+            timeOfDay: 'evening',
+            archived: false,
+            startDate: '2026-10-19',
+            reminderTime: null,
+            zone: 'UTC',
+            rank: 'a0',
+            rules: [
+              {
+                from: '2026-10-19',
+                kind: 'quantity',
+                goal: 60,
+                unit: 'min',
+                step: 10,
+                frequency: 'weekly-total',
+                weekdays: [],
+                weeklyTarget: 3,
+                intervalDays: 1,
+              },
+            ],
+          },
+          context,
+        );
+      }),
+    );
+    const binary = Automerge.save(store.handle.fullDoc());
+    for (const value of [10, 15]) {
+      const replica = Automerge.load<WorkspaceDocument>(binary);
+      const before = readWorkspace(replica);
+      const next = produce(before, (draft) =>
+        incrementCheckIn(draft, habitId, '2026-10-23', value, context),
+      );
+      replicas.push(Automerge.change(replica, (doc) => writeWorkspace(doc, before, next)));
+    }
+    for (const replica of replicas) {
+      store.handle.update((doc) => Automerge.merge(doc, replica));
+    }
+    await repository.flush();
+    const restored = Automerge.load<WorkspaceDocument>(Automerge.save(store.handle.fullDoc()));
+    replicas.push(restored);
+    const workspace = readWorkspace(restored);
+    const habit = workspace.habits[habitId];
+    expect(habit.timeOfDay).toBe('evening');
+    const logs = Object.values(workspace.checkIns).map((log) => ({
+      ...log,
+      value: quantityValue(log.quantity),
+    }));
+    expect(weeklyHabitAmount(habit, logs, '2026-10-23', 1)).toMatchObject({
+      value: 25,
+      goal: 60,
+      unit: 'min',
+    });
+    expect(repository.getSnapshot().decisions).toEqual([]);
+    expect(() => validateWorkspace(workspace)).not.toThrow();
   } finally {
     for (const replica of replicas) {
       Automerge.free(replica);

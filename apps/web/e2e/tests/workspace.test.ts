@@ -251,10 +251,12 @@ test('dated child is visible in today and restoring a parent restores the tree',
 
 test('habit check-in persists; archive and restore retain history', async ({ page }) => {
   await ready(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Stretching');
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await page.locator('.habit-name').filter({ hasText: 'Stretching' }).click();
   await page
     .locator('.habit-checkin')
     .getByRole('button', { name: 'Complete', exact: true })
@@ -277,7 +279,7 @@ test('habit check-in persists; archive and restore retain history', async ({ pag
     })
     .toEqual({ archived: false, value: 1 });
   await reloadSavedPage(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').click();
   await expect(page.locator('.habit-finish')).toContainText('Mark incomplete');
 });
@@ -329,7 +331,7 @@ test('narrow layout keeps task details and all primary views reachable', async (
   await page.locator('.task-title').click();
   await expect(page.getByLabel('Task title', { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  for (const label of ['Eisenhower Matrix', 'Calendar', 'Habit', 'Tasks']) {
+  for (const label of ['Eisenhower Matrix', 'Calendar', 'Habit Tracker', 'Tasks']) {
     await page.getByLabel(label, { exact: true }).click();
     await expect(page.locator('.main-workspace')).toBeVisible();
   }
@@ -369,9 +371,10 @@ test('language updates every area and task details without translating user cont
   await expect(page.getByRole('menuitemradio', { name: 'Day', exact: true })).toBeVisible();
   await expect(page.getByRole('menuitemradio', { name: 'Week', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await page.getByLabel('Habit', { exact: true }).click();
-  await expect(page.locator('.workspace-title-row h1')).toHaveText('Habit');
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
+  await expect(page.locator('.workspace-title-row h1')).toHaveText('Habit Tracker');
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await expect(page.getByLabel('Habit name', { exact: true })).toBeVisible();
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect.poll(() => storedPreferences(page)).toMatchObject({ language: 'en' });
@@ -566,17 +569,27 @@ for (const language of ['ko', 'en']) {
         page.locator('.calendar-task-title').filter({ hasText: 'Flow item' }),
       ).toBeVisible();
 
-      await page.getByRole('button', { name: text('습관', 'Habit'), exact: true }).click();
+      await page
+        .getByRole('button', { name: text('습관 트래커', 'Habit Tracker'), exact: true })
+        .click();
       await page.getByRole('button', { name: text('습관 추가', 'Add habit'), exact: true }).click();
+      await page
+        .getByRole('button', { name: text('직접 만들기', 'Create your own'), exact: true })
+        .click();
       await page.getByLabel(text('습관 이름', 'Habit name'), { exact: true }).fill('Flow habit');
       await page
         .getByRole('radio', { name: text('수량 기록', 'Track amount'), exact: true })
         .click();
-      await page.getByRole('textbox', { name: text('목표', 'Goal'), exact: true }).fill('3');
+      await page
+        .getByRole('textbox', { name: text('하루 목표', 'Daily target'), exact: true })
+        .fill('3');
       await page.getByRole('button', { name: text('저장', 'Save'), exact: true }).click();
-      const amount = page.getByLabel(text('체크인 수량', 'Check-in amount'), { exact: true });
+      await page.locator('.habit-name').filter({ hasText: 'Flow habit' }).click();
+      const amount = page.getByRole('textbox', {
+        name: new RegExp(text('^하루 총량', '^Daily total')),
+      });
       await amount.fill('2');
-      await amount.press('Enter');
+      await amount.press('Tab');
       await page
         .getByLabel(text('체크인 메모', 'Check-in note'), { exact: true })
         .fill('A real note.');

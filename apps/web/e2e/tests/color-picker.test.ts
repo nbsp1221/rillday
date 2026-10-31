@@ -187,10 +187,16 @@ test('a continuous custom-color drag commits one matrix undo step', async ({ pag
 
 test('habit editor shares the color field and persists custom colors', async ({ page }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   await page.getByLabel('Habit name', { exact: true }).fill('Shared color habit');
-  await custom(page, '#234567', 'Color');
+  await page.getByRole('button', { name: 'Appearance', exact: true }).click();
+  await page.getByRole('tab', { name: 'Color', exact: true }).click();
+  await page.getByRole('button', { name: 'Custom color', exact: true }).click();
+  await page.getByLabel('HEX color', { exact: true }).fill('#234567');
+  await page.getByLabel('HEX color', { exact: true }).press('Tab');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   const row = page.locator('.habit-row').filter({ hasText: 'Shared color habit' });
   await expect(row.locator('.habit-symbol')).toHaveCSS('color', 'rgb(35, 69, 103)');
@@ -202,7 +208,7 @@ test('habit editor shares the color field and persists custom colors', async ({ 
     )
     .toEqual(['#234567']);
   await reloadSavedPage(page);
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(row.locator('.habit-symbol')).toHaveCSS('color', 'rgb(35, 69, 103)');
 });
 

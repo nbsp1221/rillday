@@ -48,9 +48,10 @@ test('long habit editors use the same modal, trap focus and keep actions visible
 }) => {
   await page.setViewportSize({ width: 320, height: 480 });
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   const opener = page.getByRole('button', { name: 'Add habit', exact: true });
   await opener.click();
+  await page.getByRole('button', { name: 'Create your own', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'New habit', exact: true });
   await fits(page, dialog);
   expect(
@@ -137,7 +138,7 @@ test('habit menus share keyboard navigation and cancellation never deletes a hab
   page,
 }) => {
   await page.goto('/?demo=1');
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   const before = await storedWorkspace(page);
   const count = await page.locator('.habit-row').count();
   const row = page.locator('.habit-row').first();
@@ -269,8 +270,9 @@ for (const theme of ['dark', 'light']) {
       skin.background,
     );
     await page.keyboard.press('Escape');
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await page.getByRole('button', { name: 'Add habit', exact: true }).click();
+    await page.getByRole('button', { name: 'Create your own', exact: true }).click();
     const disabled = page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true });
     await expect(disabled).toBeDisabled();
     const disabledFill = await disabled.evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -328,7 +330,7 @@ test('narrow habit Sheets keep their editor dialog and calendar in separate focu
 }) => {
   await page.setViewportSize({ width: 390, height: 640 });
   await page.goto('/?demo=1');
-  await page.getByRole('button', { name: 'Habit', exact: true }).click();
+  await page.getByRole('button', { name: 'Habit Tracker', exact: true }).click();
   await page.locator('.habit-name').first().click();
   const sheet = page.locator('.habit-detail');
   const edit = sheet.getByRole('button', { name: 'Edit habit', exact: true });

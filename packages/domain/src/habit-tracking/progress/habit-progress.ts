@@ -1,12 +1,13 @@
 import { Temporal } from 'temporal-polyfill/implementation';
 import type { HabitCheckInData } from '../check-ins/check-in.ts';
 import type { Habit } from '../habits/habit.ts';
-import { currentRule, scheduled } from '../rules/habit-rule.ts';
+import { currentRule, isWeeklyHabitRule, scheduled } from '../rules/habit-rule.ts';
+import { weeklyAmountStatistics } from './weekly-amount.ts';
 
 export type HabitProgressSource = Pick<Habit, 'id' | 'startDate' | 'rules' | 'archived'>;
 
 export type CheckInReading = Pick<HabitCheckInData, 'habitId' | 'date' | 'value' | 'skipped'> &
-  Partial<Pick<HabitCheckInData, 'goal'>>;
+  Partial<Pick<HabitCheckInData, 'goal' | 'unit'>>;
 
 const addDays = (date: string, days: number) =>
   Temporal.PlainDate.from(date).add({ days }).toString();
@@ -23,6 +24,7 @@ export function completedCheckIn(
   return (
     log !== undefined &&
     !log.skipped &&
+    currentRule(habit, log.date).frequency !== 'weekly-total' &&
     log.value >= (log.goal ?? currentRule(habit, log.date).goal)
   );
 }
@@ -33,7 +35,12 @@ export function dailyHabitProgress(
   date: string,
   today: string,
 ) {
-  if (habit.archived || !scheduled(habit, date) || log?.skipped) {
+  if (
+    habit.archived ||
+    !scheduled(habit, date) ||
+    log?.skipped ||
+    currentRule(habit, date).frequency === 'weekly-total'
+  ) {
     return { completed: 0, total: 0 };
   }
   return { completed: date <= today && completedCheckIn(habit, log) ? 1 : 0, total: 1 };
@@ -80,7 +87,7 @@ function dailyStreak(
 
   let streak = 0;
   while (day >= created) {
-    if (currentRule(habit, day).frequency === 'weekly') {
+    if (isWeeklyHabitRule(currentRule(habit, day))) {
       break;
     }
     const log = logsByDate.get(day);
@@ -116,7 +123,11 @@ function completionCounts(
         period.count++;
       }
       periods.set(start, period);
-    } else if (scheduled(habit, day) && !logsByDate.get(day)?.skipped) {
+    } else if (
+      rule.frequency !== 'weekly-total' &&
+      scheduled(habit, day) &&
+      !logsByDate.get(day)?.skipped
+    ) {
       expected++;
       if (completed) {
         achieved++;
@@ -137,6 +148,9 @@ export function habitStatistics(
   today: string,
   weekStartsOn: 0 | 1,
 ): { total: number; streak: number; rate: number; week: number } {
+  if (currentRule(habit, today).frequency === 'weekly-total') {
+    return weeklyAmountStatistics(habit, logs, today, weekStartsOn);
+  }
   const logsByDate = new Map(
     logs
       .filter((log) => log.habitId === habit.id && log.date <= today)

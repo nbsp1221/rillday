@@ -21,8 +21,8 @@ for (const language of ['ko', 'en'] as const) {
   }) => {
     const areas =
       language === 'ko'
-        ? ['태스크', '아이젠하워 매트릭스', '캘린더', '습관']
-        : ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit'];
+        ? ['태스크', '아이젠하워 매트릭스', '캘린더', '습관 트래커']
+        : ['Tasks', 'Eisenhower Matrix', 'Calendar', 'Habit Tracker'];
     const quadrants =
       language === 'ko'
         ? [
@@ -59,6 +59,9 @@ for (const language of ['ko', 'en'] as const) {
     await expect(page.getByRole('option')).toHaveText(areas);
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^(돌아가기|Back)$/, exact: true }).click();
+
+    await page.getByLabel(areas[3], { exact: true }).click();
+    await expect(page.locator('.workspace-title-row h1')).toHaveText(areas[3]);
 
     await page.getByLabel(areas[1], { exact: true }).click();
     await expect(page.locator('.quadrant-header h2')).toHaveText(quadrants);
@@ -174,8 +177,11 @@ for (const language of ['ko', 'en'] as const) {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.locator('#quick-add-input').fill('');
-    await page.getByLabel(/^(습관|Habit)$/, { exact: true }).click();
+    await page.getByLabel(/^(습관 트래커|Habit Tracker)$/, { exact: true }).click();
     await page.getByRole('button', { name: /^(습관 추가|Add habit)$/, exact: true }).click();
+    await page
+      .getByRole('button', { name: /^(직접 만들기|Create your own)$/, exact: true })
+      .click();
     const goal = page.getByRole('radiogroup', { name: /^(목표|Goal)$/, exact: true });
     await expect(goal.getByRole('radio')).toHaveText(kinds);
     const name = 'Save {{count}} $t(common.save)';
@@ -185,7 +191,9 @@ for (const language of ['ko', 'en'] as const) {
     const unit = page.getByRole('combobox', { name: /^(단위|Unit)$/, exact: true });
     await unit.fill(customUnit);
     await unit.press('Tab');
-    await page.getByRole('textbox', { name: /^(목표|Goal)$/, exact: true }).fill('2.5');
+    await page
+      .getByRole('textbox', { name: /^(하루 목표|Daily target)$/, exact: true })
+      .fill('2.5');
     await page.getByRole('button', { name: /^(저장|Save)$/, exact: true }).click();
     await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.kind).toBe('quantity');
     expect((await storedWorkspace(page)).habits[0]).toMatchObject({
@@ -328,7 +336,7 @@ test.describe('English browser locale', () => {
     await page.reload();
     await page.clock.setFixedTime(new Date('2026-10-20T03:00:00.000Z'));
     await changeLanguage(page, 'en');
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     await expect(
       page.getByText('0 of 1 habit planned for today completed.', { exact: true }),
     ).toBeVisible();

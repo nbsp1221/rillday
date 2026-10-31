@@ -21,7 +21,7 @@ export function HabitUnitField({
 
   return (
     <Field.Root
-      className="habit-setting-row grid min-h-(--control-height) grid-cols-[minmax(0,1fr)_minmax(0,156px)] items-center gap-2"
+      className="habit-setting-row grid min-h-(--control-height) grid-cols-[minmax(0,1fr)_minmax(0,min(50%,156px))] items-center gap-2"
       validate={(unit) =>
         typeof unit === 'string' && unit.trim() ? null : t('habits.unitRequired')
       }

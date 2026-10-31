@@ -37,11 +37,11 @@ async function fixture(page: Page) {
   }));
   await seedWorkspace(page, data);
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   return storedWorkspace(page);
 }
 
-test('preset icons render consistently without rewriting their IDs; imported custom glyphs survive', async ({
+test('existing icon IDs and emoji survive editing; the searchable catalogue has 64 choices', async ({
   page,
 }) => {
   const before = await fixture(page);
@@ -49,8 +49,8 @@ test('preset icons render consistently without rewriting their IDs; imported cus
   await expect(page.locator('.habit-custom-glyph')).toHaveText('🧘');
   await page.locator('.habit-name').first().click();
   await page.getByLabel('Edit habit', { exact: true }).click();
-  await page.getByLabel('Habit icon', { exact: true }).click();
-  await expect(page.locator('.habit-icon-panel').getByRole('radio')).toHaveCount(24);
+  await page.getByRole('button', { name: 'Appearance', exact: true }).click();
+  await expect(page.locator('.habit-icon-grid [role=radio]')).toHaveCount(64);
   await expect(page.getByRole('radio', { name: 'Circle', exact: true })).toHaveAttribute(
     'aria-checked',
     'true',
@@ -61,83 +61,109 @@ test('preset icons render consistently without rewriting their IDs; imported cus
   expect((await storedWorkspace(page)).habitLogs).toEqual(before.habitLogs);
 });
 
-test('icon and color preview together; choosing stays local until Save and survives reload', async ({
+test('appearance changes remain a local draft until Save, and cancellation preserves history', async ({
   page,
 }) => {
   const before = await fixture(page);
   await page.locator('.habit-name').first().click();
   await page.getByLabel('Edit habit', { exact: true }).click();
-  const trigger = page.getByLabel('Habit icon', { exact: true });
+  const trigger = page.getByRole('button', { name: 'Appearance', exact: true });
   await trigger.click();
-  const reading = page.getByRole('radio', { name: 'Reading', exact: true });
-  await reading.click();
-  await expect(trigger).toContainText('Reading');
-  await page.getByLabel('Color', { exact: true }).click();
+  await page.getByLabel('Search icons', { exact: true }).fill('reading');
+  await page.getByRole('radio', { name: 'Reading', exact: true }).click();
+  await expect(trigger.locator('svg')).toHaveClass(/lucide-book-open/);
+  await page.getByRole('tab', { name: 'Color', exact: true }).click();
   await page.getByRole('radio', { name: 'Purple #A398D0', exact: true }).click();
-  await expect(page.locator('.habit-identity-preview svg')).toHaveCSS(
-    'stroke',
-    'rgb(163, 152, 208)',
-  );
-  await expect(page.locator('.habit-identity-preview .habit-symbol')).toHaveScreenshot(
-    'reading-preview.png',
-    { animations: 'disabled' },
-  );
+  await expect(trigger.locator('svg')).toHaveCSS('stroke', 'rgb(163, 152, 208)');
+  await expect(trigger).toHaveScreenshot('reading-preview.png', { animations: 'disabled' });
   expect((await storedWorkspace(page)).habits).toEqual(before.habits);
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByLabel('Edit habit', { exact: true }).click();
-  await expect(trigger).toContainText('Circle');
+  await expect(trigger.locator('svg')).toHaveClass(/lucide-circle/);
   await trigger.click();
   await page.getByRole('radio', { name: 'Reading', exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(async () => (await storedWorkspace(page)).habits[0].icon).toBe('book-open');
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
-  expect((await storedWorkspace(page)).habits[0].icon).toBe('book-open');
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
+  await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
+    /lucide-book-open/,
+  );
   await expect(page.locator('.habit-name').first().locator('.habit-symbol')).toHaveScreenshot(
     'reading-row.png',
     { animations: 'disabled' },
   );
 });
 
-test('icon grid keyboard selection, layered Escape and narrow field axes remain usable', async ({
+test('appearance search, roving radio keys and layered Escape fit a narrow screen', async ({
   page,
 }) => {
   await fixture(page);
   await page.setViewportSize({ width: 320, height: 650 });
   await page.locator('.habit-name').first().click();
   await page.getByLabel('Edit habit', { exact: true }).click();
-  const trigger = page.getByLabel('Habit icon', { exact: true });
+  const trigger = page.getByRole('button', { name: 'Appearance', exact: true });
   await trigger.click();
-  await expect(page.getByRole('radio', { name: 'Circle', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowDown', { delay: 50 });
+  await page.getByRole('radio', { name: 'Circle', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('radio', { name: 'Star', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowUp');
-  await page.keyboard.press('ArrowLeft');
-  await expect(page.getByRole('radio', { name: 'Finance', exact: true })).toBeFocused();
-  await page.keyboard.press('ArrowLeft', { delay: 50 });
-  await page.keyboard.press('ArrowRight', { delay: 50 });
-  await expect(page.getByRole('radio', { name: 'Finance', exact: true })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
+  await page.getByLabel('Search icons', { exact: true }).fill('medication');
+  await expect(page.locator('.habit-icon-grid [role=radio]')).toHaveCount(1);
+  await page.getByRole('radio', { name: 'Medication', exact: true }).click();
+  const box = (await page.locator('.habit-appearance-panel').boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(8);
+  expect(box.x + box.width).toBeLessThanOrEqual(312);
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
   await expect(page.locator('.habit-editor')).toBeVisible();
-  const axes = await page.locator('.habit-appearance-fields').evaluate((el) => {
-    const icon = el.querySelector('.habit-icon-trigger')!.getBoundingClientRect();
-    const color = el.querySelector('.color-picker-trigger')!.getBoundingClientRect();
-    return {
-      y: icon.y - color.y,
-      height: [icon.height, color.height],
-      overflow: document.documentElement.scrollWidth > innerWidth,
-    };
-  });
-  expect(axes).toEqual({ y: 0, height: [36, 36], overflow: false });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.keyboard.press('Escape');
   await expect(page.locator('.habit-editor')).toHaveCount(0);
 });
 
 for (const theme of ['Dark', 'Light']) {
+  test(`weekly checkboxes preserve custom colors, stable labels and checked states in ${theme}`, async ({
+    page,
+  }) => {
+    await fixture(page);
+    await page.getByLabel('Settings and backup', { exact: true }).click();
+    await page
+      .locator('.settings-nav')
+      .getByRole('button', { name: 'Appearance', exact: true })
+      .click();
+    await page.getByRole('radio', { name: theme, exact: true }).click();
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
+    for (let index = 0; index < 4; index++) {
+      const control = page.locator('.habit-row').nth(index).locator('.habit-day.today');
+      await expect(control).toHaveRole('checkbox');
+      await expect(control).toBeChecked();
+      await page.mouse.move(0, 0);
+      const paint = await control.evaluate((el) => ({
+        fill: getComputedStyle(el).backgroundColor,
+        ink: getComputedStyle(el).color,
+      }));
+      const name = await control.getAttribute('aria-label');
+      await control.hover();
+      expect(
+        await control.evaluate((el) => ({
+          fill: getComputedStyle(el).backgroundColor,
+          ink: getComputedStyle(el).color,
+        })),
+      ).toEqual(paint);
+      expect((await appearance(control)).contrast).toBeGreaterThanOrEqual(4.5);
+      await control.click();
+      await expect(control).not.toBeChecked();
+      await expect(control).toHaveAccessibleName(name!);
+      await control.press('Space');
+      await expect(control).toBeChecked();
+      await expect(control).toHaveAccessibleName(name!);
+    }
+    expect((await storedWorkspace(page)).habitLogs).toHaveLength(9);
+  });
+
   test(`completed habit dates retain readable paired colors on hover and selection in ${theme}`, async ({
     page,
   }) => {
@@ -149,7 +175,7 @@ for (const theme of ['Dark', 'Light']) {
       .click();
     await page.getByRole('radio', { name: theme, exact: true }).click();
     await page.getByRole('button', { name: 'Back', exact: true }).click();
-    await page.getByLabel('Habit', { exact: true }).click();
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
     for (let i = 0; i < 4; i++) {
       await page.locator('.habit-name').nth(i).click();
       const day = page.locator('.habit-history-grid button.done:not(:disabled)').first();
@@ -187,3 +213,42 @@ for (const theme of ['Dark', 'Light']) {
     }
   });
 }
+
+test('icon-free, emoji and long habit names retain the same leading slots at every width', async ({
+  page,
+}) => {
+  const data = await fixture(page);
+  data.habits[0].icon = 'none';
+  data.habits[0].name = 'A';
+  data.habits[1].name = 'A deliberately long habit name '.repeat(4).slice(0, 120);
+  data.habits[2].icon = '🧘';
+  await seedWorkspace(page, data);
+  await page.reload();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
+  await page.evaluate(() => document.fonts.ready);
+  for (const width of [1183, 900, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(async () =>
+        page.locator('.habit-row').evaluateAll((rows) =>
+          rows.every((row) => {
+            const box = row.getBoundingClientRect();
+            const icon = row.querySelector('.habit-symbol')!.getBoundingClientRect();
+            const title = row.querySelector('.habit-name strong')!.getBoundingClientRect();
+            const description = row.querySelector('.habit-name small')!.getBoundingClientRect();
+            return (
+              Math.abs(icon.left - box.left - 16) < 0.5 &&
+              icon.width === 36 &&
+              Math.abs(title.left - box.left - 64) < 0.5 &&
+              Math.abs(description.left - title.left) < 0.5
+            );
+          }),
+        ),
+      )
+      .toBe(true);
+    await expect(page.locator('.habit-symbol').first()).toBeEmpty();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+      false,
+    );
+  }
+});
