@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
@@ -92,6 +92,10 @@ test('custom popovers validate HEX and provide keyboard color-area and hue contr
   await expect(dialog).toBeVisible();
   expect(await hex.evaluate((el: HTMLInputElement) => el.validity.valid)).toBe(true);
   await hex.fill('#abc');
+  await hex.dispatchEvent('compositionstart');
+  await hex.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await hex.dispatchEvent('compositionend', { data: '#abc' });
   await hex.press('Enter');
   await expect(trigger).toHaveText('#AABBCC');
   await custom(page);

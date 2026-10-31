@@ -72,8 +72,19 @@ test('detail editor portals never add page height across task scopes, matrix, ca
       await page.locator('.task-title').first().click();
       await page.locator('.mdxeditor-popup-container').waitFor({ state: 'attached' });
       await expectViewportHeight(page);
-      await expect(page.locator('.mdxeditor-popup-container')).toHaveCSS('margin-top', '0px');
-      await expect(page.locator('.td-body .td-markdown')).toHaveCSS('margin-top', '20px');
+      const gap = await page.locator('.td-body .td-markdown').evaluate((element) => {
+        const previous = element.previousElementSibling;
+        if (previous === null) {
+          throw new Error('Missing description sibling');
+        }
+        const anchor =
+          previous.getBoundingClientRect().height > 0 ? previous : previous.previousElementSibling;
+        if (anchor === null) {
+          throw new Error('Missing description spacing anchor');
+        }
+        return element.getBoundingClientRect().top - anchor.getBoundingClientRect().bottom;
+      });
+      expect(gap).toBe(20);
       await page.getByLabel('Close task details', { exact: true }).click();
       await expect(page.locator('.mdxeditor-popup-container')).toHaveCount(0);
       await expectViewportHeight(page);

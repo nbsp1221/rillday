@@ -8,21 +8,18 @@ import { seedArchive, storedRegistry, storedWorkspace } from '../support/storage
 import { archiveFixture, conflictingArchive } from '../support/workspace-archive';
 
 const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));
-const test = base.extend<object, { application: Awaited<ReturnType<typeof fixture>> }>({
-  application: [
-    async ({ browserName }, provide) => {
-      const application = await fixture({
-        label: `${browserName}-multi-tab-`,
-        webDir: process.env.RILLDAY_TEST_WEB_DIR ?? resolve(import.meta.dirname, '../../dist'),
-      });
-      try {
-        await provide(application);
-      } finally {
-        await application.dispose();
-      }
-    },
-    { scope: 'worker' },
-  ],
+const test = base.extend<{ application: Awaited<ReturnType<typeof fixture>> }>({
+  application: async ({ browserName }, provide) => {
+    const application = await fixture({
+      label: `${browserName}-multi-tab-`,
+      webDir: process.env.RILLDAY_TEST_WEB_DIR ?? resolve(import.meta.dirname, '../../dist'),
+    });
+    try {
+      await provide(application);
+    } finally {
+      await application.dispose();
+    }
+  },
   baseURL: async ({ application }, provide) => {
     await provide(application.origin);
   },
@@ -217,9 +214,7 @@ test('connected tabs save independently and an isolated device receives their ed
   await page.goto('/');
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
-  await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-  await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Multi-tab test');
+  await expect(page.locator('.sync-server-summary')).toContainText(server.origin);
   await page.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Create administrator', exact: true }).click();
@@ -258,8 +253,7 @@ test('connected tabs save independently and an isolated device receives their ed
       .locator('.settings-nav')
       .getByRole('button', { name: 'Sync', exact: true })
       .click();
-    await observer.getByLabel('Server URL', { exact: true }).fill(server.origin);
-    await observer.getByRole('button', { name: 'Check connection', exact: true }).click();
+    await expect(observer.locator('.sync-server-summary')).toContainText(server.origin);
     await observer.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
     await observer.getByLabel('Password', { exact: true }).fill(password);
     await observer.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -284,18 +278,12 @@ test('a workspace transition preserves unfinished capture in accessible desktop 
   await tab.locator('#quick-add-input').fill(draft);
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
-  await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-  await page.getByRole('button', { name: 'Check connection', exact: true }).click();
   await page.locator('.sync-login-form').waitFor();
-  const setup = await page.getByRole('form', { name: 'Set up administrator', exact: true }).count();
-  if (setup) {
-    await page.getByLabel('Name', { exact: true }).fill('Multi-tab test');
-  }
+  await expect(page.locator('.sync-server-summary')).toContainText(server.origin);
+  await expect(page.getByRole('form', { name: 'Set up administrator', exact: true })).toBeVisible();
   await page.getByLabel('Email', { exact: true }).fill('multi-tab-browser@rillday.test');
   await page.getByLabel('Password', { exact: true }).fill(password);
-  await page
-    .getByRole('button', { name: setup ? 'Create administrator' : 'Sign in', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Create administrator', exact: true }).click();
   await page.getByRole('button', { name: 'Use server data only', exact: true }).click();
   await expect(tab.locator('.rail-sync')).toBeVisible();
   await tab.getByLabel('Settings and backup', { exact: true }).click();

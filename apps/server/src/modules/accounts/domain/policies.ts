@@ -38,10 +38,6 @@ export function assertAccountCapacity(count: number) {
   }
 }
 
-export function normalizeAccountName(name: string): string | undefined {
-  return name.trim() || undefined;
-}
-
 export function assertStatusChangeAllowed(
   target: { role: string } | undefined,
 ): asserts target is { role: string } {

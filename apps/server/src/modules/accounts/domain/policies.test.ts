@@ -4,17 +4,10 @@ import {
   assertAdministrator,
   assertSetupAvailable,
   assertStatusChangeAllowed,
-  normalizeAccountName,
   validateRecoveryPassword,
 } from './policies.ts';
 
 describe('account domain policies', () => {
-  test('names retain their content while whitespace-only names are refused', () => {
-    expect(normalizeAccountName('  Admin  ')).toBe('Admin');
-    expect(normalizeAccountName('  Alex Example  ')).toBe('Alex Example');
-    expect(normalizeAccountName(' \t\n ')).toBeUndefined();
-  });
-
   test('setup is available only before an administrator exists', () => {
     expect(() => assertSetupAvailable(false)).not.toThrow();
     expect(() => assertSetupAvailable(true)).toThrow(

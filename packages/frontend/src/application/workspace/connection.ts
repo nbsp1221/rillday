@@ -14,7 +14,6 @@ export interface ServerInformation {
 export interface ServerUser {
   id: string;
   email: string;
-  name: string;
   role: 'user' | 'admin';
   banned: boolean | null;
 }
@@ -22,7 +21,6 @@ export interface ServerUser {
 export interface LoginDetails {
   email: string;
   password: string;
-  name?: string;
 }
 
 export interface ConnectionReview {
@@ -59,7 +57,6 @@ export interface ConnectionState {
   users: ServerUser[];
   review?: ConnectionReview | null;
   backups?: ConnectionBackup[];
-  runtime?: 'web' | 'desktop';
 }
 
 export interface ConnectionPort {

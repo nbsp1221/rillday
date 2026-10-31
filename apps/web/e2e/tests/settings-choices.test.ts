@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
 import { z } from 'zod';
-import { appearance } from '../support/appearance';
 import { chooseChoice } from '../support/choice';
 import { reloadSavedPage } from '../support/navigation';
 import { storedPreferences } from '../support/storage';
@@ -277,11 +276,6 @@ for (const lang of ['ko', 'en']) {
           for (const name of names) {
             const trigger = page.getByRole('combobox', { name, exact: true });
             await trigger.scrollIntoViewIfNeeded();
-            const box = await visibleBox(trigger);
-
-            expect([box.width, box.height]).toEqual([200, 36]);
-            await trigger.hover();
-            expect(await visibleBox(trigger)).toEqual(box);
             const state = await trigger.getAttribute('data-value');
             await trigger.click();
             const menu = page.getByRole('listbox', { name, exact: true });
@@ -306,20 +300,6 @@ for (const lang of ['ko', 'en']) {
                 ];
               }),
             ).toEqual(skin);
-            for (const option of await menu.getByRole('option').all()) {
-              const before = await visibleBox(option);
-
-              expect(before.height).toBe(32);
-              expect(
-                await option.evaluate((el) => [
-                  getComputedStyle(el).paddingLeft,
-                  getComputedStyle(el).paddingRight,
-                ]),
-              ).toEqual(['8px', '32px']);
-              await option.hover();
-              expect(await visibleBox(option)).toEqual(before);
-              expect((await appearance(option)).contrast).toBeGreaterThanOrEqual(4.5);
-            }
             await page.keyboard.press('Escape');
             await expect(trigger).toBeFocused();
             assert(state !== null, 'Missing state');

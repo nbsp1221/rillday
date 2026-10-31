@@ -12,7 +12,6 @@ export const serverResponse = z.object({
 const accountUser = z.object({
   id: z.string(),
   email: z.string(),
-  name: z.string(),
   role: z.enum(['user', 'admin']),
 });
 

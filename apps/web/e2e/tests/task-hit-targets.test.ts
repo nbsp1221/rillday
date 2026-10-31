@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
 type Area = 'tasks' | 'matrix';
@@ -11,26 +10,44 @@ async function fixture(page: Page, area: Area) {
   await page.goto('/');
   await page.locator('.quick-add').waitFor();
   const data = emptyWorkspace();
-  const date = (await browserToday(page)).toString();
-  const sourceTask = createTaskRecord('Drag the body and its padding', data, {
-    id: 'body-source',
-    date,
-    time: '09:30',
-    priority: 3,
-    notes: 'Keep notes',
+  const date = '2026-10-31';
+  const metadata = {
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+    order: 0,
+  };
+  const tasks = [
+    createTaskRecord('Drag the body and its padding', data, {
+      ...metadata,
+      id: 'body-source',
+      date,
+      time: '09:30',
+      priority: 3,
+      notes: 'Keep notes',
+    }),
+    createTaskRecord('Next task', data, {
+      ...metadata,
+      id: 'body-next',
+      priority: 3,
+      date: null,
+      order: 1,
+    }),
+    createTaskRecord('Subtasks', data, {
+      ...metadata,
+      id: 'body-child',
+      parentId: 'body-source',
+      priority: 3,
+      date: null,
+    }),
+  ];
+  data.tasks = tasks.map((task) => {
+    assert(task !== null, 'Missing task hit-target fixture');
+    return task;
   });
-  assert(sourceTask !== null, 'Task fixture must have a title');
-  const nextTask = createTaskRecord('Next task', data, { id: 'body-next', priority: 3 });
-  assert(nextTask !== null, 'Task fixture must have a title');
-  const childTask = createTaskRecord('Subtasks', data, {
-    id: 'body-child',
-    parentId: 'body-source',
-    priority: 3,
-  });
-  assert(childTask !== null, 'Task fixture must have a title');
-  data.tasks = [sourceTask, nextTask, childTask];
   await seedWorkspace(page, data);
   await page.reload();
+  await page.locator('.quick-add').waitFor();
+  await page.clock.setFixedTime(new Date('2026-10-31T03:00:00Z'));
   if (area === 'matrix') {
     await page.getByLabel('Eisenhower Matrix', { exact: true }).click();
   }

@@ -7,10 +7,9 @@ import { maximumPasswordLength, minimumPasswordLength } from '../domain/policies
 const accountBody = {
   type: 'object',
   additionalProperties: false,
-  required: ['email', 'name', 'password'],
+  required: ['email', 'password'],
   properties: {
     email: { type: 'string', format: 'email', maxLength: 254 },
-    name: { type: 'string', minLength: 1, maxLength: 80 },
     password: {
       type: 'string',
       minLength: minimumPasswordLength,

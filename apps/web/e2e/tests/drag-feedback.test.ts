@@ -3,6 +3,7 @@ import type { CalendarViewMode } from '@repo/frontend/application';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
+import { expectNonvisualAnnouncement } from '../support/announcement';
 import { chooseChoice } from '../support/choice';
 import { browserToday } from '../support/clock';
 import { reloadSavedPage } from '../support/navigation';
@@ -301,8 +302,10 @@ for (const language of ['ko', 'en']) {
           }
           const live = page.locator('.calendar-drag-status');
           await expect(live).not.toBeEmpty();
-          await expect(live).toHaveCSS('clip-path', 'inset(50%)');
-          await expect(live).toHaveCSS('width', '1px');
+          await expect(live).toHaveAttribute('aria-live', 'polite');
+          if (width === 1440 && view === 'month') {
+            await expectNonvisualAnnouncement(page, live);
+          }
           await expect(page.locator('.task-drag-overlay')).toHaveText('Read a book');
           expect(await visibleBox(page.locator('.calendar-view'))).toEqual(root);
 
@@ -336,7 +339,7 @@ for (const language of ['ko', 'en']) {
           await expect(target).toHaveAttribute('data-drop-active', 'true');
           await expect(target).toHaveCSS('box-shadow', 'none');
         }
-        await expect(page.locator('.calendar-drag-status')).toHaveCSS('clip-path', 'inset(50%)');
+        await expect(page.locator('.calendar-drag-status')).toMatchAriaSnapshot('- status: /.+/');
 
         await cancel(page);
         expect(

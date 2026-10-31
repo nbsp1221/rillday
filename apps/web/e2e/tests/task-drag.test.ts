@@ -18,10 +18,11 @@ async function seed(page: Page) {
 }
 
 async function start(page: Page, row: Locator) {
+  await expect(page.locator('.task-drag-overlay')).toHaveCount(0);
   const handle = row.locator('.task-content');
+  await handle.hover({ trial: true });
   const box = await visibleBox(handle);
-
-  await page.mouse.move(box.x + Math.min(60, box.width / 2), box.y + box.height / 2);
+  await handle.hover({ position: { x: Math.min(60, box.width / 2), y: box.height / 2 } });
   await page.mouse.down();
   await page.mouse.move(box.x + Math.min(60, box.width / 2) + 8, box.y + box.height / 2, {
     steps: 2,
@@ -455,7 +456,8 @@ for (const language of ['ko', 'en']) {
       for (const width of [1440, 900]) {
         await page.setViewportSize({ width, height: 800 });
         await expect(rows(page)).toHaveCount(2);
-        const before = await visibleBox(rows(page).last());
+        await rows(page).last().hover({ trial: true });
+        const before = await rows(page).last().boundingBox();
         await start(page, rows(page).first());
         await over(page, rows(page).last(), 'after');
         await expect(rows(page).last()).toHaveAttribute('data-drop-edge', 'after');

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
+import { expectNonvisualAnnouncement } from '../support/announcement';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -100,6 +101,23 @@ async function drop(page: Page, target: Locator, point?: { clientX: number; clie
   await page.mouse.up();
 }
 
+async function stackPosition(item: Locator) {
+  return item.evaluate((element) => {
+    const target = element.closest<HTMLElement>('[data-calendar-drop]');
+    if (target === null) {
+      throw new Error('Missing calendar drop target');
+    }
+    const parent = target.getBoundingClientRect();
+    const { x, y, width, height } = element.getBoundingClientRect();
+    return {
+      x: x - parent.x + target.scrollLeft,
+      y: y - parent.y + target.scrollTop,
+      width,
+      height,
+    };
+  });
+}
+
 test('late events retain their wall-clock position and clip at midnight after reload', async ({
   page,
 }) => {
@@ -129,12 +147,19 @@ test('late events retain their wall-clock position and clip at midnight after re
 
     await expect(event).toBeVisible();
     expect(
-      await event.evaluate((element) => ({
-        top: element.style.top,
-        height: element.style.height,
-        hour: element.closest<HTMLElement>('[data-hour]')?.dataset.hour,
-      })),
-    ).toEqual({ top: '32px', height: '32px', hour: '23' });
+      await event.evaluate((element) => {
+        const cell = element.closest<HTMLElement>('[data-hour]');
+        if (cell === null) {
+          throw new Error('Missing calendar hour cell');
+        }
+        const bounds = cell.getBoundingClientRect();
+        return {
+          top: (element.getBoundingClientRect().top - bounds.top) / bounds.height,
+          height: element.getBoundingClientRect().height / bounds.height,
+          hour: cell.dataset.hour,
+        };
+      }),
+    ).toEqual({ top: 0.5, height: 0.5, hour: '23' });
     expect(await sourceRecord(page)).toMatchObject({ time: '23:30', duration: 90 });
   }
 });
@@ -165,10 +190,7 @@ test('pointer month drag previews the destination before saving and supports Und
   await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
   await over(page, page.locator('.calendar-day').nth(11));
   const status = page.locator('.calendar-drag-status');
-  await expect(status).toHaveClass(/task-drag-announcement/);
-  await expect(status).toHaveCSS('clip-path', 'inset(50%)');
-  await expect(status).toHaveCSS('width', '1px');
-  await expect(status).toHaveCSS('height', '1px');
+  await expectNonvisualAnnouncement(page, status);
   await page.keyboard.press('Escape');
   await page.mouse.up();
   await page.locator('.toast').getByRole('button', { name: 'Undo', exact: true }).click();
@@ -412,33 +434,34 @@ for (const view of ['Month', 'Agenda', 'Day']) {
   test(`${view} pending task occupies the same top-down stack position as the committed task`, async ({
     page,
   }) => {
-    const today = await seed(page);
-    await mode(page, view);
-    const target = page.locator(
-      view === 'Month'
-        ? `.calendar-day[data-date="${today}"]`
-        : view === 'Agenda'
-          ? `.calendar-agenda-day[data-date="${today}"]`
-          : `.calendar-all-day>[data-date="${today}"]`,
-    );
-    await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
-    await over(page, target);
-    const preview = target.locator('.calendar-drop-preview');
-    const before = await visibleBox(preview);
-
-    if (view === 'Month') {
-      const head = await visibleBox(target.locator('.calendar-day-head'));
-
-      const existing = await visibleBox(target.locator(`[data-task-id="${fixtureId('block')}"]`));
-
-      expect(before.y).toBe(head.y + head.height + 4);
-      expect(before.y + before.height).toBeLessThan(existing.y);
+    for (const day of ['01', '31']) {
+      await page.clock.setFixedTime(new Date(`2026-10-${day}T03:00:00Z`));
+      const today = await seed(page);
+      await mode(page, view);
+      const target = page.locator(
+        view === 'Month'
+          ? `.calendar-day[data-date="${today}"]`
+          : view === 'Agenda'
+            ? `.calendar-agenda-day[data-date="${today}"]`
+            : `.calendar-all-day>[data-date="${today}"]`,
+      );
+      await start(page, page.locator(`[data-task-id="${fixtureId('source')}"]`));
+      await over(page, target);
+      const preview = target.locator('.calendar-drop-preview');
+      const before = await visibleBox(preview);
+      const position = await stackPosition(preview);
+      if (view === 'Month') {
+        const head = await visibleBox(target.locator('.calendar-day-head'));
+        const existing = await visibleBox(target.locator(`[data-task-id="${fixtureId('block')}"]`));
+        expect(before.y).toBe(head.y + head.height + 4);
+        expect(before.y + before.height).toBeLessThan(existing.y);
+      }
+      await drop(page, target);
+      await expect.poll(async () => (await sourceRecord(page)).date).toBe(today);
+      expect(
+        await stackPosition(target.locator(`[data-task-id="${fixtureId('source')}"]`)),
+      ).toEqual(position);
     }
-    await drop(page, target);
-    await expect.poll(async () => (await sourceRecord(page)).date).toBe(today);
-    expect(await visibleBox(target.locator(`[data-task-id="${fixtureId('source')}"]`))).toEqual(
-      before,
-    );
   });
 }
 
@@ -472,7 +495,9 @@ test('empty month and undated previews follow their content headers instead of t
   );
 });
 
-test('rapid pointer dragging updates each date by the next frame', async ({ page }) => {
+test('calendar drop feedback follows pointer changes and cancellation preserves data', async ({
+  page,
+}) => {
   await seed(page);
   const source = await visibleBox(page.locator(`[data-task-id="${fixtureId('source')}"]`));
 

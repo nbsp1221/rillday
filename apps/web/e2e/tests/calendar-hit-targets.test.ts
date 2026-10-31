@@ -2,26 +2,29 @@ import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { visibleBox } from '@repo/test-support';
-import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
-async function calendar(page: Page, duration = 120) {
+async function calendar(page: Page, duration = 120, date = '2026-10-31') {
   await page.goto('/');
   await page.locator('.quick-add').waitFor();
   const data = emptyWorkspace();
-  const date = (await browserToday(page)).toString();
-  const createdTask = createTaskRecord('Move the full event body', data, {
+  const task = createTaskRecord('Move the full event body', data, {
     id: 'calendar-body',
     date,
     time: '09:00',
     duration,
     notes: 'Keep details',
     priority: 2,
+    order: 0,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
   });
-  assert(createdTask !== null, 'Task fixture must have a title');
-  data.tasks = [createdTask];
+  assert(task !== null, 'Missing calendar task fixture');
+  data.tasks = [task];
   await seedWorkspace(page, data);
   await page.reload();
+  await page.locator('.quick-add').waitFor();
+  await page.clock.setFixedTime(new Date(`${date}T03:00:00Z`));
   await page.getByLabel('Calendar', { exact: true }).click();
   await page.getByRole('button', { name: 'Calendar view', exact: true }).click();
   await page.getByRole('menuitemradio', { name: 'Week', exact: true }).click();
@@ -64,41 +67,44 @@ async function grabBody(page: Page, card: Locator, fraction: number) {
   return point;
 }
 
-test('empty event body moves across days without jumping its time and Escape cancels', async ({
-  page,
-}) => {
-  const { card, date } = await calendar(page);
-  const original = await saved(page);
-
-  const target = page.locator('.calendar-hour-cell[data-hour="9"]').filter({ hasNot: card }).last();
-  const targetDate = await target.getAttribute('data-date');
-  expect(targetDate).not.toBe(date);
-  for (const fraction of [0.45, 0.8]) {
-    const point = await grabBody(page, card, fraction);
-    const bounds = await visibleBox(target);
-
-    await page.mouse.move(bounds.x + bounds.width / 2, point.y, { steps: 4 });
-    const preview = page.locator('.calendar-time-preview');
-    assert(targetDate !== null, 'Missing targetDate');
-    await expect(preview).toHaveAttribute('data-date', targetDate);
-    await expect(preview).toHaveAttribute('data-time', '09:00');
-    expect(await saved(page)).toEqual(original);
-    if (fraction === 0.45) {
-      await page.keyboard.press('Escape');
-      await page.mouse.up();
+for (const date of ['2026-10-01', '2026-10-31']) {
+  test(`empty event body moves across days without jumping its time and Escape cancels on ${date}`, async ({
+    page,
+  }) => {
+    const { card } = await calendar(page, 120, date);
+    const original = await saved(page);
+    const target = page
+      .locator('.calendar-hour-cell[data-hour="9"]')
+      .filter({ hasNot: card })
+      .last();
+    const targetDate = await target.getAttribute('data-date');
+    assert(targetDate !== null, 'Missing target date');
+    expect(targetDate).not.toBe(date);
+    for (const fraction of [0.45, 0.8]) {
+      const point = await grabBody(page, card, fraction);
+      const bounds = await visibleBox(target);
+      await page.mouse.move(bounds.x + bounds.width / 2, point.y, { steps: 4 });
+      const preview = page.locator('.calendar-time-preview');
+      await expect(preview).toHaveAttribute('data-date', targetDate);
+      await expect(preview).toHaveAttribute('data-time', '09:00');
       expect(await saved(page)).toEqual(original);
-    } else {
-      await page.mouse.up();
-      await expect.poll(async () => (await saved(page)).date).toBe(targetDate);
-      expect(await saved(page)).toMatchObject({
-        time: '09:00',
-        duration: 120,
-        notes: original.notes,
-      });
-      await expect(page.locator('.task-detail')).toHaveCount(0);
+      if (fraction === 0.45) {
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        expect(await saved(page)).toEqual(original);
+      } else {
+        await page.mouse.up();
+        await expect.poll(async () => (await saved(page)).date).toBe(targetDate);
+        expect(await saved(page)).toMatchObject({
+          time: '09:00',
+          duration: 120,
+          notes: original.notes,
+        });
+        await expect(page.locator('.task-detail')).toHaveCount(0);
+      }
     }
-  }
-});
+  });
+}
 
 test('a resized event can be moved from its newly extended lower body', async ({ page }) => {
   const { card } = await calendar(page, 30);

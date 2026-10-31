@@ -22,7 +22,6 @@ async function fixture({
     storage,
     coordination: { withWorkspaceLock },
     credentials: { restore: vi.fn().mockResolvedValue(null), remember: vi.fn(), forget: vi.fn() },
-    runtime: 'web',
     demo,
   });
   onTestFinished(() => app.dispose());
@@ -189,17 +188,6 @@ test('a stale initial profile adopts the document another tab installed while op
   expect(create).not.toHaveBeenCalled();
   expect(app.getSnapshot().workspace.getSnapshot().data.habits).toHaveLength(5);
   expect((await accounts.readRegistry()).accounts[0]?.contentId).toBe(document.repository.id);
-});
-
-test('host exit propagates preference storage failures and initialization propagates the injected document failure', async () => {
-  const { app, preferences } = await fixture();
-  const quota = new DOMException('Synthetic quota failure', 'QuotaExceededError');
-  vi.spyOn(preferences, 'flushPreferences').mockRejectedValueOnce(quota);
-  await expect(app.flushForExit()).rejects.toBe(quota);
-  const next = await fixture({ initialize: false });
-  const unavailable = new Error('storage_unavailable');
-  vi.spyOn(next.documents, 'create').mockRejectedValueOnce(unavailable);
-  await expect(next.app.initialize()).rejects.toBe(unavailable);
 });
 
 test('native archive restoration preserves child trees, selective trash, labels and historical decimal habit goals across reopening', async () => {

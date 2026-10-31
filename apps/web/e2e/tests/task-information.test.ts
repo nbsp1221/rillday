@@ -172,6 +172,13 @@ test('detail cards occupy space only after selection and preserve editing when r
         }),
       )
       .toBeLessThan(0.5);
+    await expect
+      .poll(async () => {
+        const main = await visibleBox(page.locator('.main-workspace'));
+        const container = await visibleBox(page.locator('.workspace-body'));
+        return main.width - container.width;
+      })
+      .toBe(0);
     const available = (await visibleBox(page.locator('.main-workspace'))).width;
     await page.locator('.task-title').filter({ hasText: 'Detail card check' }).click();
     const geometry = await page.locator('.task-detail').evaluate((card) => {
@@ -250,7 +257,9 @@ test('detail cards occupy space only after selection and preserve editing when r
     await page.getByLabel('Task description', { exact: true }).fill(`Width ${width} edit`);
     await page.getByLabel('Close task details', { exact: true }).click();
     await expect(page.locator('.detail-pane')).toHaveCount(0);
-    expect((await visibleBox(page.locator('.main-workspace'))).width).toBe(available);
+    await expect
+      .poll(async () => (await visibleBox(page.locator('.main-workspace'))).width)
+      .toBe(available);
     await page.locator('.task-title').filter({ hasText: 'Detail card check' }).click();
     await expect(page.getByLabel('Task description', { exact: true })).toHaveText(
       `Width ${width} edit`,

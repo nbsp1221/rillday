@@ -28,6 +28,7 @@ export default defineConfig({
         for (const [fileName, source] of [
           ['LICENSE', '../../LICENSE'],
           ['licenses/pretendard-OFL-1.1.txt', '../../packages/ui/LICENSE.pretendard'],
+          ['licenses/shadcn-MIT.txt', '../../packages/ui/LICENSE.shadcn'],
         ] as const) {
           this.emitFile({
             type: 'asset',

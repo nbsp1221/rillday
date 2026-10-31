@@ -21,7 +21,6 @@ test('SDK registration shares the two-slot password budget and releases failed w
       authentication.registration.create(
         {
           email: 'person@example.test',
-          name: 'Person',
           password: 'Synthetic-password-2026!',
         },
         'user',
@@ -46,13 +45,16 @@ test('SDK registration shares the two-slot password budget and releases failed w
 
   const created = await authentication.registration.create(
     {
-      email: 'admin@example.test',
-      name: '  Admin  ',
+      email: 'Admin@Example.test',
       password: 'Synthetic-password-2026!',
     },
     'admin',
   );
-  expect(created.user).toMatchObject({ role: 'admin', name: 'Admin' });
+  expect(created.user).toMatchObject({
+    role: 'admin',
+    email: 'admin@example.test',
+    name: 'admin@example.test',
+  });
 
   // The SDK may return a synthetic user for forbidden signups to avoid enumeration.
   await authentication.auth.api.signUpEmail({

@@ -1,17 +1,14 @@
 import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
-import { appearance } from '../support/appearance';
+import { appearance, settleAnimations } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
 import { archiveFixture } from '../support/workspace-archive';
 
 async function fits(page: Page, surface: Locator) {
-  await surface.evaluate((el) =>
-    Promise.all(el.getAnimations({ subtree: true }).map((animation) => animation.finished)),
-  );
+  await settleAnimations(surface);
   const box = await visibleBox(surface);
-
   const viewport = page.viewportSize();
   assert(viewport !== null, 'Missing viewport');
   const inset = (await surface.getAttribute('role')) === 'menu' ? 5 : 8;

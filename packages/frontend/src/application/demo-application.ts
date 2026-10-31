@@ -17,7 +17,6 @@ export function createDemoApplication({
   const application = createApplication({
     storage,
     coordination,
-    runtime: 'web',
     transport: { request: unavailable, verifyIdentity: unavailable },
     demo: true,
     credentials: {

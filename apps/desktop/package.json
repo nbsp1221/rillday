@@ -5,12 +5,14 @@
   "license": "EUPL-1.2",
   "type": "module",
   "scripts": {
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "build": "tauri build --no-binary-patching",
     "dev:renderer": "vite",
     "build:renderer": "vite build",
     "typecheck": "tsc && tsc -p tsconfig.browser.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:native": "playwright test",
+    "test:browser": "playwright test --config tests/browser/playwright.config.ts"
   },
   "dependencies": {
     "@repo/frontend": "workspace:*",
@@ -20,10 +22,15 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@repo/server": "workspace:*",
+    "@repo/test-support": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/cli": "2.12.3",
+    "@types/fs-extra": "11.0.4",
     "@vitejs/plugin-react": "6.1.2",
+    "fs-extra": "11.4.1",
     "tailwindcss": "4.3.3",
     "vite": "8.3.4",
     "vite-plugin-wasm": "3.6.0",

@@ -5,9 +5,11 @@ import {
   type RealmPlugin,
   codeBlockPlugin,
   codeMirrorPlugin,
+  createActiveEditorSubscription$,
   defaultSvgIcons,
   headingsPlugin,
   imagePlugin,
+  inFocus$,
   linkPlugin,
   listsPlugin,
   markdownShortcutPlugin,
@@ -18,7 +20,15 @@ import {
 } from '@mdxeditor/editor';
 import { Textarea } from '@repo/ui/components/textarea';
 import { cn } from 'cn';
-import { $setSelection, CLEAR_HISTORY_COMMAND, type LexicalEditor } from 'lexical';
+import {
+  $addUpdateTag,
+  $setSelection,
+  CLEAR_HISTORY_COMMAND,
+  COMMAND_PRIORITY_LOW,
+  type LexicalEditor,
+  SELECTION_CHANGE_COMMAND,
+  SKIP_DOM_SELECTION_TAG,
+} from 'lexical';
 import {
   AlignCenter,
   AlignLeft,
@@ -186,6 +196,24 @@ export function MarkdownNotes({
     const lifecycle: RealmPlugin = {
       postInit: (realm) => {
         engineRef.current = realm.getValue(rootEditor$);
+        realm.pub(createActiveEditorSubscription$, (editor) =>
+          editor.registerCommand(
+            SELECTION_CHANGE_COMMAND,
+            () => {
+              const root = realm.getValue(rootEditor$)?.getRootElement();
+              const active = root?.ownerDocument.activeElement;
+
+              // A queued selection event must not reclaim focus after the user leaves the editor.
+              if (root && active && active !== root.ownerDocument.body && !root.contains(active)) {
+                $addUpdateTag(SKIP_DOM_SELECTION_TAG);
+                realm.pub(inFocus$, false);
+              }
+
+              return false;
+            },
+            COMMAND_PRIORITY_LOW,
+          ),
+        );
       },
     };
 

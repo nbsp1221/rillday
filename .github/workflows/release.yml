@@ -26,6 +26,52 @@ jobs:
     if: github.event_name != 'release'
     uses: ./.github/workflows/ci.yml
 
+  windows:
+    name: Windows release files
+    if: github.event_name != 'release'
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v1
+        with:
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+          cache-on-failure: true
+      - name: Install native license generator
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-about@0.9.2
+          fallback: none
+      - run: pnpm build:desktop
+      - name: Prepare Windows release files
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected one Windows installer' }
+          node scripts/prepare-release.mjs $installers[0].FullName apps/desktop/src-tauri/target/release/rillday-desktop.exe release
+      - name: Verify installation, startup and reinstallation
+        shell: pwsh
+        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -Archive release/Rillday_windows_x64.zip -OutputDirectory apps/desktop/.cache/tests/installer
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-installer-test-results
+          path: apps/desktop/.cache/tests/installer/result.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rillday-windows
+          path: release/
+          retention-days: 7
+
   images:
     if: github.event_name == 'push'
     needs: verify
@@ -77,15 +123,21 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify the published candidate
+      - name: Verify candidate installation, recreation and recovery
         env:
           DIGEST: ${{ needs.images.outputs.digest }}
         run: |
           docker pull "$IMAGE@$DIGEST"
           node apps/server/tests/container/smoke.mjs "$IMAGE@$DIGEST"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: container-results-${{ matrix.architecture }}
+          path: apps/server/.cache/tests/
+          retention-days: 7
 
   draft:
-    needs: [images, image-tests]
+    needs: [windows, images, image-tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -110,6 +162,7 @@ jobs:
         run: |
           gh release create "$TAG" --verify-tag --draft --notes-file release/release-notes.md \
             release/Rillday_windows_x64_setup.exe \
+            release/Rillday_windows_x64.zip \
             release/compose.yaml release/example.env release/SHA256SUMS \
             release/image-digest.txt
 

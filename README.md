@@ -28,6 +28,8 @@ Rillday is a free, open-source personal planner inspired by TickTick. Work local
 
 [Download the Windows x64 installer](https://github.com/nbsp1221/rillday/releases/latest/download/Rillday_windows_x64_setup.exe), install Rillday and start planning. No account, server, Node.js or Docker is required for local use.
 
+Prefer no installation? Download the [Windows ZIP](https://github.com/nbsp1221/rillday/releases/latest/download/Rillday_windows_x64.zip), extract it and run `rillday-desktop.exe`. Both downloads use the same first-run data folder selection.
+
 See the [Windows guide](docs/windows.md) for installation, updates and data storage.
 
 ### Self-host

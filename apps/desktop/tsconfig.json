@@ -1,6 +1,6 @@
 {
   "extends": "@repo/typescript-config/react-library.json",
-  "include": ["src", "*.config.ts"],
+  "include": ["src", "tests/native", "tests/browser", "*.config.ts"],
   "compilerOptions": {
     "types": ["node", "react", "vite/client"]
   }

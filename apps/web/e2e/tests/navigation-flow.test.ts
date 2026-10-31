@@ -299,6 +299,7 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
   const handle = await visibleBox(page.locator('.sidebar-resize'));
 
   const start = handle.x + handle.width / 2;
+  const initialWidth = (await visibleBox(page.locator('.task-sidebar'))).width;
   await page.mouse.move(start, 420);
   const sidebarLine = await page.locator('.sidebar-resize').evaluate((el) => {
     const style = getComputedStyle(el);
@@ -324,10 +325,6 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
       await new Promise((resolve) => {
         requestAnimationFrame(resolve);
       });
-      const app = document.querySelector<HTMLElement>('.rillday-app');
-      if (app === null) {
-        throw new Error('Missing app');
-      }
       const sidebar = document.querySelector('.task-sidebar');
       if (sidebar === null) {
         throw new Error('Missing sidebar');
@@ -342,7 +339,6 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
         throw new Error("Expected element matching '.workspace-layout'");
       }
       return {
-        requested: parseFloat(app.style.getPropertyValue('--sidebar-width')),
         actual: actual.width,
         inner: matchedElement3.getBoundingClientRect().width,
         bodyStart: matchedElement4.getBoundingClientRect().left,
@@ -350,7 +346,8 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
         transition: getComputedStyle(sidebar).transitionDuration,
       };
     });
-    expect(Math.abs(sample.actual - sample.requested)).toBeLessThan(1);
+    const expectedWidth = Math.min(480, initialWidth + delta);
+    expect(Math.abs(sample.actual - expectedWidth)).toBeLessThan(1);
     expect(Math.abs(sample.inner - sample.actual)).toBeLessThan(1);
     expect(sample.edge).toBe(sample.bodyStart);
     expect(sample.transition).toBe('0s');

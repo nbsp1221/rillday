@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
+import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { z } from 'zod';
+import { seedWorkspace } from '../support/storage';
 
 const manifestSchema = z.object({
   name: z.string(),
@@ -75,7 +77,18 @@ for (const [theme, label, chrome] of [
   test(`${theme} appearance updates browser chrome without changing low-priority semantics`, async ({
     page,
   }) => {
-    await page.goto('/?demo=1');
+    await page.goto('/');
+    await expect(page.locator('#quick-add-input')).toBeVisible();
+    const data = emptyWorkspace();
+    const task = createTaskRecord('Low priority', data, {
+      priority: 1,
+      notes: '[Review link](https://example.com)',
+      notesFormat: 'markdown',
+    });
+    assert(task !== null, 'Missing priority fixture');
+    data.tasks.push(task);
+    await seedWorkspace(page, data);
+    await page.reload();
     await page.getByRole('button', { name: 'Settings and backup', exact: true }).click();
     await page
       .locator('.settings-nav')
@@ -84,13 +97,31 @@ for (const [theme, label, chrome] of [
     await page.getByRole('radio', { name: label, exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', chrome);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByText('Low priority', { exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Review link', exact: true })).toBeVisible();
     const colors = await page.evaluate(() => {
-      const style = getComputedStyle(document.documentElement);
+      const context = document.createElement('canvas').getContext('2d');
+      const link = document.querySelector('.td-markdown a');
+      const priority = document.querySelector('.task-check.p1');
+      if (context === null || link === null || priority === null) {
+        throw new Error('Missing semantic color fixture');
+      }
+
+      const pixel = (color: string) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return Array.from(context.getImageData(0, 0, 1, 1).data);
+      };
+
       return {
-        link: style.getPropertyValue('--link').trim(),
-        priority: style.getPropertyValue('--priority-low').trim(),
+        link: pixel(getComputedStyle(link).color),
+        priority: pixel(getComputedStyle(priority, '::before').borderColor),
       };
     });
-    expect(colors.link).not.toBe(colors.priority);
+    expect(colors.link[3]).toBe(255);
+    expect(colors.priority[3]).toBe(255);
+    expect(colors.link).not.toEqual(colors.priority);
   });
 }

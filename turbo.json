@@ -48,7 +48,13 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/LICENSE"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*",
+        "$TURBO_ROOT$/LICENSE",
+        "$TURBO_ROOT$/packages/ui/LICENSE.pretendard",
+        "$TURBO_ROOT$/packages/ui/LICENSE.shadcn"
+      ],
       "outputs": ["dist/**"]
     },
     "@repo/desktop#build": {
@@ -69,7 +75,8 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/LICENSE",
-        "$TURBO_ROOT$/packages/ui/LICENSE.pretendard"
+        "$TURBO_ROOT$/packages/ui/LICENSE.pretendard",
+        "$TURBO_ROOT$/packages/ui/LICENSE.shadcn"
       ],
       "outputs": ["dist/**"]
     },
@@ -120,6 +127,17 @@
       "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
       "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_KEEP_ARTIFACTS"],
       "cache": false
+    },
+    "test:browser": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": [
+        "PLAYWRIGHT_*",
+        "RILLDAY_TEST_OUTPUT",
+        "RILLDAY_TEST_BROWSER",
+        "RILLDAY_TEST_COMPONENT_PORT"
+      ]
     },
     "@repo/web#test:e2e": {
       "dependsOn": ["build", "transit"],

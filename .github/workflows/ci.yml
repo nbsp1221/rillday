@@ -14,78 +14,181 @@ permissions:
   contents: read
 
 jobs:
-  checks:
+  static-checks:
+    name: Typecheck, lint and format
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-
       - name: Verify generated brand assets
         run: |
           pnpm build:icons
           git diff --exit-code -- apps/web/public apps/desktop/public apps/demo/public apps/landing/public
       - run: pnpm check
-      - run: pnpm test
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check
       - run: pnpm release:check
 
-  browser:
-    needs: checks
+  build:
+    name: Build browser applications
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @repo/web exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v5
-        if: failure()
+      - uses: actions/cache@v5
         with:
-          name: browser-test-results
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Build browser applications once
+        run: pnpm exec turbo run build --filter=@repo/web --filter=@repo/demo --filter=@repo/landing
+      - uses: actions/upload-artifact@v7
+        with:
+          name: browser-builds
+          path: |
+            apps/web/dist/
+            apps/demo/dist/
+            apps/landing/dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  test-node:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v1
+        with:
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v5
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-${{ github.job }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - run: pnpm test
+
+  test-web:
+    name: UI and E2E tests (web, ${{ matrix.shard }}/3)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Trust the mounted checkout in the browser container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: pnpm/setup@v1
+        with:
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: browser-builds
+          path: apps
+      - name: Verify web application
+        run: pnpm --filter @repo/web test:e2e --shard=${{ matrix.shard }}/3
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-test-results-${{ matrix.shard }}
           path: |
             apps/web/.cache/tests/web-e2e/
+          retention-days: 7
+
+  test-browser:
+    name: Component, demo and landing tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    steps:
+      - uses: actions/checkout@v6
+      - name: Trust the mounted checkout in the browser container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: pnpm/setup@v1
+        with:
+          cache: true
+          install: false
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: browser-builds
+          path: apps
+      - run: pnpm --filter @repo/frontend test:browser
+      - run: pnpm --filter @repo/desktop test:browser
+      - run: pnpm --filter @repo/demo test:e2e
+      - run: pnpm --filter @repo/landing test:e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: component-and-site-test-results
+          path: |
+            packages/frontend/.cache/tests/components/
+            apps/desktop/.cache/tests/desktop-components/
             apps/demo/.cache/tests/demo/
             apps/landing/.cache/tests/landing/
           retention-days: 7
 
-  desktop:
-    needs: checks
+  test-native:
+    name: OS tests (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - platform: Linux
+            runner: ubuntu-latest
+          - platform: Windows
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/desktop/src-tauri
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 24
-          cache: pnpm
+          cache: true
+          install: false
       - name: Install workspace dependencies
         working-directory: .
         run: pnpm install --frozen-lockfile
       - name: Generate application icon
-        if: runner.os == 'Linux'
         working-directory: .
         run: pnpm build:icons
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
-          components: rustfmt
+          workspaces: apps/desktop/src-tauri
+          shared-key: desktop
+          cache-on-failure: true
       - name: Install native prerequisites
         if: runner.os == 'Linux'
         run: |
@@ -93,81 +196,29 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
             librsvg2-dev libayatana-appindicator3-dev
-      - run: cargo fmt --check
-      - run: cargo check --locked
-        if: runner.os == 'Linux'
       - name: Install native license generator
         if: runner.os == 'Windows'
-        run: cargo install cargo-about --version 0.9.2 --locked --features cli
-      - name: Build Windows application
+        uses: taiki-e/install-action@86f7a0ffb25f40114606501a311ebcfaf882ea32 # v2.88.0
+        with:
+          tool: cargo-about@0.9.2
+          fallback: none
+      - run: cargo test --locked -j 2
+      - name: Build isolated Windows test application
         if: runner.os == 'Windows'
         working-directory: .
-        run: pnpm build:desktop
-      - name: Prepare Windows release files
+        run: pnpm --filter @repo/desktop exec tauri build --no-bundle --config tests/native/tauri.test.conf.json
+      - name: Verify native Windows storage and synchronization
         if: runner.os == 'Windows'
         working-directory: .
-        shell: pwsh
-        run: |
-          $installers = @(Get-ChildItem apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe)
-          if ($installers.Count -ne 1) { throw 'Expected one Windows installer' }
-          node scripts/prepare-release.mjs $installers[0].FullName release
-      - name: Verify Windows installation and reinstallation
-        if: runner.os == 'Windows'
-        working-directory: .
-        shell: pwsh
-        run: ./apps/desktop/tests/installer.ps1 -Installer release/Rillday_windows_x64_setup.exe -OutputDirectory apps/desktop/.cache/tests/installer
-      - uses: actions/upload-artifact@v5
-        if: runner.os == 'Windows'
-        with:
-          name: rillday-windows
-          path: release/
-          retention-days: 7
-
-  container:
-    needs: checks
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - architecture: amd64
-            runner: ubuntu-24.04
-          - architecture: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/build-push-action@v7
-        with:
-          context: .
-          platforms: linux/${{ matrix.architecture }}
-          load: true
-          tags: rillday:verification
-          cache-from: type=gha,scope=rillday-${{ matrix.architecture }}
-          cache-to: type=gha,mode=max,scope=rillday-${{ matrix.architecture }}
-      - name: Verify installation, update and recovery
-        run: node apps/server/tests/container/smoke.mjs rillday:verification
-      - uses: actions/upload-artifact@v5
-        if: failure()
-        with:
-          name: container-results-${{ matrix.architecture }}
-          path: apps/server/.cache/tests/
-          retention-days: 7
-
-  web:
-    needs: [checks, browser, desktop, container]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Require checks, browser and desktop verification
         env:
-          CHECKS_RESULT: ${{ needs.checks.result }}
-          BROWSER_RESULT: ${{ needs.browser.result }}
-          DESKTOP_RESULT: ${{ needs.desktop.result }}
-          CONTAINER_RESULT: ${{ needs.container.result }}
-        run: test "$CHECKS_RESULT" = success && test "$BROWSER_RESULT" = success && test "$DESKTOP_RESULT" = success && test "$CONTAINER_RESULT" = success
+          RILLDAY_NATIVE_EXECUTABLE: ${{ github.workspace }}\apps\desktop\src-tauri\target\release\rillday-desktop.exe
+          RILLDAY_NATIVE_DESKTOP: runner
+        run: pnpm --filter @repo/desktop test:native
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        with:
+          name: windows-test-results
+          path: |
+            apps/desktop/.cache/tests/native-report/
+            apps/desktop/.cache/tests/native-results/
+          retention-days: 7

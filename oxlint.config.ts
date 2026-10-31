@@ -4,8 +4,10 @@ export const vitestFiles = [
   'packages/domain/**/*.{test,spec}.{ts,tsx}',
   'packages/frontend/**/*.{test,spec}.{ts,tsx}',
   'apps/server/**/*.{test,spec}.{ts,tsx}',
-  'apps/desktop/**/*.{test,spec}.{ts,tsx}',
+  'apps/desktop/src/**/*.{test,spec}.{ts,tsx}',
 ];
+
+export const vitestIgnores = ['**/*.browser.test.{ts,tsx}'];
 
 const config = retn0(
   { react: true, vitest: true },
@@ -43,11 +45,12 @@ const config = retn0(
 for (const entry of config.overrides ?? []) {
   if (entry.plugins?.includes('vitest')) {
     entry.files = vitestFiles;
+    entry.excludeFiles = vitestIgnores;
     entry.rules = {
       ...entry.rules,
       'vitest/no-standalone-expect': [
         'error',
-        { additionalTestBlockFunctions: ['test', 'preferenceTest'] },
+        { additionalTestBlockFunctions: ['test', 'test.for', 'preferenceTest'] },
       ],
     };
   }

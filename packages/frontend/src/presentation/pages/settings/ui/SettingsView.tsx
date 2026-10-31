@@ -22,11 +22,18 @@ import {
   Upload,
 } from 'lucide-react';
 import { type ReactNode, useId } from 'react';
-import type { ConnectionPort, HostRuntime, WorkspacePort, WorkspaceProfile } from '#application';
+import type {
+  ConnectionPort,
+  DataDirectoryPort,
+  WorkspacePort,
+  WorkspaceProfile,
+} from '#application';
+import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useAppPreferences } from '#entities/preferences';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceChoice, type WorkspaceChoiceProps } from '#shared/ui/WorkspaceChoice';
 import { WorkspaceHeader } from '../../../shared/ui/WorkspaceHeader';
+import { DataDirectorySettings } from './DataDirectorySettings';
 import { SyncSettings } from './SyncSettings';
 
 function SettingsRow({
@@ -95,6 +102,8 @@ interface SettingsViewProps {
   close: () => void;
   runtime: HostRuntime;
   version: string;
+  dataDirectory?: DataDirectoryPort;
+  suggestedServerUrl?: string;
 }
 
 function GeneralSettings() {
@@ -312,30 +321,36 @@ function DataSettings({
   renameProfile,
   exportData,
   importData,
+  dataDirectory,
 }: Pick<
   SettingsViewProps,
-  'account' | 'profileName' | 'renameProfile' | 'exportData' | 'importData'
+  'account' | 'profileName' | 'renameProfile' | 'exportData' | 'importData' | 'dataDirectory'
 >) {
   const { t } = useI18n();
 
   return (
     <div className="settings-section flex flex-col gap-0 [&_>_p:not(.settings-description)]:[margin:12px_0_0] [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [&_>_h2]:text-base [&_>_h2]:font-semibold [&_>_h2]:[margin:0_0_12px] [&_>_h2]:leading-(--text-base--line-height) [&_>_h3]:text-base [&_>_h3]:font-semibold [&_>_h3]:[margin:0_0_12px] [&_>_h3]:leading-(--text-base--line-height)">
-      <SettingsRow label={t(account.server ? 'profiles.displayName' : 'profiles.workspaceName')}>
-        <Input
-          key={profileName}
-          aria-label={t(account.server ? 'profiles.displayName' : 'profiles.workspaceName')}
-          maxLength={60}
-          defaultValue={profileName}
-          onBlur={(e) => {
-            if (e.target.value.trim()) {
-              renameProfile(e.target.value.trim());
-            } else {
-              e.target.value = profileName;
+      {!account.server && (
+        <SettingsRow label={t('profiles.workspaceName')}>
+          <Input
+            key={profileName}
+            aria-label={t('profiles.workspaceName')}
+            maxLength={60}
+            defaultValue={profileName}
+            onBlur={(e) => {
+              if (e.target.value.trim()) {
+                renameProfile(e.target.value.trim());
+              } else {
+                e.target.value = profileName;
+              }
+            }}
+            className={
+              'h-(--control-height) border-control-border bg-card px-[9px] py-[7px] text-sm'
             }
-          }}
-          className={'h-(--control-height) border-control-border bg-card px-[9px] py-[7px] text-sm'}
-        />
-      </SettingsRow>
+          />
+        </SettingsRow>
+      )}
+      {dataDirectory && <DataDirectorySettings directory={dataDirectory} />}
       <div className="settings-card p-(--layout-card-inset) rounded-lg bg-surface-inset [&_>_h3]:[margin:0_0_8px] [&_>_h3]:text-base [&_>_h3]:font-medium [&_>_h3]:leading-(--text-base--line-height) [&_>_p:not(.settings-description)]:m-0 [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [.settings-card_+_&]:mt-(--layout-section-gap) [.settings-row_+_&]:mt-(--layout-section-gap) [.sync-settings_&]:m-0">
         <h3>{t('backup.title')}</h3>
         <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
@@ -417,6 +432,8 @@ export function SettingsView({
   close,
   runtime,
   version,
+  dataDirectory,
+  suggestedServerUrl,
 }: SettingsViewProps) {
   const { t } = useI18n();
   const { preferenceSaveState, retryPreferences } = useAppPreferences();
@@ -500,48 +517,53 @@ export function SettingsView({
       </aside>
       <div
         key={section}
-        className="settings-content flex-1 min-w-0 min-h-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover p-(--layout-page-inset) [&_>_*]:max-w-190 [@media(max-width:_899px)]:p-(--layout-page-inset-compact)"
+        className="settings-content flex-1 min-w-0 min-h-0 overflow-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover p-(--layout-page-inset) [@media(max-width:_899px)]:p-(--layout-page-inset-compact)"
       >
-        <header className="settings-header min-h-(--layout-navigation-height) flex flex-col justify-center mb-(--layout-section-gap) [&_h1]:m-0 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:[letter-spacing:-0.35px] [&_h1]:leading-(--text-base--line-height) [&_h2]:m-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:[letter-spacing:-0.35px] [&_h2]:leading-(--text-base--line-height) [&_p]:[margin:4px_0_0] [&_p]:text-xs [&_p]:leading-(--text-xs--line-height) [&_p]:text-muted-foreground">
-          <h2>{sections.find((item) => item.id === section)?.label}</h2>
-          {preferenceSaveState === 'error' && (
-            <div
-              className="settings-status text-muted-foreground text-sm leading-(--text-sm--line-height) py-4 px-0"
-              role="alert"
-            >
-              <Button
-                variant="ghost"
-                onClick={retryPreferences}
-                className={'h-(--control-height) text-muted-foreground hover:text-foreground'}
+        <div className="w-full max-w-190">
+          <header className="settings-header min-h-(--layout-navigation-height) flex flex-col justify-center mb-(--layout-section-gap) [&_h1]:m-0 [&_h1]:text-base [&_h1]:font-semibold [&_h1]:[letter-spacing:-0.35px] [&_h1]:leading-(--text-base--line-height) [&_h2]:m-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:[letter-spacing:-0.35px] [&_h2]:leading-(--text-base--line-height) [&_p]:[margin:4px_0_0] [&_p]:text-xs [&_p]:leading-(--text-xs--line-height) [&_p]:text-muted-foreground">
+            <h2>{sections.find((item) => item.id === section)?.label}</h2>
+            {preferenceSaveState === 'error' && (
+              <div
+                className="settings-status text-muted-foreground text-sm leading-(--text-sm--line-height) py-4 px-0"
+                role="alert"
               >
-                {t('settings.saveFailed')}
-              </Button>
-            </div>
+                <Button
+                  variant="ghost"
+                  onClick={retryPreferences}
+                  className={'h-(--control-height) text-muted-foreground hover:text-foreground'}
+                >
+                  {t('settings.saveFailed')}
+                </Button>
+              </div>
+            )}
+          </header>
+          {section === 'sync' && connection.serverConnectionEnabled !== false && (
+            <SyncSettings
+              key={account.id}
+              connection={connection}
+              workspace={workspace}
+              account={account}
+              runtime={runtime}
+              suggestedServerUrl={suggestedServerUrl}
+            />
           )}
-        </header>
-        {section === 'sync' && connection.serverConnectionEnabled !== false && (
-          <SyncSettings
-            key={connection.getSnapshot().serverUrl + connection.getSnapshot().emailHint}
-            connection={connection}
-            workspace={workspace}
-            account={account}
-          />
-        )}
-        {section === 'general' && <GeneralSettings />}
-        {section === 'appearance' && <AppearanceSettings />}
-        {section === 'tasks' && <TaskSettings />}
-        {section === 'calendar' && <CalendarSettings />}
-        {section === 'data' && (
-          <DataSettings
-            account={account}
-            profileName={profileName}
-            renameProfile={renameProfile}
-            exportData={exportData}
-            importData={importData}
-          />
-        )}
-        {section === 'shortcuts' && <ShortcutSettings />}
-        {section === 'about' && <AboutSettings runtime={runtime} version={version} />}
+          {section === 'general' && <GeneralSettings />}
+          {section === 'appearance' && <AppearanceSettings />}
+          {section === 'tasks' && <TaskSettings />}
+          {section === 'calendar' && <CalendarSettings />}
+          {section === 'data' && (
+            <DataSettings
+              account={account}
+              profileName={profileName}
+              renameProfile={renameProfile}
+              exportData={exportData}
+              importData={importData}
+              dataDirectory={dataDirectory}
+            />
+          )}
+          {section === 'shortcuts' && <ShortcutSettings />}
+          {section === 'about' && <AboutSettings runtime={runtime} version={version} />}
+        </div>
       </div>
     </section>
   );

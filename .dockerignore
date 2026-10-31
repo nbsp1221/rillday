@@ -2,6 +2,8 @@
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
+!patches/
+!patches/*.patch
 !LICENSE
 !apps/
 !apps/server/
@@ -48,3 +50,9 @@
 **/*.p12
 **/storageState*.json
 **/auth.json
+**/tests
+**/e2e
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

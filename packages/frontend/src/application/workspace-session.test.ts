@@ -185,10 +185,11 @@ test('a task tree and its shared label publish and undo as one complete user act
       type: 'task.create',
       tasks: tasks.map((task) => ({ ...task, tags: ['Shared'] })),
     });
-    await session.flush();
     expect(
       session.getSnapshot().data.tasks.filter((task) => task.parentId === parent.id),
     ).toHaveLength(2);
+    expect(observations.length).toBeGreaterThan(0);
+    await session.flush();
     expect(
       observations.every(
         (entry) =>
@@ -197,6 +198,12 @@ test('a task tree and its shared label publish and undo as one complete user act
     ).toBe(true);
     observations.length = 0;
     session.undo();
+    expect(session.getSnapshot()).toMatchObject({
+      data: { tasks: [], labels: [] },
+      canUndo: false,
+      canRedo: true,
+    });
+    expect(observations.length).toBeGreaterThan(0);
     await session.flush();
     expect(
       observations.every(
@@ -205,6 +212,13 @@ test('a task tree and its shared label publish and undo as one complete user act
     ).toBe(true);
     observations.length = 0;
     session.redo();
+    expect(session.getSnapshot()).toMatchObject({
+      data: { labels: ['Shared'] },
+      canUndo: true,
+      canRedo: false,
+    });
+    expect(session.getSnapshot().data.tasks).toHaveLength(3);
+    expect(observations.length).toBeGreaterThan(0);
     await session.flush();
     expect(
       observations.every(

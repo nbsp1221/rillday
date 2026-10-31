@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -77,14 +77,16 @@ test('icon and color preview together; choosing stays local until Save and survi
   const reading = page.getByRole('radio', { name: 'Reading', exact: true });
   await reading.click();
   await expect(trigger).toContainText('Reading');
-  await expect(page.locator('.habit-identity-preview svg')).toHaveClass(/lucide-book-open/);
   await page.getByLabel('Color', { exact: true }).click();
   await page.getByRole('radio', { name: 'Purple #A398D0', exact: true }).click();
-  expect(
-    await page
-      .locator('.habit-identity-preview')
-      .evaluate((el) => el.style.getPropertyValue('--habit-color')),
-  ).toBe('#a398d0');
+  await expect(page.locator('.habit-identity-preview svg')).toHaveCSS(
+    'stroke',
+    'rgb(163, 152, 208)',
+  );
+  await expect(page.locator('.habit-identity-preview .habit-symbol')).toHaveScreenshot(
+    'reading-preview.png',
+    { animations: 'disabled' },
+  );
   expect((await storedWorkspace(page)).habits).toEqual(before.habits);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByLabel('Edit habit', { exact: true }).click();
@@ -95,8 +97,10 @@ test('icon and color preview together; choosing stays local until Save and survi
   await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.icon).toBe('book-open');
   await page.reload();
   await page.getByLabel('Habit', { exact: true }).click();
-  await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
-    /lucide-book-open/,
+  expect((await storedWorkspace(page)).habits[0]?.icon).toBe('book-open');
+  await expect(page.locator('.habit-name').first().locator('.habit-symbol')).toHaveScreenshot(
+    'reading-row.png',
+    { animations: 'disabled' },
   );
 });
 

@@ -14,11 +14,7 @@ import type {
 } from '../application/ports.ts';
 import { HttpFault } from '../../../http-errors.ts';
 import { initializeAccountConstraints } from '../../../initialize-database.ts';
-import {
-  maximumPasswordLength,
-  minimumPasswordLength,
-  normalizeAccountName,
-} from '../domain/policies.ts';
+import { maximumPasswordLength, minimumPasswordLength } from '../domain/policies.ts';
 import { findSessionToken } from './sqlite.ts';
 
 export async function createAuthentication(
@@ -53,17 +49,13 @@ export async function createAuthentication(
       user: {
         create: {
           before: (user: { email: string; name: string }) => {
-            const name = normalizeAccountName(user.name);
-            if (!name) {
-              throw new APIError('BAD_REQUEST', { message: 'Name is required' });
-            }
             const role = creationRole.getStore();
             if (!role) {
               throw new APIError('FORBIDDEN', {
                 message: 'Registration is managed by the server administrator',
               });
             }
-            return Promise.resolve({ data: { ...user, name, role } });
+            return Promise.resolve({ data: { ...user, role } });
           },
         },
       },
@@ -92,7 +84,10 @@ export async function createAuthentication(
   const registration: AccountRegistration = {
     async create(input, role) {
       const result = await passwordJob(() =>
-        creationRole.run(role, () => auth.api.signUpEmail({ body: input })),
+        creationRole.run(role, () =>
+          // Better Auth requires a display name; account identity is the email.
+          auth.api.signUpEmail({ body: { ...input, name: input.email.toLowerCase() } }),
+        ),
       );
       return { user: result.user };
     },

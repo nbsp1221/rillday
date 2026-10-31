@@ -158,12 +158,6 @@ export function WorkspaceColorField({
                       }}
                       aria-label={t('colors.hex')}
                       className="color-hex-row flex items-center gap-2"
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                          event.preventDefault();
-                          setView('closed');
-                        }
-                      }}
                     >
                       <ColorSwatch className="color-preview size-7 shrink-0 rounded-sm shadow-[inset_0_0_0_1px_var(--control-border)]" />
                       <span aria-hidden="true" className="text-xs text-muted-foreground">
@@ -174,6 +168,12 @@ export function WorkspaceColorField({
                         autoComplete="off"
                         spellCheck={false}
                         className="h-(--control-height) min-w-0 flex-1 rounded-md border border-control-border bg-card px-2 text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-ring"
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                            event.preventDefault();
+                            setView('closed');
+                          }
+                        }}
                       />
                     </ColorField>
                   </div>

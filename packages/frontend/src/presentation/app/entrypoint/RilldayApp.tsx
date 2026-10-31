@@ -14,12 +14,13 @@ import {
 import invariant from 'tiny-invariant';
 import type {
   ConnectionPort,
-  HostRuntime,
+  DataDirectoryPort,
   ProductArea,
   TaskList,
   WorkspacePort,
   WorkspaceProfile,
 } from '#application';
+import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useAppPreferences } from '#entities/preferences';
 import { type CaptureDraft, WorkspaceContext, type WorkspaceController } from '#entities/workspace';
 import { LabelEditor } from '#features/manage-labels';
@@ -59,6 +60,8 @@ export interface RilldayAppProps {
   runtime: HostRuntime;
   version: string;
   navigationFooter?: ReactNode;
+  dataDirectory?: DataDirectoryPort;
+  suggestedServerUrl?: string;
   renameAccount: (id: string, name: string) => void | Promise<void>;
 }
 
@@ -296,14 +299,14 @@ function WorkspaceApp(props: RilldayAppProps) {
                   workspace={props.workspace}
                   account={activeAccount}
                   profileName={activeAccount.name}
-                  renameProfile={(name) => {
-                    void renameProfile(name);
-                  }}
+                  renameProfile={(name) => void renameProfile(name)}
                   exportData={backup.exportData}
                   importData={backup.openImport}
                   close={() => setDialog(null)}
                   runtime={props.runtime}
                   version={props.version}
+                  dataDirectory={props.dataDirectory}
+                  suggestedServerUrl={props.suggestedServerUrl}
                 />
               ) : (
                 <WorkspaceArea

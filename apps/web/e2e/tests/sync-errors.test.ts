@@ -5,7 +5,7 @@ import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
 import { reloadSavedPage } from '../support/navigation';
 
-const fixture = createServerFixture(createServer);
+const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));
 
 test('sync failures explain the cause, preserve unsent tasks and recover without signing in again', async ({
   page,
@@ -24,9 +24,7 @@ test('sync failures explain the cause, preserve unsent tasks and recover without
     await page.goto(server.origin);
     await page.getByLabel('Settings and backup', { exact: true }).click();
     await page.locator('.settings-nav').getByRole('button', { name: 'Sync', exact: true }).click();
-    await page.getByLabel('Server URL', { exact: true }).fill(server.origin);
-    await page.getByRole('button', { name: 'Check connection', exact: true }).click();
-    await page.getByLabel('Name', { exact: true }).fill('Sync recovery');
+    await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0);
     await page.getByLabel('Email', { exact: true }).fill('recovery@rillday.test');
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Create administrator', exact: true }).click();

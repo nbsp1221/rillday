@@ -65,6 +65,35 @@ test('filesystem password recovery revokes every session and preserves account r
   ).rejects.toThrow();
 });
 
+test('email-only creation accepts long addresses and preserves existing account identity and work', async ({
+  server: f,
+}) => {
+  const email = 'a'.repeat(60) + '@' + 'b'.repeat(45) + '.example.test';
+  const admin = await setupAdministrator(f.origin, email);
+  expect((await admin.request('/v1/account')).body).toMatchObject({ user: { email, name: email } });
+  const document = documentFixture({ title: 'Preserved account work' });
+  await admin.request('/v1/connection', { documentId: document.documentId });
+  f.store
+    .prepare('UPDATE workspace_documents SET data=? WHERE owner=?')
+    .run(document.binary, admin.owner);
+  f.store.prepare('UPDATE user SET name=? WHERE id=?').run('Existing display name', admin.owner);
+  const signedIn = await signin(admin);
+  expect(signedIn.owner).toBe(admin.owner);
+  expect((await signedIn.request('/v1/account')).body).toMatchObject({
+    user: { email, name: 'Existing display name' },
+  });
+  expect(
+    f.store
+      .prepare<{ data: Uint8Array }>('SELECT data FROM workspace_documents WHERE owner=?')
+      .get(admin.owner)?.data,
+  ).toEqual(Buffer.from(document.binary));
+  const ordinaryEmail = 'c'.repeat(60) + '@' + 'd'.repeat(45) + '.example.test';
+  const ordinary = await createUser(signedIn, ordinaryEmail);
+  expect((await ordinary.request('/v1/account')).body).toMatchObject({
+    user: { email: ordinaryEmail, name: ordinaryEmail, role: 'user' },
+  });
+});
+
 test('first administrator is atomic; public registration and role escalation stay closed', async ({
   server: f,
 }) => {
@@ -72,7 +101,7 @@ test('first administrator is atomic; public registration and role escalation sta
     fetch(f.origin + '/v1/setup', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'origin': f.origin },
-      body: JSON.stringify({ email, name: 'Administrator', password }),
+      body: JSON.stringify({ email, password }),
     });
 
   const responses = await Promise.all([setup('first@rillday.test'), setup('second@rillday.test')]);
@@ -197,18 +226,17 @@ test('account HTTP contracts retain cookies, public projections, origin checks a
     .passthrough()
     .parse(await account.json());
   expect(current).toStrictEqual({
-    user: { id: admin.owner, email: admin.email, name: 'Synthetic account', role: 'admin' },
+    user: { id: admin.owner, email: admin.email, name: admin.email, role: 'admin' },
     expiresAt: current.expiresAt,
   });
   expect((await fetch(f.origin + '/v1/admin/users')).status).toBe(401);
-  expect(
-    (await admin.request('/v1/admin/users', { email: 'bad', name: '', password: 'short' })).status,
-  ).toBe(400);
+  expect((await admin.request('/v1/admin/users', { email: 'bad', password: 'short' })).status).toBe(
+    400,
+  );
   expect(
     (
       await admin.request('/v1/admin/users', {
         email: 'extra@example.test',
-        name: 'Extra',
         password,
         role: 'admin',
       })
@@ -258,7 +286,7 @@ test('SQLite still rejects a second administrator and an eleventh account outsid
   expect(listing.users).toContainEqual({
     id: 'user-1',
     email: 'user-1@example.test',
-    name: 'Synthetic account',
+    name: admin.email,
     role: 'user',
     banned: 1,
   });
@@ -266,7 +294,6 @@ test('SQLite still rejects a second administrator and an eleventh account outsid
     (
       await admin.request('/v1/admin/users', {
         email: 'overflow@example.test',
-        name: 'Overflow',
         password,
       })
     ).status,

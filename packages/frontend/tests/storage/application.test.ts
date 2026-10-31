@@ -27,7 +27,6 @@ const test = base.extend('host', ({}, { onCleanup }) => {
         transport: createFetchServerTransport(),
         storage,
         coordination: { withWorkspaceLock },
-        runtime: 'web',
         credentials: createBrowserCredentialSession(),
       });
       resources.defer(() => application.dispose());
@@ -70,20 +69,24 @@ test('the injected local application saves and reopens without a server or DOM',
 test('host exit receives a device-preference storage failure', async ({ host }) => {
   const { application, storage } = host.create();
   await application.initialize();
-  using writes = vi
-    .spyOn(storage.preferences, 'flushPreferences')
-    .mockRejectedValueOnce(new DOMException('Synthetic quota failure', 'QuotaExceededError'));
-  await expect(application.flushForExit()).rejects.toMatchObject({ name: 'QuotaExceededError' });
+  const failure = new DOMException('Synthetic quota failure', 'QuotaExceededError');
+  using writes = vi.spyOn(storage.preferences, 'flushPreferences').mockRejectedValueOnce(failure);
+  await expect(application.flushForExit()).rejects.toBe(failure);
   expect(writes).toHaveBeenCalledOnce();
 });
 
-test('the application uses the injected storage and propagates its startup failure', async ({
-  host,
-}) => {
-  const { application, storage } = host.create();
-  using open = vi.spyOn(storage.documents, 'create').mockImplementation(() => {
-    throw new Error('Synthetic storage unavailable');
-  });
-  await expect(application.initialize()).rejects.toThrow('Synthetic storage unavailable');
-  expect(open).toHaveBeenCalledOnce();
-});
+test.for(['throw', 'reject'] as const)(
+  'the application propagates a storage startup %s without replacing its cause',
+  async (mode, { host }) => {
+    const { application, storage } = host.create();
+    const failure = new Error('Synthetic storage unavailable');
+    using open = vi.spyOn(storage.documents, 'create').mockImplementation(() => {
+      if (mode === 'throw') {
+        throw failure;
+      }
+      return Promise.reject(failure);
+    });
+    await expect(application.initialize()).rejects.toBe(failure);
+    expect(open).toHaveBeenCalledOnce();
+  },
+);

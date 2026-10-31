@@ -45,7 +45,6 @@ test('ten private accounts own isolated native documents; an eleventh account is
   const overflow = await administrator.request('/v1/admin/users', {
     email: 'eleventh@rillday.test',
     password,
-    name: 'Synthetic overflow',
   });
   expect(overflow.status).toBe(409);
   expect(server.store.prepare<{ n: number }>('SELECT count(*) n FROM user').get()?.n).toBe(10);

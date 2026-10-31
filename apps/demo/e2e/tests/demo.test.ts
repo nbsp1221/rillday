@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import type axe from 'axe-core';
-import { type Locator, type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import { visibleBox } from '@repo/test-support';
+import { settleAnimations } from '@repo/test-support/browser-appearance';
 
 declare global {
   interface Window {
@@ -21,12 +22,6 @@ async function ready(page: Page) {
 async function resetExamples(page: Page) {
   await page.getByRole('button', { name: 'Demo', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Reset examples', exact: true }).click();
-}
-
-async function settleAnimations(overlay: Locator) {
-  await overlay.evaluate((element) =>
-    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
-  );
 }
 
 async function add(page: Page, title: string) {

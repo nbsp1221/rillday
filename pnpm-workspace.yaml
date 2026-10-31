@@ -15,3 +15,8 @@ minimumReleaseAgeExclude:
   - '@retn0/eslint-config@2.2.0'
   - '@retn0/oxfmt-config@0.3.0'
   - '@retn0/oxlint-config@3.0.0'
+  - react-resizable-panels@4.15.1
+
+patchedDependencies:
+  '@base-ui/react@1.9.0': patches/@base-ui__react@1.9.0.patch
+  react-resizable-panels@4.15.1: patches/react-resizable-panels@4.15.1.patch
