@@ -16,6 +16,8 @@ Download the [Windows x64 ZIP](https://github.com/nbsp1221/rillday/releases/late
 
 WebView2 must already be installed. If it is missing, install the [Microsoft WebView2 Evergreen Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) or use the Rillday installer, which handles the runtime check. Local work remains available offline after the runtime is installed.
 
+Rillday runs one instance per Windows user. Opening either download again shows the running window; it does not open another process using the same data folder.
+
 Unsigned releases can trigger a Windows SmartScreen warning. Obtain installers only from the [official repository's releases](https://github.com/nbsp1221/rillday/releases). Release assets include `SHA256SUMS`; compare the installer's hash with its entry using PowerShell:
 
 ```powershell

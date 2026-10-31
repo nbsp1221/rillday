@@ -1,11 +1,12 @@
+import { Form } from '@base-ui/react/form';
 import { Button } from '@repo/ui/components/button';
-import { Field, FieldDescription, FieldError, FieldLabel } from '@repo/ui/components/field';
 import { Input } from '@repo/ui/components/input';
 import { LoaderCircle } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort } from '#application';
 import { useI18n } from '#shared/i18n';
-import { type SyncActionRunner, preventComposition, validateForm } from '../model/sync-forms';
+import { WorkspaceField as Field } from '#shared/ui/WorkspaceField';
+import { type SyncActionRunner, preventComposition } from '../model/sync-forms';
 import { SyncLoginForm } from './SyncLoginForm';
 
 export function SyncServerForm({
@@ -21,10 +22,8 @@ export function SyncServerForm({
 }) {
   const { t } = useI18n();
   const state = useSyncExternalStore(connection.subscribe, connection.getSnapshot);
-  const id = useId();
   const [url, setUrl] = useState(state.serverUrl || suggestedServerUrl || '');
   const [editing, setEditing] = useState(!(state.serverUrl || suggestedServerUrl));
-  const [error, setError] = useState('');
   const checkingRef = useRef(false);
   const check = useCallback(
     async (target: string) => {
@@ -76,40 +75,23 @@ export function SyncServerForm({
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {showEditor ? (
-        <form
+        <Form
           className="sync-server-form flex min-w-0 flex-col gap-6"
           aria-label={t('connection.connectServer')}
           aria-busy={state.busy}
-          noValidate
           onKeyDown={preventComposition}
           onSubmit={(event) => {
             event.preventDefault();
-            if (validateForm(event.currentTarget)) {
-              void check(url);
-            }
+            void check(url);
           }}
         >
-          <Field className="gap-2" data-invalid={Boolean(error)}>
-            <FieldLabel htmlFor={id}>{t('connection.serverUrl')}</FieldLabel>
+          <Field.Root name="server-url" disabled={state.busy}>
+            <Field.Label>{t('connection.serverUrl')}</Field.Label>
             <Input
-              id={id}
               name="server-url"
               type="url"
               value={url}
-              onChange={(event) => {
-                setError('');
-                setUrl(event.target.value);
-              }}
-              onInvalid={(event) => {
-                event.preventDefault();
-                setError(
-                  t(
-                    event.currentTarget.validity.valueMissing
-                      ? 'auth.requiredField'
-                      : 'connection.invalidAddress',
-                  ),
-                );
-              }}
+              onChange={(event) => setUrl(event.target.value)}
               placeholder="https://rillday.example.com"
               inputMode="url"
               autoCapitalize="none"
@@ -118,15 +100,12 @@ export function SyncServerForm({
               autoComplete="url"
               required
               disabled={state.busy}
-              aria-invalid={Boolean(error)}
-              aria-describedby={`${id}-help${error ? ` ${id}-error` : ''}`}
               className="h-(--control-height) pointer-coarse:h-11"
             />
-            <FieldDescription id={`${id}-help`}>
-              {t('connection.serverAddressHelp')}
-            </FieldDescription>
-            {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
-          </Field>
+            <Field.Description>{t('connection.serverAddressHelp')}</Field.Description>
+            <Field.Error match="valueMissing">{t('auth.requiredField')}</Field.Error>
+            <Field.Error match="typeMismatch">{t('connection.invalidAddress')}</Field.Error>
+          </Field.Root>
           <Button
             type="submit"
             disabled={state.busy}
@@ -135,7 +114,7 @@ export function SyncServerForm({
             {state.busy && <LoaderCircle className="animate-spin" />}
             {t(state.busy ? 'connection.checking' : 'connection.check')}
           </Button>
-        </form>
+        </Form>
       ) : state.server ? (
         <>
           <div className="sync-server-summary flex min-w-0 items-start justify-between gap-3 border-b pb-4">

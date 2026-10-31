@@ -202,9 +202,7 @@ export function HabitDetail({
               })}
             </p>
           )}
-          {habit.frequency === 'weekly-total' && (
-            <HabitWeeklyProgress habit={habit} date={logDate} />
-          )}
+          <HabitWeeklyProgress habit={habit} date={logDate} />
           <HabitCheckin
             key={`${habit.id}:${logDate}`}
             habit={habitAt(habit, logDate)}

@@ -1,5 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 
 async function openWeek(page: Page, theme: string) {
   await page.clock.install({ time: new Date('2026-10-29T03:00:00Z') });

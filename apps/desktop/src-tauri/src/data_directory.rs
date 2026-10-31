@@ -266,6 +266,10 @@ mod tests {
         let reopened = DataDirectory::load_from(configuration, data.clone()).unwrap();
         assert_eq!(reopened.path, dunce::canonicalize(data).unwrap());
         assert!(!unrelated.join(MARKER).exists());
+        assert_eq!(
+            fs::read_to_string(unrelated.join("private-file")).unwrap(),
+            "keep"
+        );
     }
 
     #[test]

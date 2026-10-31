@@ -173,12 +173,10 @@ export function HabitWeekTable({
                       {scheduleLabel(habit)}
                       {habit.kind === 'quantity' ? ` · ${habit.goal} ${habit.unit}` : ''}
                     </small>
-                    {habit.frequency === 'weekly-total' && (
-                      <HabitWeeklyProgress
-                        habit={habit}
-                        date={dates.includes(habitToday(habit)) ? habitToday(habit) : dates[6]}
-                      />
-                    )}
+                    <HabitWeeklyProgress
+                      habit={habit}
+                      date={dates.includes(habitToday(habit)) ? habitToday(habit) : dates[6]}
+                    />
                   </span>
                 </span>
               </Button>

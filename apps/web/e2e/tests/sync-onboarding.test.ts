@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { type Page, expect, test } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password, setupAdministrator } from '@repo/test-support';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { reloadSavedPage } from '../support/navigation';
 
 const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));
@@ -75,16 +75,29 @@ test('first setup validates accessible email and password fields before sending 
     await submit.click();
     await expect(email).toBeFocused();
     await expect(email).toHaveAttribute('aria-invalid', 'true');
+    await expect(email).toHaveAttribute('aria-describedby', /\S+/);
+    expect(
+      await email.evaluate((input) =>
+        input
+          .getAttribute('aria-describedby')
+          ?.split(/\s+/)
+          .some((id) => document.getElementById(id)?.textContent?.includes('Enter a value.')),
+      ),
+    ).toBe(true);
     await email.fill('not-an-email');
+    await expect(email).toHaveAttribute('aria-invalid', 'true');
+    await expect(form.getByText('Enter a valid email address.', { exact: true })).toBeVisible();
     await secret.fill('short');
     await submit.click();
     await expect(email).toBeFocused();
     await email.fill('setup@rillday.test');
+    await expect(email).not.toHaveAttribute('aria-invalid', 'true');
     await submit.click();
     await expect(secret).toBeFocused();
     await expect(secret).toHaveAttribute('aria-invalid', 'true');
     expect(requests).toEqual([]);
     await secret.fill(password);
+    await expect(secret).not.toHaveAttribute('aria-invalid', 'true');
     const reveal = form.getByRole('button', { name: 'Show password', exact: true });
     await reveal.focus();
     await page.keyboard.press('Space');
@@ -95,6 +108,13 @@ test('first setup validates accessible email and password fields before sending 
     );
     await page.keyboard.press('Space');
     await expect(secret).toHaveAttribute('type', 'password');
+    await secret.dispatchEvent('keydown', {
+      key: 'Enter',
+      keyCode: 229,
+      isComposing: true,
+      bubbles: true,
+    });
+    expect(requests).toEqual([]);
     await secret.press('Enter');
     await expect(page.locator('.rail-sync')).toHaveAttribute('data-sync-state', 'synced');
     expect(requests).toEqual([{ email: 'setup@rillday.test', password }]);
@@ -119,7 +139,15 @@ test('changing the confirmed server clears credentials and binds creation only t
     await page.getByRole('button', { name: 'Change server', exact: true }).click();
     await expect(page.locator('.sync-login-form')).toHaveCount(0);
     const address = page.getByLabel('Server URL', { exact: true });
+    await address.fill('not-a-url');
+    await page.getByRole('button', { name: 'Check connection', exact: true }).click();
+    await expect(address).toBeFocused();
+    await expect(address).toHaveAttribute('aria-invalid', 'true');
+    await expect(
+      page.getByText('Enter a complete HTTP or HTTPS address.', { exact: true }),
+    ).toBeVisible();
     await address.fill(second.origin);
+    await expect(address).not.toHaveAttribute('aria-invalid', 'true');
     await page.getByRole('button', { name: 'Check connection', exact: true }).click();
     await expect(page.locator('.sync-server-summary')).toContainText(second.origin);
     await expect(page.getByLabel('Password', { exact: true })).toHaveValue('');
@@ -176,12 +204,34 @@ test('sign-in preserves local work until consent and administrator forms use the
     await add.getByRole('button', { name: 'Create account', exact: true }).click();
     await expect(page.locator('.sync-users')).toContainText('member@rillday.test');
     await expect(add.getByLabel('Password', { exact: true })).toHaveValue('');
+    await expect(add.locator('[aria-invalid=true]')).toHaveCount(0);
+    await expect(add.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: 'Change password', exact: true }).click();
     const change = page.getByRole('form', { name: 'Change password', exact: true });
     await change.getByLabel('Current password', { exact: true }).fill(password);
     await change.getByLabel('New password', { exact: true }).fill(password + '-changed');
     await change.getByRole('button', { name: 'Change password', exact: true }).click();
     await expect(change.getByLabel('Current password', { exact: true })).toHaveValue('');
+
+    const authenticate = (secret: string) =>
+      fetch(server.origin + '/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'origin': server.origin },
+        body: JSON.stringify({ email: 'admin@rillday.test', password: secret }),
+      });
+
+    const oldCredentials = await authenticate(password);
+    expect(oldCredentials.status).toBe(401);
+    await oldCredentials.body?.cancel();
+    const newCredentials = await authenticate(password + '-changed');
+    expect(newCredentials.status).toBe(200);
+    const signedIn: unknown = await newCredentials.json();
+    expect(signedIn).toMatchObject({
+      user: { email: 'admin@rillday.test' },
+      token: expect.any(String),
+    });
+    await expect(change.locator('[aria-invalid=true]')).toHaveCount(0);
+    await expect(change.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: 'Back', exact: true }).click();
     await expect(page.locator('.task-title')).toHaveText('Local task before connecting');
     await reloadSavedPage(page);

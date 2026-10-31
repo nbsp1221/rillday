@@ -128,6 +128,17 @@
       "passThroughEnv": ["RILLDAY_TEST_OUTPUT", "RILLDAY_TEST_KEEP_ARTIFACTS"],
       "cache": false
     },
+    "test:browser": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "env": ["TZ", "LANG", "LC_ALL", "CI", "NODE_OPTIONS"],
+      "passThroughEnv": [
+        "PLAYWRIGHT_*",
+        "RILLDAY_TEST_OUTPUT",
+        "RILLDAY_TEST_BROWSER",
+        "RILLDAY_TEST_COMPONENT_PORT"
+      ]
+    },
     "@repo/web#test:e2e": {
       "dependsOn": ["build", "transit"],
       "cache": false,

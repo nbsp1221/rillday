@@ -260,6 +260,7 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
   await ready(page);
   const handle = (await page.locator('.sidebar-resize').boundingBox())!;
   const start = handle.x + handle.width / 2;
+  const initialWidth = (await page.locator('.task-sidebar').boundingBox())!.width;
   await page.mouse.move(start, 420);
   const sidebarLine = await page.locator('.sidebar-resize').evaluate((el) => {
     const style = getComputedStyle(el);
@@ -285,11 +286,9 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
       await new Promise((resolve) => {
         requestAnimationFrame(resolve);
       });
-      const app = document.querySelector<HTMLElement>('.rillday-app')!;
       const sidebar = document.querySelector('.task-sidebar')!;
       const actual = sidebar.getBoundingClientRect();
       return {
-        requested: parseFloat(app.style.getPropertyValue('--sidebar-width')),
         actual: actual.width,
         inner: sidebar.querySelector('.collapsible-sidebar-inner')!.getBoundingClientRect().width,
         bodyStart: document.querySelector('.workspace-layout')!.getBoundingClientRect().left,
@@ -297,7 +296,8 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
         transition: getComputedStyle(sidebar).transitionDuration,
       };
     });
-    expect(Math.abs(sample.actual - sample.requested)).toBeLessThan(1);
+    const expectedWidth = Math.min(480, initialWidth + delta);
+    expect(Math.abs(sample.actual - expectedWidth)).toBeLessThan(1);
     expect(Math.abs(sample.inner - sample.actual)).toBeLessThan(1);
     expect(sample.edge).toBe(sample.bodyStart);
     expect(sample.transition).toBe('0s');

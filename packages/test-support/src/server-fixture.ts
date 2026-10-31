@@ -2,11 +2,11 @@ import { createServer as createNetServer } from 'node:net';
 import { resolve } from 'node:path';
 import { removeOwned, tempDir } from './artifacts.ts';
 
-export async function freePort() {
+export async function freePort(port = 0) {
   const socket = createNetServer();
   await new Promise<void>((resolve, reject) => {
     socket.once('error', reject);
-    socket.listen(0, '127.0.0.1', resolve);
+    socket.listen(port, '127.0.0.1', resolve);
   });
   const address = socket.address();
   if (!address || typeof address === 'string') {

@@ -1,10 +1,11 @@
+import { Form } from '@base-ui/react/form';
 import { Button } from '@repo/ui/components/button';
 import { FieldGroup } from '@repo/ui/components/field';
 import { LoaderCircle } from 'lucide-react';
 import { type FormEvent, useState, useSyncExternalStore } from 'react';
 import type { ConnectionPort } from '#application';
 import { useI18n } from '#shared/i18n';
-import { type SyncActionRunner, preventComposition, validateForm } from '../model/sync-forms';
+import { type SyncActionRunner, preventComposition } from '../model/sync-forms';
 import { AccountFields } from './AccountFields';
 
 export function SyncLoginForm({
@@ -21,9 +22,6 @@ export function SyncLoginForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validateForm(event.currentTarget)) {
-      return;
-    }
     void run(async () => {
       const details = { email, password };
 
@@ -42,9 +40,8 @@ export function SyncLoginForm({
   }
 
   return (
-    <form
+    <Form
       className="sync-login-form flex min-w-0 flex-col gap-6"
-      noValidate
       aria-label={t(state.server.setupRequired ? 'auth.setupAdministrator' : 'auth.serverSignIn')}
       onKeyDown={preventComposition}
       onSubmit={submit}
@@ -83,6 +80,6 @@ export function SyncLoginForm({
           {t(state.server.setupRequired ? 'auth.createAdministrator' : 'auth.signIn')}
         </Button>
       </div>
-    </form>
+    </Form>
   );
 }

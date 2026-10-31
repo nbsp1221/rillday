@@ -1,0 +1,32 @@
+diff --git a/floating-ui-react/components/FloatingFocusManager.js b/floating-ui-react/components/FloatingFocusManager.js
+index 2f60849ba336ae72a6aab12053538f7813e7a498..cdd40daa1b8cb7dc65e68f6fba6c9eea830d0910 100644
+--- a/floating-ui-react/components/FloatingFocusManager.js
++++ b/floating-ui-react/components/FloatingFocusManager.js
+@@ -284,7 +284,10 @@ function FloatingFocusManager(props) {
+               // but because it's removed in the same tick, focus is lost instead.
+               // Re-focusing asynchronously (next frame) wins that race.
+               restoreFocusFrame.request(() => {
+-                floatingFocusElement.focus();
++                const currentActiveElement = (0, _dom.activeElement)(doc);
++                if (currentActiveElement == null || currentActiveElement === doc.body) {
++                  floatingFocusElement.focus();
++                }
+               });
+               return;
+             }
+diff --git a/floating-ui-react/components/FloatingFocusManager.mjs b/floating-ui-react/components/FloatingFocusManager.mjs
+index 5d2a271a88933fbf3b7c09504eb85a17a4b085d2..6230a090e97b10372ba242a1cec8fdba53b9fa5c 100644
+--- a/floating-ui-react/components/FloatingFocusManager.mjs
++++ b/floating-ui-react/components/FloatingFocusManager.mjs
+@@ -278,7 +278,10 @@ export function FloatingFocusManager(props) {
+               // but because it's removed in the same tick, focus is lost instead.
+               // Re-focusing asynchronously (next frame) wins that race.
+               restoreFocusFrame.request(() => {
+-                floatingFocusElement.focus();
++                const currentActiveElement = activeElement(doc);
++                if (currentActiveElement == null || currentActiveElement === doc.body) {
++                  floatingFocusElement.focus();
++                }
+               });
+               return;
+             }

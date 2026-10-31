@@ -1,6 +1,6 @@
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
-import { appearance } from '../support/appearance';
+import { appearance } from '@repo/test-support/browser-appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -74,9 +74,8 @@ test('appearance changes remain a local draft until Save, and cancellation prese
   await expect(trigger.locator('svg')).toHaveClass(/lucide-book-open/);
   await page.getByRole('tab', { name: 'Color', exact: true }).click();
   await page.getByRole('radio', { name: 'Purple #A398D0', exact: true }).click();
-  expect(await trigger.evaluate((el) => el.style.getPropertyValue('--habit-color'))).toBe(
-    '#a398d0',
-  );
+  await expect(trigger.locator('svg')).toHaveCSS('stroke', 'rgb(163, 152, 208)');
+  await expect(trigger).toHaveScreenshot('reading-preview.png', { animations: 'disabled' });
   expect((await storedWorkspace(page)).habits).toEqual(before.habits);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -91,6 +90,10 @@ test('appearance changes remain a local draft until Save, and cancellation prese
   await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
     /lucide-book-open/,
+  );
+  await expect(page.locator('.habit-name').first().locator('.habit-symbol')).toHaveScreenshot(
+    'reading-row.png',
+    { animations: 'disabled' },
   );
 });
 

@@ -1,6 +1,80 @@
 import { expect, test } from '@playwright/test';
+import { emptyWorkspace } from '@repo/frontend/application';
 import { reloadSavedPage } from '../support/navigation';
-import { storedWorkspace } from '../support/storage';
+import { seedWorkspace, storedWorkspace } from '../support/storage';
+
+test('historical weekly totals remain visible after switching to a daily goal', async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date('2026-10-29T03:00:00Z') });
+  await page.goto('/');
+  await expect(page.locator('.rillday-app')).toBeVisible();
+  const weekly = {
+    from: '2026-10-18',
+    kind: 'quantity' as const,
+    goal: 60,
+    unit: 'min',
+    step: 10,
+    frequency: 'weekly-total' as const,
+    weekdays: [],
+    weeklyTarget: 7,
+    intervalDays: 1,
+  };
+  const daily = { ...weekly, from: '2026-10-25', frequency: 'daily' as const, goal: 20, step: 5 };
+  const data = emptyWorkspace();
+  data.habits.push({
+    ...daily,
+    id: 'changing-reading',
+    name: 'Reading history',
+    color: '#a398d0',
+    icon: 'book-open',
+    reminderTime: null,
+    archived: false,
+    createdAt: '2026-10-18T00:00:00.000Z',
+    startDate: '2026-10-18',
+    zone: 'Asia/Seoul',
+    rules: [weekly, daily],
+  });
+  data.habitLogs.push(
+    ...[
+      { date: '2026-10-19', value: 30 },
+      { date: '2026-10-21', value: 40 },
+    ].map((log) => ({
+      ...log,
+      habitId: 'changing-reading',
+      skipped: false,
+      note: '',
+      goal: 60,
+      unit: 'min',
+      ruleFrom: weekly.from,
+    })),
+  );
+  await seedWorkspace(page, data);
+  await page.reload();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
+  const row = page.locator('.habit-row').filter({ hasText: 'Reading history' });
+  await expect(row.getByRole('progressbar')).toHaveCount(0);
+  await page.getByLabel('Previous week', { exact: true }).click();
+  await expect(row.getByRole('progressbar')).toHaveAttribute(
+    'aria-valuetext',
+    '70 / 60 min this week',
+  );
+  await row.locator('.habit-name').click();
+  const details = page.locator('.habit-detail');
+  await expect(details.getByRole('progressbar')).toHaveCount(0);
+  await details
+    .locator('.habit-history-grid')
+    .getByRole('button', { name: /^Mon, Oct 19/ })
+    .click();
+  await expect(details.getByRole('progressbar')).toHaveAttribute(
+    'aria-valuetext',
+    '70 / 60 min this week',
+  );
+  await expect(
+    details.getByRole('textbox', { name: 'Daily total (min)', exact: true }),
+  ).toHaveValue('30');
+  await expect(details.locator('.habit-finish')).toHaveCount(0);
+});
 
 test('weekly quantity targets, optional grouping and quick records share the real offline workspace', async ({
   page,

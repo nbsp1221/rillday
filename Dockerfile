@@ -6,11 +6,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && corepack enable \
     && corepack prepare pnpm@11.25.0 --activate
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
+RUN pnpm fetch
 COPY . .
-RUN --mount=type=cache,id=rillday-pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --store-dir=/pnpm/store \
+RUN pnpm install --offline --frozen-lockfile --package-import-method=copy \
     && pnpm --filter @repo/web exec vite build \
-    && pnpm --filter @repo/server --config.inject-workspace-packages=true deploy --prod /out
+    && pnpm --filter @repo/server --config.inject-workspace-packages=true --config.package-import-method=copy deploy --prod /out
 
 FROM node:24.22.1-bookworm-slim AS runtime
 ENV NODE_ENV=production \

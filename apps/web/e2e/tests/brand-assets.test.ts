@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import { seedWorkspace } from '../support/storage';
 
 interface BrandManifest {
   name: string;
@@ -68,7 +70,18 @@ for (const [theme, label, chrome] of [
   test(`${theme} appearance updates browser chrome without changing low-priority semantics`, async ({
     page,
   }) => {
-    await page.goto('/?demo=1');
+    await page.goto('/');
+    await expect(page.locator('#quick-add-input')).toBeVisible();
+    const data = emptyWorkspace();
+    data.tasks.push(
+      createTaskRecord('Low priority', data, {
+        priority: 1,
+        notes: '[Review link](https://example.com)',
+        notesFormat: 'markdown',
+      })!,
+    );
+    await seedWorkspace(page, data);
+    await page.reload();
     await page.getByRole('button', { name: 'Settings and backup', exact: true }).click();
     await page
       .locator('.settings-nav')
@@ -77,13 +90,28 @@ for (const [theme, label, chrome] of [
     await page.getByRole('radio', { name: label, exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', chrome);
+    await page.getByRole('button', { name: 'Back', exact: true }).click();
+    await page.getByText('Low priority', { exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Review link', exact: true })).toBeVisible();
     const colors = await page.evaluate(() => {
-      const style = getComputedStyle(document.documentElement);
+      const context = document.createElement('canvas').getContext('2d')!;
+
+      const pixel = (color: string) => {
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return Array.from(context.getImageData(0, 0, 1, 1).data);
+      };
+
       return {
-        link: style.getPropertyValue('--link').trim(),
-        priority: style.getPropertyValue('--priority-low').trim(),
+        link: pixel(getComputedStyle(document.querySelector('.td-markdown a')!).color),
+        priority: pixel(
+          getComputedStyle(document.querySelector('.task-check.p1')!, '::before').borderColor,
+        ),
       };
     });
-    expect(colors.link).not.toBe(colors.priority);
+    expect(colors.link[3]).toBe(255);
+    expect(colors.priority[3]).toBe(255);
+    expect(colors.link).not.toEqual(colors.priority);
   });
 }
