@@ -46,8 +46,9 @@ export function HabitsView() {
     const media = matchMedia('(max-width:899px)');
 
     const change = () => {
-      if (detailRef.current?.contains(document.activeElement)) {
-        (document.activeElement as HTMLElement).blur();
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && detailRef.current?.contains(active)) {
+        active.blur();
       }
 
       setNarrow(media.matches);
@@ -59,8 +60,9 @@ export function HabitsView() {
   }, []);
 
   function closeDetail() {
-    if (detailRef.current?.contains(document.activeElement)) {
-      (document.activeElement as HTMLElement).blur();
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && detailRef.current?.contains(active)) {
+      active.blur();
     }
 
     setSelectedId(null);
@@ -73,7 +75,8 @@ export function HabitsView() {
   }
 
   function openDetail(habit: Habit, date: string) {
-    openerRef.current = document.activeElement as HTMLElement;
+    openerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelectedId(habit.id);
     setLogDate(date);
     setStatsMonth(date);
@@ -182,7 +185,10 @@ export function HabitsView() {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
-            }).formatRange(Temporal.PlainDate.from(dates[0]), Temporal.PlainDate.from(dates[6]))}
+            }).formatRange(
+              Temporal.PlainDate.from(weekStart(anchor)),
+              Temporal.PlainDate.from(addDays(weekStart(anchor), 6)),
+            )}
           </span>
           <div className="habit-week-controls flex items-center gap-1 shrink-0 [@media(max-width:_380px)]:self-end">
             <ButtonPrimitive

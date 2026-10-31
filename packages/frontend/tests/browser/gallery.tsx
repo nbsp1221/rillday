@@ -10,7 +10,10 @@ const stories: Record<string, ComponentType<{ locale?: string }>> = {
   NumericChoices,
   Colors,
 };
-const container = document.getElementById('root')!;
+const container = document.getElementById('root');
+if (container === null) {
+  throw new Error('Missing component gallery root');
+}
 let root = createRoot(container);
 
 Object.assign(window, {

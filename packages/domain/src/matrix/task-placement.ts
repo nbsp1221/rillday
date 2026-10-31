@@ -47,8 +47,12 @@ export function placeTaskInQuadrant(
   const { urgent } = classifyMatrixTask(task, today);
   return {
     priority: quadrant.important
-      ? (Math.max(2, task.priority) as Priority)
-      : (Math.min(1, task.priority) as Priority),
+      ? task.priority < 2
+        ? 2
+        : task.priority
+      : task.priority > 1
+        ? 1
+        : task.priority,
     date: quadrant.urgent ? (urgent ? task.date : today) : urgent ? addDays(today, 2) : task.date,
   };
 }

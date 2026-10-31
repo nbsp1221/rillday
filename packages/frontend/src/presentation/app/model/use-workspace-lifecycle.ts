@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 import type {
   ConnectionPort,
   TaskCaptureDraft,
@@ -11,20 +11,20 @@ export function useWorkspaceLifecycle({
   connection,
   saveState,
   connectionError,
-  captureDraftsRef,
+  captureDrafts,
 }: {
   workspace: WorkspacePort;
   connection: ConnectionPort;
   saveState: WorkspaceSnapshot['saveState'];
   connectionError: string;
-  captureDraftsRef: RefObject<Map<string, TaskCaptureDraft>>;
+  captureDrafts: Map<string, TaskCaptureDraft>;
 }) {
   useEffect(
     () =>
       connection.registerDrafts(() =>
-        [...captureDraftsRef.current].filter(([, draft]) => Boolean(draft.text.trim())),
+        [...captureDrafts].filter(([, draft]) => Boolean(draft.text.trim())),
       ),
-    [connection, captureDraftsRef],
+    [connection, captureDrafts],
   );
 
   useEffect(() => {

@@ -130,7 +130,9 @@ test('persisted rule history follows the selected week start for rates and strea
   expect(habitStats(h, logs, '2026-10-18', 1)).toEqual({ total: 2, week: 2, rate: 100, streak: 1 });
   expect(habitStats(h, logs, '2026-10-18', 0)).toEqual({ total: 2, week: 1, rate: 50, streak: 0 });
 
-  h.rules.push({ ...h.rules[0], from: '2026-10-18', weeklyTarget: 3 });
+  const firstRule = h.rules[0];
+  expect.assert(firstRule !== undefined);
+  h.rules.push({ ...firstRule, from: '2026-10-18', weeklyTarget: 3 });
   expect(habitStats(h, logs, '2026-10-18', 1)).toEqual({ total: 2, week: 2, rate: 67, streak: 0 });
 });
 

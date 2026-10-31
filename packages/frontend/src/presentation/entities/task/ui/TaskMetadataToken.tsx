@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { cn } from 'cn';
 import { List, Tag } from 'lucide-react';
 
@@ -21,7 +20,7 @@ export function TaskMetadataToken({
       )}
       data-colored={color ? true : undefined}
       title={name}
-      style={{ '--metadata-color': color } as CSSProperties}
+      style={{ '--metadata-color': color }}
     >
       {kind === 'list' ? (
         <List className="size-3 inline-block shrink-0 align-middle" />

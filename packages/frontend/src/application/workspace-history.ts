@@ -47,7 +47,7 @@ export class WorkspaceHistory<T extends object> {
       if (!value || typeof value !== 'object') {
         return undefined;
       }
-      value = (value as Record<string | number, unknown>)[key];
+      value = Reflect.get(value, key);
     }
     return value;
   }

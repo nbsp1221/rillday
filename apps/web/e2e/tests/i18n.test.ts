@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
 import { chooseChoice } from '../support/choice';
@@ -60,8 +61,10 @@ for (const language of ['ko', 'en'] as const) {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^(돌아가기|Back)$/, exact: true }).click();
 
+    assert(areas[1] !== undefined, 'Missing areas[1]');
     await page.getByLabel(areas[1], { exact: true }).click();
     await expect(page.locator('.quadrant-header h2')).toHaveText(quadrants);
+    assert(areas[0] !== undefined, 'Missing areas[0]');
     await page.getByLabel(areas[0], { exact: true }).click();
 
     for (const [index, priority] of priorities.entries()) {
@@ -131,6 +134,7 @@ for (const language of ['ko', 'en'] as const) {
         .nth(index + 1)
         .click();
       const trigger = page.locator('.date-repeat-trigger');
+      assert(labels[index] !== undefined, 'Missing labels[index]');
       await expect(trigger.locator('.schedule-value')).toHaveText(labels[index]);
 
       for (const count of [1, 2, 365]) {
@@ -164,6 +168,7 @@ for (const language of ['ko', 'en'] as const) {
             : language === 'ko'
               ? `${count}${unit}마다${frequency === 'weekdays' ? ' (평일)' : ''}`
               : `Every ${count} ${unit}${frequency === 'weekdays' ? ' (weekdays)' : ''}`;
+
         await expect(trigger.locator('.schedule-value')).toHaveText(summary);
         await expect(trigger).toHaveAttribute('data-frequency', frequency);
         await expect(trigger).toHaveAttribute('data-interval', String(count));
@@ -204,8 +209,11 @@ test('only system quadrant names translate, including names identical to a defau
   await expect(page.locator('#quick-add-input')).toBeVisible();
   const data = emptyWorkspace();
   const literal = '👩‍💻 {{count}} $t(common.save)';
+  assert(data.quadrants[1] !== undefined, 'Missing data.quadrants[1]');
   data.quadrants[1].name = 'common.save';
+  assert(data.quadrants[2] !== undefined, 'Missing data.quadrants[2]');
   data.quadrants[2].name = 'Urgent, not important';
+  assert(data.quadrants[3] !== undefined, 'Missing data.quadrants[3]');
   data.quadrants[3].name = literal;
   await seedWorkspace(page, data);
   await page.reload();
@@ -232,7 +240,7 @@ test('only system quadrant names translate, including names identical to a defau
   await page.getByLabel('매트릭스 설정', { exact: true }).click();
   await page.getByLabel('plan 이름', { exact: true }).fill('dates.today');
   await expect
-    .poll(async () => (await storedWorkspace(page)).quadrants[1].name)
+    .poll(async () => (await storedWorkspace(page)).quadrants[1]?.name)
     .toBe('dates.today');
   await page.keyboard.press('Escape');
   await changeLanguage(page, 'en');
@@ -244,7 +252,7 @@ test('only system quadrant names translate, including names identical to a defau
 
   await page.getByLabel('Matrix settings', { exact: true }).click();
   await page.getByLabel('plan name', { exact: true }).fill('');
-  await expect.poll(async () => (await storedWorkspace(page)).quadrants[1].name).toBeNull();
+  await expect.poll(async () => (await storedWorkspace(page)).quadrants[1]?.name).toBeNull();
   await page.keyboard.press('Escape');
   await expect(page.locator('.quadrant-header h2').nth(1)).toHaveText('Important, not urgent');
 });
@@ -272,7 +280,7 @@ test('language changes work offline without loading translations or losing captu
   await expect(page.locator('#quick-add-input')).toHaveValue(draft);
   await page.locator('#quick-add-input').press('Enter');
   await expect(page.locator('.task-title')).toHaveText(draft);
-  await expect.poll(async () => (await storedWorkspace(page)).tasks[0].title).toBe(draft);
+  await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.title).toBe(draft);
   expect(translationRequests).toEqual([]);
   await page.reload();
   await expect(page.getByLabel('Settings and backup', { exact: true })).toBeVisible();
@@ -464,14 +472,19 @@ test.describe('English browser locale', () => {
           const store = transaction.objectStore('metadata');
           const request = store.getAll();
           request.onsuccess = () => {
-            const entries = request.result as Record<string, unknown>[];
-            const entry = entries.find(
-              (value) =>
-                value.workspaceId === activeId &&
-                value.reason === 'connection' &&
-                typeof value.source === 'string',
-            );
-            if (!entry || typeof entry.id !== 'string') {
+            const entries: unknown[] = request.result;
+            const entry = entries
+              .filter((value) => typeof value === 'object' && value !== null)
+              .find(
+                (value) =>
+                  'workspaceId' in value &&
+                  value.workspaceId === activeId &&
+                  'reason' in value &&
+                  value.reason === 'connection' &&
+                  'source' in value &&
+                  typeof value.source === 'string',
+              );
+            if (!entry || !('id' in entry) || typeof entry.id !== 'string') {
               transaction.abort();
               return;
             }

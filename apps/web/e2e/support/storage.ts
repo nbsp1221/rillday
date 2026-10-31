@@ -106,7 +106,11 @@ export async function seedArchive(page: Page, source: string) {
     profile && !profile.server && !isDemo(page),
     'Seeding requires a non-demo guest workspace',
   );
-  const archive = JSON.parse(source) as { document: string };
+  const archive: unknown = JSON.parse(source);
+  assert(
+    isRecord(archive) && typeof archive.document === 'string',
+    'Expected a workspace document archive',
+  );
   await page.evaluate(
     async ({ encoded, id }) => {
       const binary = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));

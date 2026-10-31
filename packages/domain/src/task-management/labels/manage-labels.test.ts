@@ -16,10 +16,12 @@ test('label edits preserve order, reject duplicate normalized names and remove t
   editLabel(workspace, id, { name: 'Read' });
   expect(workspace.labels[id]).toMatchObject({ name: 'Read', rank: 'b0' });
   expect(() => editLabel(workspace, id, { name: 'Work' })).toThrow('constraint_violation');
+  const entry = Object.keys(workspace.lists)[0];
+  expect.assert(entry !== undefined);
   const task = createTask(
     workspace,
     context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Read', { labelIds: [id] }),
+    taskData(entry, 'Read', { labelIds: [id] }),
     context,
   );
   removeLabel(workspace, id, context);
@@ -33,6 +35,7 @@ test('list removal protects Inbox and preserves the task hierarchy while moving 
   const listId = context.newId();
   createList(workspace, listId, { name: 'Work', color: '#123456', rank: 'b0' });
   editList(workspace, listId, { name: 'Projects' });
+  expect.assert(workspace.lists[listId] !== undefined);
   expect(workspace.lists[listId].rank).toBe('b0');
   const root = createTask(workspace, context.newId(), taskData(listId, 'Parent'), context);
   const child = createTask(
@@ -41,6 +44,7 @@ test('list removal protects Inbox and preserves the task hierarchy while moving 
     taskData(listId, 'Child', { location: { listId, parentId: root.id } }),
     context,
   );
+  expect.assert(inboxId !== undefined);
   expect(() => removeList(workspace, inboxId, context)).toThrow('inbox_protected');
   removeList(workspace, listId, context);
   expect([root.location.listId, child.location.listId]).toEqual([inboxId, inboxId]);

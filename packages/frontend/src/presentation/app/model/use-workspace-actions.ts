@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { WorkspaceController } from '#entities/workspace';
 import {
   type AppPreferences,
@@ -15,20 +15,20 @@ export function useWorkspaceActions({
   preferences,
   notify,
   selectTask,
-  historyRevisionRef,
+  onAccepted,
 }: {
   workspace: WorkspacePort;
   preferences: AppPreferences;
   notify: WorkspaceController['notify'];
   selectTask: WorkspaceController['selectTask'];
-  historyRevisionRef: RefObject<number>;
+  onAccepted: () => void;
 }) {
   const { t } = useI18n();
   const runOperation = useCallback(
     (operation: () => void, onError?: (error: unknown) => void) => {
       try {
         operation();
-        historyRevisionRef.current++;
+        onAccepted();
         return true;
       } catch (error) {
         if (onError) {
@@ -41,7 +41,7 @@ export function useWorkspaceActions({
         return false;
       }
     },
-    [notify, historyRevisionRef, t],
+    [notify, onAccepted, t],
   );
   const apply = useCallback(
     (intents: WorkspaceIntent | WorkspaceIntent[]) => runOperation(() => workspace.apply(intents)),
@@ -53,14 +53,12 @@ export function useWorkspaceActions({
       withTaskActionFeedback(
         createTaskActions(workspace, () => preferences),
         {
-          accepted: () => {
-            historyRevisionRef.current++;
-          },
+          accepted: onAccepted,
           notify,
         },
         t,
       ),
-    [workspace, preferences, historyRevisionRef, notify, t],
+    [workspace, preferences, onAccepted, notify, t],
   );
 
   const deleteTask = useCallback(

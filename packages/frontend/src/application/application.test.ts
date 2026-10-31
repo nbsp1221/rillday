@@ -59,21 +59,29 @@ test('account discovery uses the injected transport without accessing ambient HT
 test('the actual application starts offline, saves edits and restores an archive by switching the registry document', async () => {
   const { app, accounts } = await fixture();
   const workspace = app.getSnapshot().workspace;
-  const task = createTaskRecord('Saved locally', workspace.getSnapshot().data)!;
+  const task = createTaskRecord('Saved locally', workspace.getSnapshot().data);
+  expect.assert(task !== null);
   workspace.apply({ type: 'task.create', tasks: [task] });
   await app.flushForExit();
   const archive = await workspace.exportData();
-  const original = (await accounts.readRegistry()).accounts[0].contentId;
+  const account = (await accounts.readRegistry()).accounts[0];
+  expect.assert(account !== undefined);
+  const original = account.contentId;
   workspace.apply({ type: 'task.update', id: task.id, patch: { title: 'Later edit' } });
   await workspace.flush();
   await workspace.importData(archive);
   const next = app.getSnapshot().workspace;
   expect(next).not.toBe(workspace);
-  expect(next.getSnapshot().data.tasks[0].title).toBe('Saved locally');
+  expect(next.getSnapshot().data.tasks[0]?.title).toBe('Saved locally');
   expect(next.getSnapshot().syncState).toBe('local');
-  expect((await accounts.readRegistry()).accounts[0].contentId).not.toBe(original);
+  const account1 = (await accounts.readRegistry()).accounts[0];
+  expect.assert(account1 !== undefined);
+  expect(account1.contentId).not.toBe(original);
   expect(next.getSnapshot().canUndo).toBe(false);
-  const [backup] = app.connection.getSnapshot().backups!;
+  const backups = app.connection.getSnapshot().backups;
+  expect.assert(backups !== undefined);
+  const [backup] = backups;
+  expect.assert(backup !== undefined);
   expect(backup.contents.tasks).toBe(1);
   expect(
     next.inspectImport(await app.connection.downloadConnectionBackup(backup.id)),
@@ -83,7 +91,8 @@ test('the actual application starts offline, saves edits and restores an archive
 test('local applications exchange edits, protect tab-owned Undo and retain conflict alternatives across restart', async () => {
   const first = await fixture();
   const left = first.app.getSnapshot().workspace;
-  const task = createTaskRecord('Shared local task', left.getSnapshot().data)!;
+  const task = createTaskRecord('Shared local task', left.getSnapshot().data);
+  expect.assert(task !== null);
   left.apply({ type: 'task.create', tasks: [task] });
   await left.flush();
   const second = await fixture({ reset: false });
@@ -91,7 +100,7 @@ test('local applications exchange edits, protect tab-owned Undo and retain confl
   expect(right.getSnapshot().canUndo).toBe(false);
   right.apply({ type: 'task.update', id: task.id, patch: { notes: 'Other tab' } });
   await right.flush();
-  await expect.poll(() => left.getSnapshot().data.tasks[0].notes).toBe('Other tab');
+  await expect.poll(() => left.getSnapshot().data.tasks[0]?.notes).toBe('Other tab');
   expect(() => left.undo()).toThrow('undo_target_changed');
   left.apply({ type: 'task.update', id: task.id, patch: { title: 'Disjoint title' } });
   right.apply({ type: 'task.update', id: task.id, patch: { notes: 'Disjoint note' } });
@@ -99,8 +108,8 @@ test('local applications exchange edits, protect tab-owned Undo and retain confl
   await expect
     .poll(() =>
       [left, right].map((session) => ({
-        title: session.getSnapshot().data.tasks[0].title,
-        notes: session.getSnapshot().data.tasks[0].notes,
+        title: session.getSnapshot().data.tasks[0]?.title,
+        notes: session.getSnapshot().data.tasks[0]?.notes,
       })),
     )
     .toEqual([
@@ -119,10 +128,12 @@ test('local applications exchange edits, protect tab-owned Undo and retain confl
   const restarted = await fixture({ reset: false });
   const current = restarted.app.getSnapshot().workspace;
   const issue = current.getSnapshot().issues[0];
+  expect.assert(issue !== undefined);
   expect(issue.choices).toHaveLength(2);
   const choice = issue.choices.find((choice) =>
     JSON.stringify(choice.description).includes('Second alternative'),
-  )!;
+  );
+  expect.assert(choice !== undefined);
   expect(choice).toBeDefined();
   await current.resolve(issue.id, choice.id);
   await current.flush();
@@ -136,15 +147,18 @@ test('local applications exchange edits, protect tab-owned Undo and retain confl
 test('a failed archive switch preserves the active session and its durable edits', async () => {
   const { app, accounts } = await fixture();
   const workspace = app.getSnapshot().workspace;
-  const task = createTaskRecord('Keep this', workspace.getSnapshot().data)!;
+  const task = createTaskRecord('Keep this', workspace.getSnapshot().data);
+  expect.assert(task !== null);
   workspace.apply({ type: 'task.create', tasks: [task] });
   const archive = await workspace.exportData();
-  const original = (await accounts.readRegistry()).accounts[0].contentId;
+  const account2 = (await accounts.readRegistry()).accounts[0];
+  expect.assert(account2 !== undefined);
+  const original = account2.contentId;
   vi.spyOn(accounts, 'saveRegistry').mockRejectedValueOnce(new Error('disk_full'));
   await expect(workspace.importData(archive)).rejects.toThrow('disk_full');
   expect(app.getSnapshot().workspace).toBe(workspace);
-  expect((await accounts.readRegistry()).accounts[0].contentId).toBe(original);
-  expect(workspace.getSnapshot().data.tasks[0].title).toBe('Keep this');
+  expect((await accounts.readRegistry()).accounts[0]?.contentId).toBe(original);
+  expect(workspace.getSnapshot().data.tasks[0]?.title).toBe('Keep this');
   expect(workspace.getSnapshot().saveState).toBe('saved');
 });
 
@@ -173,7 +187,7 @@ test('a stale initial profile adopts the document another tab installed while op
   await app.initialize();
   expect(create).not.toHaveBeenCalled();
   expect(app.getSnapshot().workspace.getSnapshot().data.habits).toHaveLength(5);
-  expect((await accounts.readRegistry()).accounts[0].contentId).toBe(document.repository.id);
+  expect((await accounts.readRegistry()).accounts[0]?.contentId).toBe(document.repository.id);
 });
 
 test('native archive restoration preserves child trees, selective trash, labels and historical decimal habit goals across reopening', async () => {
@@ -186,17 +200,20 @@ test('native archive restoration preserves child trees, selective trash, labels 
     order: 0,
     date: '2026-10-18',
     repeat: { frequency: 'daily', interval: 1 },
-  })!;
+  });
+  expect.assert(parent !== null);
   const child = createTaskRecord('Child', data, {
     parentId: parent.id,
     tags: ['design'],
     order: 1,
-  })!;
+  });
+  expect.assert(child !== null);
   const sibling = createTaskRecord('Sibling', data, {
     parentId: parent.id,
     tags: ['design'],
     order: 2,
-  })!;
+  });
+  expect.assert(sibling !== null);
   session.apply({ type: 'task.create', tasks: [parent, child, sibling] });
   session.renameLabel('design', 'research', '#a855f7');
   const duplicate = session.duplicateTask(parent.id, 'Copy');
@@ -210,14 +227,16 @@ test('native archive restoration preserves child trees, selective trash, labels 
   );
   session.purgeTasks([sibling.id]);
   session.removeLabel('research');
-  const copied = session.getSnapshot().data.tasks.find((task) => task.id === duplicate)!;
+  const copied = session.getSnapshot().data.tasks.find((task) => task.id === duplicate);
+  expect.assert(copied !== undefined);
   expect(copied.notes).toBe('- [ ] Review');
   expect(
     session.getSnapshot().data.tasks.filter((task) => task.parentId === duplicate),
   ).toHaveLength(2);
   expect(session.getSnapshot().data.tasks.every((task) => task.tags.length === 0)).toBe(true);
   session.completeTask(parent.id, true);
-  const next = session.getSnapshot().data.tasks.find((task) => task.generatedFromId === parent.id)!;
+  const next = session.getSnapshot().data.tasks.find((task) => task.generatedFromId === parent.id);
+  expect.assert(next !== undefined);
 
   const habit = {
     ...createHabitDraft('L'),
@@ -232,15 +251,21 @@ test('native archive restoration preserves child trees, selective trash, labels 
   for (let index = 0; index < 3; index++) {
     session.addHabitAmount(habit.id, '2026-10-18', 0.1);
   }
+  const savedHabit = session.getSnapshot().data.habits[0];
+  expect.assert(savedHabit !== undefined);
   session.apply({
     type: 'habit.save',
-    habit: { ...session.getSnapshot().data.habits[0], goal: 0.5 },
+    habit: { ...savedHabit, goal: 0.5 },
     weekStartsOn: 0,
   });
   const before = structuredClone(session.getSnapshot().data);
+  expect.assert(before.habitLogs[0] !== undefined);
   expect(before.habitLogs[0].value).toBe(0.3);
+
   expect(before.habitLogs[0].goal).toBe(0.3);
+  expect.assert(before.habits[0] !== undefined);
   expect(habitDone(before.habits[0], before.habitLogs[0])).toBe(true);
+
   expect(habitStats(before.habits[0], before.habitLogs, '2026-10-19', 0).total).toBe(1);
   const archive = await session.exportData();
   session.apply({ type: 'task.update', id: parent.id, patch: { title: 'Later edit' } });
@@ -260,6 +285,6 @@ test('native archive restoration preserves child trees, selective trash, labels 
   restored.addHabitAmount(habit.id, '2026-10-18', 0.1);
   await restored.flush();
   expect(restored.getSnapshot().data.habitLogs).toHaveLength(1);
-  expect(restored.getSnapshot().data.habitLogs[0].value).toBe(0.4);
-  expect(restored.getSnapshot().data.habitLogs[0].goal).toBe(0.3);
+  expect(restored.getSnapshot().data.habitLogs[0]?.value).toBe(0.4);
+  expect(restored.getSnapshot().data.habitLogs[0]?.goal).toBe(0.3);
 });

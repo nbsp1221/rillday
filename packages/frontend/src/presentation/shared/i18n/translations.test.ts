@@ -3,11 +3,17 @@ import { createTranslations } from './index';
 
 test('bundled languages cover the same messages and fall back to English', () => {
   const instance = createTranslations('en');
-  const resources = instance.options.resources!;
+  const resources = instance.options.resources;
+  expect.assert(resources !== undefined);
   expect(instance.options.fallbackLng).toEqual(['en']);
 
+  expect.assert(resources.en !== undefined);
   for (const namespace of Object.keys(resources.en)) {
-    const keys = (language: string) => Object.keys(resources[language][namespace]);
+    const keys = (language: string) => {
+      const messages = resources[language]?.[namespace];
+      expect.assert(messages !== undefined);
+      return Object.keys(messages);
+    };
 
     const logicalKeys = (language: string) =>
       [

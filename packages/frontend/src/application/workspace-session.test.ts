@@ -44,9 +44,10 @@ test('the real session captures tasks, completes a repeat and supports atomic Un
     const task = createTaskRecord('Daily review', session.getSnapshot().data, {
       date: '2026-10-23',
       repeat: { frequency: 'daily', interval: 1 },
-    })!;
+    });
+    expect.assert(task !== null);
     session.apply({ type: 'task.create', tasks: [task] });
-    expect(session.getSnapshot().data.tasks[0].title).toBe('Daily review');
+    expect(session.getSnapshot().data.tasks[0]?.title).toBe('Daily review');
     expect(session.getSnapshot().canUndo).toBe(true);
     session.completeTask(task.id, true);
     await session.flush();
@@ -55,7 +56,7 @@ test('the real session captures tasks, completes a repeat and supports atomic Un
     expect(session.getSnapshot().data.tasks).toHaveLength(2);
     session.undo();
     expect(session.getSnapshot().data.tasks).toHaveLength(1);
-    expect(session.getSnapshot().data.tasks[0].completedAt).toBeNull();
+    expect(session.getSnapshot().data.tasks[0]?.completedAt).toBeNull();
     session.redo();
     await session.flush();
     expect(session.getSnapshot().data.tasks).toHaveLength(2);
@@ -72,7 +73,8 @@ test('the real session captures tasks, completes a repeat and supports atomic Un
 test('a rejected atomic intent group changes neither saved data nor history', async () => {
   const { session } = await fixture();
   try {
-    const task = createTaskRecord('First', session.getSnapshot().data)!;
+    const task = createTaskRecord('First', session.getSnapshot().data);
+    expect.assert(task !== null);
     expect(() =>
       session.apply([
         { type: 'task.create', tasks: [task] },
@@ -107,13 +109,14 @@ test('an older durable write cannot mark a newer accepted edit saved', async () 
       await save(...args);
     });
   try {
-    const task = createTaskRecord('First write', session.getSnapshot().data)!;
+    const task = createTaskRecord('First write', session.getSnapshot().data);
+    expect.assert(task !== null);
     session.apply({ type: 'task.create', tasks: [task] });
     await started.promise;
     session.apply({ type: 'task.update', id: task.id, patch: { notes: 'Newer write' } });
     releaseFirst.resolve();
     await secondStarted.promise;
-    expect(session.getSnapshot().data.tasks[0].notes).toBe('Newer write');
+    expect(session.getSnapshot().data.tasks[0]?.notes).toBe('Newer write');
     expect(session.getSnapshot().saveState).toBe('saving');
     releaseSecond.resolve();
     await session.flush();
@@ -128,7 +131,8 @@ test('an older durable write cannot mark a newer accepted edit saved', async () 
 test('a rejected group preserves existing Undo and Redo without leaking staged labels', async () => {
   const { session } = await fixture();
   try {
-    const task = createTaskRecord('Original', session.getSnapshot().data)!;
+    const task = createTaskRecord('Original', session.getSnapshot().data);
+    expect.assert(task !== null);
     session.apply({ type: 'task.create', tasks: [task] });
     session.apply({ type: 'task.update', id: task.id, patch: { notes: 'Redo entry' } });
     session.undo();
@@ -145,7 +149,7 @@ test('a rejected group preserves existing Undo and Redo without leaking staged l
     expect(session.getSnapshot()).toBe(before);
     session.redo();
     await session.flush();
-    expect(session.getSnapshot().data.tasks[0].notes).toBe('Redo entry');
+    expect(session.getSnapshot().data.tasks[0]?.notes).toBe('Redo entry');
     expect(session.getSnapshot().data.labels).toEqual([]);
   } finally {
     await session.close();
@@ -159,18 +163,23 @@ test('a task tree and its shared label publish and undo as one complete user act
     const snapshot = session.getSnapshot();
     observations.push({
       count: snapshot.data.tasks.length,
-      labels: snapshot.data.labels!,
+      labels: snapshot.data.labels ?? [],
       undo: snapshot.canUndo,
       redo: snapshot.canRedo,
     });
   });
   try {
-    const parent = createTaskRecord('Parent', session.getSnapshot().data)!;
+    const parent = createTaskRecord('Parent', session.getSnapshot().data);
+    expect.assert(parent !== null);
     const tasks = [
       parent,
-      ...[1, 2].map((index) =>
-        createTaskRecord(`Child ${index}`, session.getSnapshot().data, { parentId: parent.id })!,
-      ),
+      ...[1, 2].map((index) => {
+        const createdTask = createTaskRecord(`Child ${index}`, session.getSnapshot().data, {
+          parentId: parent.id,
+        });
+        expect.assert(createdTask !== null);
+        return createdTask;
+      }),
     ];
     session.apply({
       type: 'task.create',
@@ -235,7 +244,8 @@ test.each([
       .spyOn(disk, 'save')
       .mockRejectedValueOnce(new DOMException('Synthetic storage failure', name));
     try {
-      const task = createTaskRecord('Accepted before disk failure', session.getSnapshot().data)!;
+      const task = createTaskRecord('Accepted before disk failure', session.getSnapshot().data);
+      expect.assert(task !== null);
       session.apply({ type: 'task.create', tasks: [task] });
       await expect(session.flush()).rejects.toMatchObject({ name });
       expect(session.getSnapshot()).toMatchObject({
@@ -244,13 +254,13 @@ test.each([
         saveState: 'error',
         canUndo: true,
       });
-      expect(session.getSnapshot().data.tasks[0].title).toBe(task.title);
+      expect(session.getSnapshot().data.tasks[0]?.title).toBe(task.title);
       session.apply({ type: 'task.update', id: task.id, patch: { notes: 'Next accepted edit' } });
       await session.flush();
       expect(session.getSnapshot().saveState).toBe('saved');
       session.undo();
       await session.flush();
-      expect(session.getSnapshot().data.tasks[0].notes).toBe('');
+      expect(session.getSnapshot().data.tasks[0]?.notes).toBe('');
       session.redo();
       await session.flush();
       await session.close();
@@ -313,7 +323,8 @@ test('quantity actions unskip atomically and archive operations use the injected
 test('conflict presentation offers each retained alternative without native identifiers or ledgers', async () => {
   const { session, store } = await fixture();
   try {
-    const task = createTaskRecord('Original', session.getSnapshot().data)!;
+    const task = createTaskRecord('Original', session.getSnapshot().data);
+    expect.assert(task !== null);
     session.apply({ type: 'task.create', tasks: [task] });
     await session.flush();
     const remote = Automerge.load<ReturnType<typeof emptyDocument>>(
@@ -322,11 +333,16 @@ test('conflict presentation offers each retained alternative without native iden
     try {
       const before = readWorkspace(remote);
       const after = structuredClone(before);
-      after.tasks[task.id].title = 'Remote title';
+
+      const task1 = after.tasks[task.id];
+      expect.assert(task1 !== undefined);
+      task1.title = 'Remote title';
       const changed = Automerge.change(remote, (doc) => writeWorkspace(doc, before, after));
       session.apply({ type: 'task.update', id: task.id, patch: { title: 'Local title' } });
       store.handle.update((doc) => Automerge.merge(doc, changed));
       const issue = session.getSnapshot().issues[0];
+      expect.assert(issue !== undefined);
+      expect.assert(issue.choices[0] !== undefined);
       expect(issue.choices[0].description).toMatchObject({
         type: 'fields',
         fields: { title: { type: 'literal' } },
@@ -334,6 +350,7 @@ test('conflict presentation offers each retained alternative without native iden
       expect(JSON.stringify(issue.choices.map((choice) => choice.description))).not.toContain(
         task.id,
       );
+
       await session.resolve(issue.id, issue.choices[0].id);
       expect(session.getSnapshot().issues).toHaveLength(0);
       expect(session.getSnapshot().syncState).toBe('local');
@@ -350,15 +367,18 @@ test.each(['ancestor-first', 'descendant-first'])(
   async (order) => {
     const { session, store } = await fixture();
     try {
-      const root = createTaskRecord('Root', session.getSnapshot().data, { order: 0 })!;
+      const root = createTaskRecord('Root', session.getSnapshot().data, { order: 0 });
+      expect.assert(root !== null);
       const parent = createTaskRecord('Parent', session.getSnapshot().data, {
         parentId: root.id,
         order: 1,
-      })!;
+      });
+      expect.assert(parent !== null);
       const child = createTaskRecord('Child', session.getSnapshot().data, {
         parentId: parent.id,
         order: 2,
-      })!;
+      });
+      expect.assert(child !== null);
       session.apply({ type: 'task.create', tasks: [root, parent, child] });
       session.trashTask(root.id);
       session.purgeTasks(order === 'ancestor-first' ? [root.id, child.id] : [child.id, root.id]);
@@ -393,6 +413,7 @@ test('close preserves a failed save error and still releases the owned repositor
     dispose,
   }));
   let session: WorkspaceSession | undefined;
+
   try {
     const before = readWorkspace(store.handle.fullDoc());
     await store.change((doc) => writeWorkspace(doc, before, createWorkspace(context)));
@@ -407,13 +428,15 @@ test('close preserves a failed save error and still releases the owned repositor
       zone: 'UTC',
     });
     fail = true;
-    const task = createTaskRecord('Unsaved', session.getSnapshot().data)!;
+    const task = createTaskRecord('Unsaved', session.getSnapshot().data);
+    expect.assert(task !== null);
     session.apply({ type: 'task.create', tasks: [task] });
     await expect(session.flush()).rejects.toBe(failure);
     await expect(session.close()).rejects.toBe(failure);
     expect(dispose).toHaveBeenCalledOnce();
+
     expect(() =>
-      session!.apply({ type: 'task.update', id: task.id, patch: { title: 'After close' } }),
+      session?.apply({ type: 'task.update', id: task.id, patch: { title: 'After close' } }),
     ).toThrow('workspace_closed');
   } finally {
     fail = false;
@@ -437,9 +460,11 @@ test('detail actions complete the retained goal and own skip, step and reset tra
   const day = '2026-10-23';
   session.changeHabitCheckin(habit.id, day, { type: 'amount', value: 2 });
   await session.flush();
+  const savedHabit = session.getSnapshot().data.habits[0];
+  expect.assert(savedHabit !== undefined);
   session.apply({
     type: 'habit.save',
-    habit: { ...session.getSnapshot().data.habits[0], goal: 1 },
+    habit: { ...savedHabit, goal: 1 },
     weekStartsOn: 1,
   });
   await session.flush();
@@ -491,7 +516,7 @@ test('boolean check-in uses the habit goal and toggles back without UI patches',
   expect(session.getSnapshot().data.habitLogs[0]).toMatchObject({ value: 4, skipped: false });
   session.toggleHabit(habit.id, '2026-10-23');
   await session.flush();
-  expect(session.getSnapshot().data.habitLogs[0].value).toBe(0);
+  expect(session.getSnapshot().data.habitLogs[0]?.value).toBe(0);
 });
 
 test('quantity check-in owns step and unskip semantics while preserving the note', async () => {

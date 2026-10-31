@@ -11,18 +11,22 @@ type RecordScope = { target: WorkspaceTarget; fields?: readonly string[] };
 
 function completionScope(workspace: Workspace, id: string): RecordScope[] {
   let next = workspace.tasks[id];
+
   if (!next?.generatedFromId) {
     return [];
   }
   const visited = new Set([next.id]);
+
   while (next.location.parentId) {
-    const parent = workspace.tasks[next.location.parentId];
+    const parent: Workspace['tasks'][string] | undefined = workspace.tasks[next.location.parentId];
     if (!parent?.generatedFromId || !parent.voided || visited.has(parent.id)) {
       break;
     }
     next = parent;
+
     visited.add(next.id);
   }
+
   const occurrences = [next, ...taskDescendants(workspace, next.id)];
   const scopes: RecordScope[] = occurrences.map((task) => ({
     target: { collection: 'tasks', id: task.id },
@@ -132,12 +136,13 @@ export function proposeWorkspaceReview(
       const source: Record<string, object> = previous[target.collection];
       const destination: Record<string, object> = proposal[target.collection];
       const record = source[target.id];
+      const current = destination[target.id];
       if (!record) {
         delete destination[target.id];
-      } else if (fields && destination[target.id]) {
+      } else if (fields && current) {
         for (const field of fields) {
           const value: unknown = Object.entries(record).find(([name]) => name === field)?.[1];
-          Object.assign(destination[target.id], { [field]: structuredClone(value) });
+          Object.assign(current, { [field]: structuredClone(value) });
         }
       } else {
         destination[target.id] = structuredClone(record);

@@ -149,7 +149,7 @@ test('week start regroups persisted habit statistics when the setting changes', 
   await page.getByRole('textbox', { name: 'Weekly target (days)', exact: true }).fill('3');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect
-    .poll(async () => (await storedWorkspace(page)).habits[0].rules?.at(-1))
+    .poll(async () => (await storedWorkspace(page)).habits[0]?.rules?.at(-1))
     .toMatchObject({
       from: '2026-10-19',
       weeklyTarget: 3,

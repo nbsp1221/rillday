@@ -69,9 +69,9 @@ export function presentWorkspace(
       })),
     labels: Object.values(workspace.labels).map((label) => label.name),
     labelColors: Object.fromEntries(
-      Object.values(workspace.labels)
-        .filter((label) => label.color)
-        .map((label) => [label.name, label.color!]),
+      Object.values(workspace.labels).flatMap((label) =>
+        label.color ? [[label.name, label.color]] : [],
+      ),
     ),
     habits: Object.values(workspace.habits)
       .sort(compareRank)

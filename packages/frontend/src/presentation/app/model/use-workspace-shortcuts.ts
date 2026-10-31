@@ -47,9 +47,11 @@ export function useWorkspaceShortcuts({
       }
       if (
         settingsOpen ||
-        (event.target as HTMLElement).closest(
-          'input,textarea,[contenteditable],[role=dialog],[role=alertdialog]',
-        )
+        (event.target instanceof Element
+          ? event.target.closest(
+              'input,textarea,[contenteditable],[role=dialog],[role=alertdialog]',
+            )
+          : null)
       ) {
         return;
       }

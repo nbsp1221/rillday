@@ -26,6 +26,12 @@ interface Colors {
   getContrast(background: Color, foreground: Color): number;
 }
 
+declare module 'axe-core' {
+  interface Commons {
+    color: Colors;
+  }
+}
+
 export async function appearance(locator: Locator) {
   const styles = await locator.evaluate((el) => {
     const styles = [];
@@ -37,8 +43,11 @@ export async function appearance(locator: Locator) {
     return styles;
   });
 
-  const { color } = axe.commons as typeof axe.commons & { color: Colors };
-  const foreground = styles.at(-1)!.color;
+  const { color } = axe.commons;
+  const foreground = styles.at(-1)?.color;
+  if (foreground === undefined) {
+    throw new Error('Expected a computed foreground color');
+  }
 
   for (const style of styles) {
     if (

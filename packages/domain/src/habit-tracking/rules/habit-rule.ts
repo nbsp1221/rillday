@@ -91,7 +91,11 @@ export function validateHabitRuleTransition(
 }
 
 export function currentRule(habit: { rules: HabitRule[] }, day: string): HabitRule {
-  return [...habit.rules].reverse().find((entry) => entry.from <= day) ?? habit.rules[0];
+  const rule = habit.rules.findLast((entry) => entry.from <= day) ?? habit.rules[0];
+  if (!rule) {
+    throw new Fault('invalid_habit');
+  }
+  return rule;
 }
 
 export function scheduled(habit: { startDate: string; rules: HabitRule[] }, day: string): boolean {

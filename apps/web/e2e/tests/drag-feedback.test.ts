@@ -1,6 +1,8 @@
+import assert from 'node:assert/strict';
 import type { CalendarViewMode } from '@repo/frontend/application';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
 import { expectNonvisualAnnouncement } from '../support/announcement';
 import { chooseChoice } from '../support/choice';
 import { browserToday } from '../support/clock';
@@ -64,7 +66,8 @@ async function fixture(page: Page) {
 async function start(page: Page, row: Locator, calendar = false) {
   const handle = row.locator(calendar ? '.calendar-task-title' : '.task-content');
   await handle.scrollIntoViewIfNeeded();
-  const box = (await handle.boundingBox())!;
+  const box = await visibleBox(handle);
+
   await page.mouse.move(box.x + Math.min(45, box.width / 2), box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + Math.min(45, box.width / 2) + 8, box.y + box.height / 2, {
@@ -75,7 +78,8 @@ async function start(page: Page, row: Locator, calendar = false) {
 
 async function over(page: Page, target: Locator) {
   await target.scrollIntoViewIfNeeded();
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   await page.mouse.move(box.x + box.width / 2, box.y + Math.min(40, box.height / 2), { steps: 4 });
 }
 
@@ -121,13 +125,14 @@ for (const complex of [false, true]) {
     }
     const before = (await storedWorkspace(page)).tasks.find(
       (task) => task.id === fixtureId('source'),
-    )!;
+    );
+    assert(before !== undefined, 'Missing before');
     const target = page.locator('.quadrant').last();
-    const box = await target.boundingBox();
+    const box = await visibleBox(target);
     await start(page, source(page));
     await over(page, target);
     await expect(page.locator('.quadrant[data-drop-active]')).toHaveCount(1);
-    expect(await target.boundingBox()).toEqual(box);
+    expect(await visibleBox(target)).toEqual(box);
     await expect(target).toHaveCSS('box-shadow', 'none');
     await expect(page.locator('.task-drag-overlay')).toHaveText('Organize research');
     await expect(page.locator('.task-drag-announcement[aria-live]')).toContainText(
@@ -137,10 +142,14 @@ for (const complex of [false, true]) {
     await expect(target.locator(`[data-task-id="${fixtureId('source')}"]`)).toBeVisible();
     await expect
       .poll(async () => {
-        const task = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id)!;
+        const task = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
+        assert(task !== undefined, 'Missing task');
+
         return {
           priority: task.priority,
-          dateChangedAsExpected: complex ? task.date! > before.date! : task.date === before.date,
+          dateChangedAsExpected: complex
+            ? task.date !== null && before.date !== null && task.date > before.date
+            : task.date === before.date,
           notes: task.notes,
           time: task.time,
         };
@@ -151,12 +160,15 @@ for (const complex of [false, true]) {
         notes: before.notes,
         time: before.time,
       });
-    const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id)!;
+    const after = (await storedWorkspace(page)).tasks.find((task) => task.id === before.id);
+    assert(after !== undefined, 'Missing after');
     expect(after.notes).toBe(before.notes);
     expect(after.time).toBe(before.time);
     expect(after.priority).toBe(complex ? 1 : 0);
     if (complex) {
-      expect(after.date! > before.date!).toBe(true);
+      assert(before.date !== null, 'Missing before.date');
+      assert(after.date !== null, 'Missing after.date');
+      expect(after.date > before.date).toBe(true);
     } else {
       expect(after.date).toBe(before.date);
     }
@@ -181,11 +193,13 @@ test('matrix touch cancellation and long-press drop share the pointer destinatio
   const session = await page.context().newCDPSession(page);
   await session.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 });
   const target = page.locator('.quadrant').nth(1);
-  const box = (await target.boundingBox())!;
+  const box = await visibleBox(target);
+
   const to = { x: box.x + box.width / 2, y: box.y + 70 };
 
   async function begin() {
-    const from = (await source(page).locator('.task-content').boundingBox())!;
+    const from = await visibleBox(source(page).locator('.task-content'));
+
     await session.send('Input.dispatchTouchEvent', {
       type: 'touchStart',
       touchPoints: [{ x: from.x + 40, y: from.y + from.height / 2 }],
@@ -269,7 +283,7 @@ for (const language of ['ko', 'en']) {
             .click();
           await page.getByRole('menuitemradio', { name: modes[view], exact: true }).click();
           const target = calendarTarget(page, view, today);
-          const root = await page.locator('.calendar-view').boundingBox();
+          const root = await visibleBox(page.locator('.calendar-view'));
           await start(
             page,
             page.locator(`.calendar-undated [data-task-id="${fixtureId('loose')}"]`),
@@ -293,7 +307,7 @@ for (const language of ['ko', 'en']) {
             await expectNonvisualAnnouncement(page, live);
           }
           await expect(page.locator('.task-drag-overlay')).toHaveText('Read a book');
-          expect(await page.locator('.calendar-view').boundingBox()).toEqual(root);
+          expect(await visibleBox(page.locator('.calendar-view'))).toEqual(root);
 
           await cancel(page);
         }
@@ -343,12 +357,12 @@ for (const language of ['ko', 'en']) {
           .getByLabel(en ? 'Eisenhower Matrix' : '아이젠하워 매트릭스', { exact: true })
           .click();
         const target = page.locator('.quadrant').nth(1);
-        const box = await target.boundingBox();
+        const box = await visibleBox(target);
         await start(page, source(page));
         await over(page, target);
         await expect(target).toHaveAttribute('data-drop-active', 'true');
         await expect(target).toHaveCSS('box-shadow', 'none');
-        expect(await target.boundingBox()).toEqual(box);
+        expect(await visibleBox(target)).toEqual(box);
         await expect(page.locator('.quadrant-empty').first()).toBeHidden();
         await expect(page.locator('.task-drag-overlay')).toHaveText('Organize research');
 

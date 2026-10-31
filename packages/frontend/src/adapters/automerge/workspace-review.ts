@@ -9,6 +9,7 @@ import {
   proposeWorkspaceReview,
   recordQuantity,
 } from '@repo/domain';
+import invariant from 'tiny-invariant';
 import type { DocumentConflict, WorkspaceDocument } from './workspace-document.ts';
 import { documentConflicts, readWorkspace } from './workspace-document.ts';
 
@@ -47,15 +48,10 @@ export function quantityPreview(workspace: Workspace, conflicts: DocumentConflic
   }
   const result = structuredClone(workspace);
   for (const conflict of conflicts) {
-    if (
-      conflict.field === '$quantity' &&
-      conflict.options.length &&
-      result.checkIns[conflict.target.id]
-    ) {
-      result.checkIns[conflict.target.id].quantity = recordQuantity(
-        Number(conflict.options[0].value),
-        'review:' + conflict.target.id,
-      );
+    const checkIn = result.checkIns[conflict.target.id];
+    const first = conflict.options[0];
+    if (conflict.field === '$quantity' && first && checkIn) {
+      checkIn.quantity = recordQuantity(Number(first.value), 'review:' + conflict.target.id);
     }
   }
   return result;
@@ -79,8 +75,7 @@ export function inspectDocument(
   const visited = new Set<string>();
   const unique = new Set<string>();
   const options: SemanticReview['options'] = [];
-  for (let index = 0; index < pending.length; index++) {
-    const head = pending[index];
+  for (const head of pending) {
     if (visited.has(head)) {
       continue;
     }
@@ -120,6 +115,7 @@ export function inspectDocument(
     problems,
     options,
   };
+  invariant(options[0] !== undefined, 'Missing options[0]');
   return { workspace: quantityPreview(options[0].workspace, conflicts), conflicts, semantic };
 }
 

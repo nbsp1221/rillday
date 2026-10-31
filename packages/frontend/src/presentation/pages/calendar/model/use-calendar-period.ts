@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Temporal, Intl as TemporalIntl } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import { type CalendarViewMode, addDays, monthDays, startOfWeek } from '#application';
 import { useAppPreferences } from '#entities/preferences';
 import { useI18n } from '#shared/i18n';
@@ -19,10 +20,17 @@ export function useCalendarPeriod(anchor: string, mode: CalendarViewMode) {
 
   const weekdayOrder = Array.from({ length: 7 }, (_, i) => (preferences.weekStartsOn + i) % 7);
 
-  const weekdays = weekdayOrder.map((day) => dayNames[day]);
+  const weekdays = weekdayOrder.map((day) => {
+    const name = dayNames[day];
+    invariant(name !== undefined, 'Every weekday must have a localized name');
+    return name;
+  });
 
-  const dayNamesForCalendar = (date: string) =>
-    dayNames[Temporal.PlainDate.from(date).dayOfWeek % 7];
+  const dayNamesForCalendar = (date: string) => {
+    const name = dayNames[Temporal.PlainDate.from(date).dayOfWeek % 7];
+    invariant(name !== undefined, 'Every weekday must have a localized name');
+    return name;
+  };
 
   const dates = useMemo(
     () =>
@@ -47,8 +55,8 @@ export function useCalendarPeriod(anchor: string, mode: CalendarViewMode) {
             month: 'short',
             day: 'numeric',
           }).formatRange(
-            Temporal.PlainDate.from(dates[0]),
-            Temporal.PlainDate.from(dates[dates.length - 1]),
+            Temporal.PlainDate.from(weekStart(anchor)),
+            Temporal.PlainDate.from(addDays(weekStart(anchor), 6)),
           )
         : Temporal.PlainDate.from(anchor).toLocaleString(
             dateLocale,
@@ -58,7 +66,7 @@ export function useCalendarPeriod(anchor: string, mode: CalendarViewMode) {
                 ? { year: 'numeric' }
                 : { year: 'numeric', month: 'long' },
           ),
-    [mode, anchor, dates, dateLocale],
+    [mode, anchor, weekStart, dateLocale],
   );
 
   return { dates, weekdays, dayNamesForCalendar, monthDates, monthFormat, title };

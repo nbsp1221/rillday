@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
 import { chooseChoice } from '../support/choice';
@@ -27,7 +28,11 @@ test('search field keeps icon and text insets inside the shared input', async ({
   const insets = await field.evaluate((input) => {
     const style = getComputedStyle(input);
     const bounds = input.getBoundingClientRect();
-    const icon = document.querySelector('.global-search svg')!.getBoundingClientRect();
+    const iconElement = document.querySelector('.global-search svg');
+    if (iconElement === null) {
+      throw new Error("Expected element matching '.global-search svg'");
+    }
+    const icon = iconElement.getBoundingClientRect();
     return {
       textGap: parseFloat(style.paddingLeft) - (icon.right - bounds.left),
       right: parseFloat(style.paddingRight),
@@ -84,7 +89,8 @@ test('global search exposes every match and resets pagination for another query'
   data.tasks = Array.from({ length: 101 }, (_, order) => {
     const task = createTaskRecord(`Search review ${order}`, data, { order });
     expect(task).not.toBeNull();
-    return task!;
+    assert(task !== null, 'Task fixture must have a title');
+    return task;
   });
   await page.goto('/');
   await expect(page.locator('#quick-add-input')).toBeVisible();

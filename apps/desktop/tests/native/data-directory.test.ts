@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -8,29 +9,45 @@ import { createInterface } from 'node:readline/promises';
 import { promisify } from 'node:util';
 import { type Browser, type Page, test as base, chromium, expect } from '@playwright/test';
 import fs from 'fs-extra';
+import { z } from 'zod';
 import { verifyNativeSync } from './support/sync';
 
 const helper = resolve(import.meta.dirname, 'windows-desktop.py');
 
-interface NativeResult {
-  inputBefore: string;
-  inputAfter: string;
-  desktop: string;
-  isolated: boolean;
-  pid?: number;
-  exitCode?: number;
-  exists?: boolean;
-  windows?: { pid: number; class: string; texts: string[]; ready: boolean }[];
-}
+const nativeResultSchema = z.looseObject({
+  inputBefore: z.string(),
+  inputAfter: z.string(),
+  desktop: z.string(),
+  isolated: z.boolean(),
+  pid: z.number().optional(),
+  exitCode: z.number().optional(),
+  exists: z.boolean().optional(),
+  windows: z
+    .array(
+      z.looseObject({
+        pid: z.number(),
+        class: z.string(),
+        texts: z.array(z.string()),
+        ready: z.boolean(),
+      }),
+    )
+    .optional(),
+});
+
+type NativeResult = z.infer<typeof nativeResultSchema>;
 
 type Native = (request: object) => Promise<NativeResult>;
 
 const test = base.extend<{ native: Native; debuggingPort: number }>({
   debuggingPort: async ({}, provide) => {
-    const configuration = JSON.parse(
-      await readFile(resolve(import.meta.dirname, 'tauri.test.conf.json'), 'utf8'),
-    ) as { app: { windows: { additionalBrowserArgs: string }[] } };
-    const match = configuration.app.windows[0].additionalBrowserArgs.match(
+    const configuration = z
+      .object({
+        app: z.object({ windows: z.array(z.object({ additionalBrowserArgs: z.string() })) }),
+      })
+      .parse(
+        JSON.parse(await readFile(resolve(import.meta.dirname, 'tauri.test.conf.json'), 'utf8')),
+      );
+    const match = configuration.app.windows[0]?.additionalBrowserArgs.match(
       /--remote-debugging-port=(\d+)/,
     );
     if (!match) {
@@ -129,7 +146,9 @@ const test = base.extend<{ native: Native; debuggingPort: number }>({
           transportError = error instanceof Error ? error : new Error(String(error));
           throw transportError;
         }
-        const response = JSON.parse(line) as { result?: NativeResult; error?: string };
+        const response = z
+          .object({ result: nativeResultSchema.optional(), error: z.string().optional() })
+          .parse(JSON.parse(line));
         if (response.error) {
           throw new Error(response.error);
         }
@@ -167,10 +186,16 @@ test('first-run selection, shared profiles and folder changes preserve offline w
   const fixture = await mkdtemp(resolve(root, 'case-'));
   const unpacked = resolve(fixture, 'archive-app');
   await mkdir(unpacked);
-  await cp(String(testInfo.config.metadata.executable), resolve(unpacked, 'rillday-desktop.exe'));
+  await cp(testInfo.config.metadata.executable, resolve(unpacked, 'rillday-desktop.exe'));
   const identifier = 'dev.rillday.workspace.test';
-  const defaultPath = resolve(process.env.LOCALAPPDATA!, identifier);
-  const configuration = resolve(process.env.APPDATA!, identifier);
+  const localAppData = process.env.LOCALAPPDATA;
+  const roamingAppData = process.env.APPDATA;
+  assert(
+    localAppData !== undefined && roamingAppData !== undefined,
+    'Missing Windows app data paths',
+  );
+  const defaultPath = resolve(localAppData, identifier);
+  const configuration = resolve(roamingAppData, identifier);
   const locationFile = resolve(configuration, 'rillday-data-directory');
   await expect(access(defaultPath)).rejects.toThrow();
   await expect(access(configuration)).rejects.toThrow();
@@ -236,7 +261,9 @@ test('first-run selection, shared profiles and folder changes preserve offline w
             if (!response.ok) {
               return false;
             }
-            const version = (await response.json()) as { webSocketDebuggerUrl?: string };
+            const version = z
+              .object({ webSocketDebuggerUrl: z.string().optional() })
+              .parse(await response.json());
             endpoint = version.webSocketDebuggerUrl;
             return Boolean(endpoint && endpoint !== previousEndpoint);
           } catch {
@@ -246,25 +273,28 @@ test('first-run selection, shared profiles and folder changes preserve offline w
         { timeout: 30_000 },
       )
       .toBe(true);
-    browser = await chromium.connectOverCDP(endpoint!);
+    assert(endpoint !== undefined, 'Missing native browser debugger endpoint');
+    const connectedBrowser = await chromium.connectOverCDP(endpoint);
+    browser = connectedBrowser;
     previousEndpoint = endpoint;
     let page: Page | undefined;
     await expect
       .poll(() => {
-        page = browser!
+        page = connectedBrowser
           .contexts()
           .flatMap((context) => context.pages())
           .find((candidate) => !candidate.isClosed());
         return Boolean(page);
       })
       .toBe(true);
-    await expect(page!.locator('main').first()).toBeVisible();
+    assert(page !== undefined, 'Missing native application page');
+    await expect(page.locator('main').first()).toBeVisible();
     if (owned) {
       owned.pid = (await native({ action: 'inspect', desktop })).windows?.find(
         (window) => window.class !== '#32770',
       )?.pid;
     }
-    return page!;
+    return page;
   }
 
   async function start(folder: string) {
@@ -493,7 +523,7 @@ test('first-run selection, shared profiles and folder changes preserve offline w
       for (const [source, name] of [
         [defaultPath, 'default-profile'],
         [configuration, 'configuration'],
-      ]) {
+      ] as const) {
         if (
           await access(source).then(
             () => true,

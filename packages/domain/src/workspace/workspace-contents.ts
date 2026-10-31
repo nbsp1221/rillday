@@ -26,7 +26,7 @@ export function workspaceContents(workspace: Workspace): WorkspaceContents {
     canonical(quadrantSettings(workspace)) !==
       canonical([...quadrantDefaults].sort((left, right) => left.key.localeCompare(right.key))) ||
     inbox?.name !== inboxDefaults.name ||
-    inbox?.color !== inboxDefaults.color;
+    inbox.color !== inboxDefaults.color;
   const contents = {
     tasks: Object.values(workspace.tasks).filter((task) => !task.purgedAt && !task.voided).length,
     lists: Object.keys(workspace.lists).length,

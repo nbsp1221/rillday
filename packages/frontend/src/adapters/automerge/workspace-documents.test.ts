@@ -25,12 +25,9 @@ test('native workspace creation, offline reopen and archive restoration preserve
     owned: { adapters: [], dispose() {} },
   }));
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Original'),
-    context,
-  );
+  const entry = Object.keys(workspace.lists)[0];
+  expect.assert(entry !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry, 'Original'), context);
   const first = await documents.create(workspace);
   onTestFinished(() => first.repository.close());
   const originalId = first.repository.id;
@@ -41,7 +38,7 @@ test('native workspace creation, offline reopen and archive restoration preserve
   await first.repository.close();
   const reopened = await documents.open(originalId);
   onTestFinished(() => reopened.repository.close());
-  expect(reopened.repository.getSnapshot().workspace.tasks[task.id].title).toBe('Edited');
+  expect(reopened.repository.getSnapshot().workspace.tasks[task.id]?.title).toBe('Edited');
   const restored = await documents.restoreArchive(source);
   onTestFinished(() => restored.repository.close());
   expect(restored.repository.id).not.toBe(originalId);
@@ -51,7 +48,7 @@ test('native workspace creation, offline reopen and archive restoration preserve
   expect(documents.inspectArchive(await restored.exportData())).toEqual(
     restored.repository.getSnapshot().workspace,
   );
-  expect(documents.inspectArchive(source).tasks[task.id].title).toBe('Edited');
+  expect(documents.inspectArchive(source).tasks[task.id]?.title).toBe('Edited');
 });
 
 test('invalid archives never open networking or replace an existing document', async () => {
@@ -82,6 +79,7 @@ test(
     const sourceWorkspace = createWorkspace(context);
     const sourceInbox = Object.keys(sourceWorkspace.lists)[0];
     for (let index = 0; index < 2201; index++) {
+      expect.assert(sourceInbox !== undefined);
       createTask(
         sourceWorkspace,
         context.newId(),
@@ -92,10 +90,12 @@ test(
     const source = await documents.create(sourceWorkspace);
     onTestFinished(() => source.repository.close());
     const targetWorkspace = createWorkspace(context);
+    const entry1 = Object.keys(targetWorkspace.lists)[0];
+    expect.assert(entry1 !== undefined);
     const existing = createTask(
       targetWorkspace,
       context.newId(),
-      taskData(Object.keys(targetWorkspace.lists)[0], 'Existing account task'),
+      taskData(entry1, 'Existing account task'),
       context,
     );
     const target = await documents.create(targetWorkspace);
@@ -185,12 +185,9 @@ test('a retained local copy rejoins shared native history instead of duplicating
     owned: { adapters: [], dispose() {} },
   }));
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Read'),
-    context,
-  );
+  const entry2 = Object.keys(workspace.lists)[0];
+  expect.assert(entry2 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry2, 'Read'), context);
   const server = await documents.create(workspace);
   onTestFinished(() => server.repository.close());
   const local = await documents.restoreArchive(await server.exportData());
@@ -217,12 +214,9 @@ test('an immutable archive with a late same-field conflict is rejected without c
     owned: { adapters: [], dispose() {} },
   }));
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Original'),
-    context,
-  );
+  const entry3 = Object.keys(workspace.lists)[0];
+  expect.assert(entry3 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry3, 'Original'), context);
   const original = await documents.create(workspace);
   onTestFinished(() => original.repository.close());
   const binary = decodeWorkspaceArchive(await original.exportData()).binary;
@@ -262,12 +256,9 @@ test('archive replacement stays in the existing document lineage and is visible 
     owned: { adapters: [], dispose() {} },
   }));
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Original'),
-    context,
-  );
+  const entry4 = Object.keys(workspace.lists)[0];
+  expect.assert(entry4 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry4, 'Original'), context);
   const target = await documents.create(workspace);
   onTestFinished(() => target.repository.close());
   const archive = await target.exportData();
@@ -277,11 +268,11 @@ test('archive replacement stays in the existing document lineage and is visible 
   const id = target.repository.id;
   await target.replaceArchive(archive);
   expect(target.repository.id).toBe(id);
-  expect(target.repository.getSnapshot().workspace.tasks[task.id].title).toBe('Original');
+  expect(target.repository.getSnapshot().workspace.tasks[task.id]?.title).toBe('Original');
   await target.repository.close();
   const reopened = await documents.open(id);
   onTestFinished(() => reopened.repository.close());
-  expect(reopened.repository.getSnapshot().workspace.tasks[task.id].title).toBe('Original');
+  expect(reopened.repository.getSnapshot().workspace.tasks[task.id]?.title).toBe('Original');
 });
 
 test('restoring a pre-inclusion archive also restores inclusion bookkeeping so a later inclusion is not skipped', async () => {
@@ -291,12 +282,9 @@ test('restoring a pre-inclusion archive also restores inclusion bookkeeping so a
     owned: { adapters: [], dispose() {} },
   }));
   const source = createWorkspace(context);
-  createTask(
-    source,
-    context.newId(),
-    taskData(Object.keys(source.lists)[0], 'Include again'),
-    context,
-  );
+  const entry5 = Object.keys(source.lists)[0];
+  expect.assert(entry5 !== undefined);
+  createTask(source, context.newId(), taskData(entry5, 'Include again'), context);
   const incoming = await documents.create(source);
   onTestFinished(() => incoming.repository.close());
   const target = await documents.create(createWorkspace(context));

@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { selectCalendarDate } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -62,7 +64,7 @@ test('every priority keeps one semantic color across menu, detail circle, rest, 
             .evaluate((el) => getComputedStyle(el, '::before').borderTopColor),
         )
         .toBe(color);
-      await expect.poll(async () => (await storedWorkspace(page)).tasks[0].priority).toBe(value);
+      await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.priority).toBe(value);
     }
   }
 });
@@ -75,7 +77,7 @@ test('selection changes never paint an old title or a missing description editor
     ['Alpha short', 'Alpha document'],
     ['Beta long title '.repeat(9).trim(), 'Beta document'],
     ['Empty description', ''],
-  ];
+  ] as const;
   for (const [title, body] of tasks) {
     await add(page, title);
     await page.locator('.task-title').filter({ hasText: title }).click();
@@ -99,11 +101,15 @@ test('selection changes never paint an old title or a missing description editor
           const record = () => {
             const selected =
               document.querySelector('.task-row.selected .task-title')?.textContent ?? '';
+            const matchedElement = document.querySelector('.detail-pane');
+            if (matchedElement === null) {
+              throw new Error("Expected element matching '.detail-pane'");
+            }
             samples.push({
               selected,
-              title: (document.querySelector('.td-title') as HTMLTextAreaElement)?.value,
+              title: document.querySelector<HTMLTextAreaElement>('.td-title')?.value ?? '',
               body: document.querySelector('.td-markdown [contenteditable]')?.textContent ?? '',
-              width: document.querySelector('.detail-pane')!.getBoundingClientRect().width,
+              width: matchedElement.getBoundingClientRect().width,
             });
             if (!stopped) {
               requestAnimationFrame(record);
@@ -124,11 +130,10 @@ test('selection changes never paint an old title or a missing description editor
   );
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-  for (let i = 0; i < 12; i++) {
-    await page
-      .locator('.task-title')
-      .filter({ hasText: tasks[i % 3][0] })
-      .click({ delay: 80 });
+  for (let repetition = 0; repetition < 4; repetition++) {
+    for (const [title] of tasks) {
+      await page.locator('.task-title').filter({ hasText: title }).click({ delay: 80 });
+    }
   }
   await page.evaluate(() => window.dispatchEvent(new Event('selection-probe-stop')));
   const samples = await observed;
@@ -136,8 +141,10 @@ test('selection changes never paint an old title or a missing description editor
   expect(samples.length).toBeGreaterThan(12);
   for (const frame of samples) {
     expect(frame.title).toBe(frame.selected);
-    expect(frame.body).toBe(tasks.find(([title]) => title === frame.selected)![1]);
-    expect(frame.width).toBe(samples[0].width);
+    const entry = tasks.find(([title]) => title === frame.selected);
+    assert(entry !== undefined, 'Missing entry');
+    expect(frame.body).toBe(entry[1]);
+    expect(frame.width).toBe(samples[0]?.width);
   }
 });
 
@@ -150,7 +157,7 @@ test('switching descriptions isolates task content and undo, including identical
     ['Alpha', 'Alpha original'],
     ['Beta', 'Beta original'],
     ['Same', 'Beta original'],
-  ]) {
+  ] as const) {
     await add(page, title);
     await page.locator('.task-title').filter({ hasText: title }).click();
     await notes.fill(body);
@@ -179,7 +186,7 @@ test('switching descriptions isolates task content and undo, including identical
     .poll(async () => {
       const saved = await storedWorkspace(page);
       return ['Alpha', 'Beta', 'Same'].map(
-        (title) => saved.tasks.find((task) => task.title === title)!.notes,
+        (title) => saved.tasks.find((task) => task.title === title)?.notes,
       );
     })
     .toEqual(['Alpha edited', 'Beta original', 'Beta original']);
@@ -203,7 +210,7 @@ test('Korean composition caret follows the complete glyph and commits without se
     await notes.press('ControlOrMeta+a');
     await notes.press('Backspace');
     await expect(notes).toHaveText('');
-    await expect.poll(async () => (await storedWorkspace(page)).tasks[0].notes).toBe('');
+    await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.notes).toBe('');
     await notes.focus();
     for (const text of ['ㅇ', '아', '안']) {
       await cdp.send('Input.imeSetComposition', {
@@ -213,8 +220,14 @@ test('Korean composition caret follows the complete glyph and commits without se
       });
       await expect(notes).toContainText(text);
       const error = await notes.evaluate(() => {
-        const selection = getSelection()!;
-        const node = selection.anchorNode!;
+        const selection = getSelection();
+        if (selection === null) {
+          throw new Error('Missing selection');
+        }
+        const node = selection.anchorNode;
+        if (node === null) {
+          throw new Error('Missing node');
+        }
         const offset = selection.anchorOffset;
         const range = document.createRange();
         range.setStart(node, 0);
@@ -224,9 +237,18 @@ test('Korean composition caret follows the complete glyph and commits without se
         range.collapse(true);
         const actual = range.getBoundingClientRect().x - start;
         const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d')!;
-        ctx.font = getComputedStyle(node.parentElement!).font;
-        return Math.abs(actual - ctx.measureText(node.textContent!.slice(0, offset)).width);
+        const ctx = canvas.getContext('2d');
+        if (ctx === null) {
+          throw new Error('Missing ctx');
+        }
+        if (node.parentElement === null) {
+          throw new Error('Missing node.parentElement');
+        }
+        ctx.font = getComputedStyle(node.parentElement).font;
+        if (node.textContent === null) {
+          throw new Error('Missing node.textContent');
+        }
+        return Math.abs(actual - ctx.measureText(node.textContent.slice(0, offset)).width);
       });
       expect(error).toBeLessThan(1);
     }
@@ -235,7 +257,7 @@ test('Korean composition caret follows the complete glyph and commits without se
     await cdp.send('Input.imeSetComposition', { text: '녕', selectionStart: 1, selectionEnd: 1 });
     await cdp.send('Input.insertText', { text: '녕' });
     await expect(notes).toHaveText('안녕');
-    await expect.poll(async () => (await storedWorkspace(page)).tasks[0].notes).toBe('안녕');
+    await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.notes).toBe('안녕');
   }
   await notes.press('Enter');
   await notes.pressSequentially('[] ');
@@ -245,7 +267,7 @@ test('Korean composition caret follows the complete glyph and commits without se
   await cdp.send('Input.insertText', { text: '한' });
   await expect(notes.getByRole('checkbox')).toHaveText('한');
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toBe('안녕\n\n- [ ] 한');
   await page.reload();
   await page.locator('.task-title').click();
@@ -262,6 +284,7 @@ test('imported Markdown renders tables and unknown-language code without rewriti
   const backup = await storedWorkspace(page);
   const source =
     '## Review content\n\n| Item | Status |\n| --- | --- |\n| research | Complete |\n\n```custom-language caption\nconst sample = "Preserve";\n```\n\n[Reference document](https://example.com)\n\n- [x] Completed item';
+  assert(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
   backup.tasks[0].notes = source;
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({
@@ -279,13 +302,22 @@ test('imported Markdown renders tables and unknown-language code without rewriti
     'https://example.com',
   );
   await expect(notes.locator('.cm-content')).toContainText('Preserve');
-  expect((await storedWorkspace(page)).tasks[0].notes).toBe(source);
+  expect((await storedWorkspace(page)).tasks[0]?.notes).toBe(source);
 
   const codeLayout = async () =>
     page.locator('.cm-editor').evaluate((editor) => {
       const code = editor.getBoundingClientRect();
-      const wrapper = editor.parentElement!.parentElement!;
-      const bar = wrapper.firstElementChild!.getBoundingClientRect();
+      if (editor.parentElement === null) {
+        throw new Error('Missing editor.parentElement');
+      }
+      const wrapper = editor.parentElement.parentElement;
+      if (wrapper === null) {
+        throw new Error('Missing wrapper');
+      }
+      if (wrapper.firstElementChild === null) {
+        throw new Error('Missing wrapper.firstElementChild');
+      }
+      const bar = wrapper.firstElementChild.getBoundingClientRect();
       const style = getComputedStyle(wrapper);
       return {
         overlap: bar.bottom > code.y,
@@ -310,7 +342,7 @@ test('imported Markdown renders tables and unknown-language code without rewriti
 
   await notes.getByRole('checkbox').click({ position: { x: 8, y: 14 } });
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('```custom-language caption');
 });
 
@@ -322,6 +354,7 @@ test('embedded expression syntax stays literal without executing code or rewriti
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(1);
   const backup = await storedWorkspace(page);
   const source = '{globalThis.__rilldayMarkdownExecuted = true}\n\nBody text';
+  assert(backup.tasks[0] !== undefined, 'Missing backup.tasks[0]');
   backup.tasks[0].notes = source;
   await page.getByLabel('Settings and backup', { exact: true }).click();
   await page.locator('input[type=file]').setInputFiles({
@@ -335,10 +368,10 @@ test('embedded expression syntax stays literal without executing code or rewriti
   await expect(editor).toContainText('{globalThis.__rilldayMarkdownExecuted = true}');
   await expect(editor).toContainText('Body text');
   expect(await page.evaluate(() => '__rilldayMarkdownExecuted' in globalThis)).toBe(false);
-  expect((await storedWorkspace(page)).tasks[0].notes).toBe(source);
+  expect((await storedWorkspace(page)).tasks[0]?.notes).toBe(source);
   await editor.fill(source + '\nUpdated source');
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('Updated source');
 });
 
@@ -367,7 +400,7 @@ test('Markdown shortcuts edit one document and checkboxes support pointer, keybo
   await checks.last().press('Space');
   await expect(checks.last()).toHaveAttribute('aria-checked', 'true');
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('- [x] Second item');
   await notes.focus();
   await notes.press('Control+z');
@@ -376,7 +409,7 @@ test('Markdown shortcuts edit one document and checkboxes support pointer, keybo
   await expect(checks.last()).toHaveAttribute('aria-checked', 'true');
   await page.getByLabel('Close task details', { exact: true }).click();
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toMatch(/- \[x\] First item[\s\S]*- \[x\] Second item/);
   await reloadSavedPage(page);
   await page.locator('.task-title').click();
@@ -416,7 +449,8 @@ test('Markdown checkbox focus follows the small mark while the larger target rem
           await page.getByLabel('Task description', { exact: true }).focus();
           await check.focus();
           await check.press('Space');
-          await expect(check).toHaveAttribute('aria-checked', before!);
+          assert(before !== null, 'Missing before');
+          await expect(check).toHaveAttribute('aria-checked', before);
         }
         const geometry = await check.evaluate((el) => {
           const s = getComputedStyle(el, '::before');
@@ -468,19 +502,24 @@ test('Pin is a stable toggle, marks task identity and keeps dates in place', asy
   await row.locator('.task-title').click();
   const pin = page.getByRole('button', { name: 'Pin to top', exact: true });
   await expect(pin).toHaveAttribute('aria-pressed', 'false');
-  const before = (await pin.boundingBox())!;
-  const date = (await row.locator('.row-date').boundingBox())!;
+  const before = await visibleBox(pin);
+  const date = await visibleBox(row.locator('.row-date'));
+
   await pin.click();
   await expect(pin).toHaveAttribute('aria-pressed', 'true');
-  expect(await pin.boundingBox()).toEqual(before);
+  expect(await visibleBox(pin)).toEqual(before);
   await expect(page.locator('.task-title').first()).toHaveText('Pinned task');
   await expect(row.locator('.task-heading .row-pin')).toHaveCount(1);
   await expect(row.locator('.row-trailing .row-pin')).toHaveCount(0);
-  expect((await row.locator('.row-date').boundingBox())!.x).toBe(date.x);
+  expect((await visibleBox(row.locator('.row-date'))).x).toBe(date.x);
   const geometry = await page.locator('.td-header .td-icon-button').evaluateAll((buttons) =>
     buttons.map((button) => {
       const box = button.getBoundingClientRect();
-      const icon = button.querySelector('svg')!.getBoundingClientRect();
+      const iconElement = button.querySelector('svg');
+      if (iconElement === null) {
+        throw new Error("Expected element matching 'svg'");
+      }
+      const icon = iconElement.getBoundingClientRect();
       return {
         size: [box.width, box.height],
         icon: [icon.width, icon.height],
@@ -523,7 +562,11 @@ test('unset properties share icon geometry and the date appears only after assig
     const state = await page.locator('.td-metadata button').evaluateAll((buttons) =>
       buttons.map((button) => {
         const box = button.getBoundingClientRect();
-        const icon = button.querySelector('svg')!.getBoundingClientRect();
+        const iconElement2 = button.querySelector('svg');
+        if (iconElement2 === null) {
+          throw new Error("Expected element matching 'svg'");
+        }
+        const icon = iconElement2.getBoundingClientRect();
         return {
           size: [box.width, box.height],
           icon: [icon.width, icon.height],
@@ -536,13 +579,26 @@ test('unset properties share icon geometry and the date appears only after assig
     for (const button of state) {
       expect(button.size).toEqual([32, 32]);
       expect(button.icon).toEqual([16, 16]);
+      assert(state[0] !== undefined, 'Missing state[0]');
       expect(button.center).toBe(state[0].center);
       expect(button.text).toBe('');
     }
     const position = await page.locator('.td-metadata').evaluate((el) => {
-      const icon = el.querySelector('svg')!.getBoundingClientRect();
-      const check = document.querySelector('.td-title-row .td-complete')!.getBoundingClientRect();
-      const title = document.querySelector('.td-title-row')!.getBoundingClientRect();
+      const iconElement3 = el.querySelector('svg');
+      if (iconElement3 === null) {
+        throw new Error("Expected element matching 'svg'");
+      }
+      const icon = iconElement3.getBoundingClientRect();
+      const checkElement = document.querySelector('.td-title-row .td-complete');
+      if (checkElement === null) {
+        throw new Error("Expected element matching '.td-title-row .td-complete'");
+      }
+      const check = checkElement.getBoundingClientRect();
+      const titleElement = document.querySelector('.td-title-row');
+      if (titleElement === null) {
+        throw new Error("Expected element matching '.td-title-row'");
+      }
+      const title = titleElement.getBoundingClientRect();
       return {
         axis: Math.abs(icon.x + icon.width / 2 - check.x - check.width / 2),
         gap: title.top - el.getBoundingClientRect().bottom,

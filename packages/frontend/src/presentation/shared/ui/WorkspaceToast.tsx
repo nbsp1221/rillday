@@ -1,6 +1,12 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
-import { ToastAction, ToastClose, ToastTitle } from '@repo/ui/components/toast';
+import {
+  ToastAction,
+  ToastClose,
+  ToastPortal,
+  ToastTitle,
+  ToastViewport,
+} from '@repo/ui/components/toast';
 import { X } from 'lucide-react';
 import { useI18n } from '#shared/i18n';
 
@@ -9,7 +15,7 @@ export function WorkspaceToast({
   canUndo,
   undo,
 }: {
-  toast: ToastPrimitive.Root.ToastObject<{ undoRevision?: number }>;
+  toast: ToastPrimitive.Root.ToastObject<{ undoable?: boolean }>;
   canUndo: boolean;
   undo: () => unknown;
 }) {
@@ -36,5 +42,34 @@ export function WorkspaceToast({
         <X className="size-3.5 inline-block shrink-0 align-middle" />
       </ToastClose>
     </ToastPrimitive.Root>
+  );
+}
+
+export function WorkspaceToastViewport({
+  toasts,
+  canUndo,
+  undo,
+}: {
+  toasts: ToastPrimitive.Root.ToastObject<{ undoable?: boolean }>[];
+  canUndo: boolean;
+  undo: () => unknown;
+}) {
+  const { t } = useI18n();
+  return (
+    <ToastPortal>
+      <ToastViewport
+        aria-label={t('common.notifications')}
+        className="left-1/2 right-auto bottom-[25px] z-150 mx-0 w-max -translate-x-1/2 max-w-[calc(100vw_-_24px)] sm:right-auto sm:left-1/2 sm:mx-0 sm:w-max [@media(max-width:_600px)]:bottom-4 [@media(max-width:_600px)]:max-w-[calc(100vw_-_20px)]"
+      >
+        {toasts.map((toast) => (
+          <WorkspaceToast
+            key={toast.id}
+            toast={toast}
+            canUndo={toast.data?.undoable === true && canUndo}
+            undo={undo}
+          />
+        ))}
+      </ToastViewport>
+    </ToastPortal>
   );
 }

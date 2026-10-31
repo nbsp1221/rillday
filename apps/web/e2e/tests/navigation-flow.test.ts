@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { storedWorkspace } from '../support/storage';
 
 async function ready(page: Page) {
@@ -58,13 +59,14 @@ test('content sidebar toggle preserves task context and edits and leaves the pri
   await add(page, 'Task retained while collapsed');
   await page.locator('.task-title').click();
   await page.getByLabel('Task description', { exact: true }).fill('Authored description');
-  const contentBefore = (await page.locator('.workspace-layout').boundingBox())!;
+  const contentBefore = await visibleBox(page.locator('.workspace-layout'));
+
   await page.getByLabel('Hide sidebar', { exact: true }).click();
   await expect(page.locator('.task-sidebar')).toBeHidden();
   await expect(
     page.getByRole('navigation', { name: 'Main navigation', exact: true }),
   ).toBeVisible();
-  expect((await page.locator('.workspace-layout').boundingBox())!.width).toBeGreaterThan(
+  expect((await visibleBox(page.locator('.workspace-layout'))).width).toBeGreaterThan(
     contentBefore.width,
   );
   await expect(page.getByLabel('Task description', { exact: true })).toHaveText(
@@ -94,15 +96,27 @@ test('narrow sidebar contains keyboard focus, dismisses safely and lets global c
   await expect
     .poll(() =>
       sheet.evaluate((element) => {
-        const rail = document.querySelector('.app-rail')!.getBoundingClientRect().width;
+        const railElement = document.querySelector('.app-rail');
+        if (railElement === null) {
+          throw new Error("Expected element matching '.app-rail'");
+        }
+        const rail = railElement.getBoundingClientRect().width;
         return Math.round((element.getBoundingClientRect().x - rail) * 100) / 100;
       }),
     )
     .toBe(0);
   const geometry = await sheet.evaluate((element) => {
     const box = element.getBoundingClientRect();
-    const app = getComputedStyle(document.querySelector('.rillday-app')!);
-    const rail = document.querySelector('.app-rail')!.getBoundingClientRect().width;
+    const entry = document.querySelector('.rillday-app');
+    if (entry === null) {
+      throw new Error('Missing entry');
+    }
+    const app = getComputedStyle(entry);
+    const railElement2 = document.querySelector('.app-rail');
+    if (railElement2 === null) {
+      throw new Error("Expected element matching '.app-rail'");
+    }
+    const rail = railElement2.getBoundingClientRect().width;
     const saved = parseFloat(app.getPropertyValue('--sidebar-width'));
     return { x: box.x, width: box.width, rail, expected: Math.min(saved, innerWidth - rail - 16) };
   });
@@ -138,12 +152,19 @@ test('sidebar motion preserves content width, supports reversal and honors reduc
   const sidebar = page.locator('.task-sidebar');
   const widths = await sidebar.evaluate(async (element) => {
     const full = element.getBoundingClientRect().width;
-    document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle')!.click();
+    const matchedElement = document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle');
+    if (matchedElement === null) {
+      throw new Error("Expected element matching '.workspace-sidebar-toggle'");
+    }
+    matchedElement.click();
 
     let transition: Animation | undefined;
     for (let frame = 0; frame < 60; frame++) {
-      transition = document
-        .querySelector('#workspace-sidebar-panel')!
+      const matchedElement2 = document.querySelector('#workspace-sidebar-panel');
+      if (matchedElement2 === null) {
+        throw new Error("Expected element matching '#workspace-sidebar-panel'");
+      }
+      transition = matchedElement2
         .getAnimations()
         .find((animation) => animation.playState === 'running');
       if (transition) {
@@ -159,10 +180,14 @@ test('sidebar motion preserves content width, supports reversal and honors reduc
 
     transition.pause();
     transition.currentTime = 100;
+    const widthsElement = element.querySelector('.collapsible-sidebar-inner');
+    if (widthsElement === null) {
+      throw new Error("Expected element matching '.collapsible-sidebar-inner'");
+    }
     const widths = {
       full,
       during: element.getBoundingClientRect().width,
-      inner: element.querySelector('.collapsible-sidebar-inner')!.getBoundingClientRect().width,
+      inner: widthsElement.getBoundingClientRect().width,
     };
     transition.play();
     return widths;
@@ -173,16 +198,19 @@ test('sidebar motion preserves content width, supports reversal and honors reduc
   await expect(sidebar).toBeHidden();
   await expect(sidebar).toHaveAttribute('inert', '');
   await page.getByLabel('Show sidebar', { exact: true }).click();
-  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(widths.full);
+  await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(widths.full);
   await page.evaluate(async () => {
-    const button = document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle')!;
+    const button = document.querySelector<HTMLButtonElement>('.workspace-sidebar-toggle');
+    if (button === null) {
+      throw new Error('Missing button');
+    }
     button.click();
     await new Promise((resolve) => {
       requestAnimationFrame(resolve);
     });
     button.click();
   });
-  await expect.poll(async () => (await sidebar.boundingBox())?.width).toBe(widths.full);
+  await expect.poll(async () => (await visibleBox(sidebar)).width).toBe(widths.full);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByLabel('Hide sidebar', { exact: true }).click();
   await expect(sidebar).toBeHidden();
@@ -215,12 +243,22 @@ test('Lists and Labels collapse independently without losing scope or drafts, an
   await expect(lists.locator('.sidebar-group-add')).toHaveCSS('opacity', '0');
   await lists.locator('.sidebar-section-heading').hover();
   await expect(lists.locator('.sidebar-group-add')).toHaveCSS('opacity', '1');
-  const hover = await lists.locator('.sidebar-section-heading').evaluate((heading) => ({
-    fill: getComputedStyle(heading).backgroundColor,
-    inner: getComputedStyle(heading.querySelector('.sidebar-section-toggle')!).backgroundColor,
-    height: heading.getBoundingClientRect().height,
-    rowHeight: document.querySelector('.sidebar-item')!.getBoundingClientRect().height,
-  }));
+  const hover = await lists.locator('.sidebar-section-heading').evaluate((heading) => {
+    const hoverElement = document.querySelector('.sidebar-item');
+    if (hoverElement === null) {
+      throw new Error("Expected element matching '.sidebar-item'");
+    }
+    const entry1 = heading.querySelector('.sidebar-section-toggle');
+    if (entry1 === null) {
+      throw new Error('Missing entry');
+    }
+    return {
+      fill: getComputedStyle(heading).backgroundColor,
+      inner: getComputedStyle(entry1).backgroundColor,
+      height: heading.getBoundingClientRect().height,
+      rowHeight: hoverElement.getBoundingClientRect().height,
+    };
+  });
   expect(hover.fill).not.toBe('rgba(0, 0, 0, 0)');
   expect(hover.inner).toBe('rgba(0, 0, 0, 0)');
   expect(hover.height).toBeLessThan(hover.rowHeight);
@@ -258,9 +296,10 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
 }) => {
   await page.setViewportSize({ width: 1440, height: 950 });
   await ready(page);
-  const handle = (await page.locator('.sidebar-resize').boundingBox())!;
+  const handle = await visibleBox(page.locator('.sidebar-resize'));
+
   const start = handle.x + handle.width / 2;
-  const initialWidth = (await page.locator('.task-sidebar').boundingBox())!.width;
+  const initialWidth = (await visibleBox(page.locator('.task-sidebar'))).width;
   await page.mouse.move(start, 420);
   const sidebarLine = await page.locator('.sidebar-resize').evaluate((el) => {
     const style = getComputedStyle(el);
@@ -286,12 +325,23 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
       await new Promise((resolve) => {
         requestAnimationFrame(resolve);
       });
-      const sidebar = document.querySelector('.task-sidebar')!;
+      const sidebar = document.querySelector('.task-sidebar');
+      if (sidebar === null) {
+        throw new Error('Missing sidebar');
+      }
       const actual = sidebar.getBoundingClientRect();
+      const matchedElement3 = sidebar.querySelector('.collapsible-sidebar-inner');
+      if (matchedElement3 === null) {
+        throw new Error("Expected element matching '.collapsible-sidebar-inner'");
+      }
+      const matchedElement4 = document.querySelector('.workspace-layout');
+      if (matchedElement4 === null) {
+        throw new Error("Expected element matching '.workspace-layout'");
+      }
       return {
         actual: actual.width,
-        inner: sidebar.querySelector('.collapsible-sidebar-inner')!.getBoundingClientRect().width,
-        bodyStart: document.querySelector('.workspace-layout')!.getBoundingClientRect().left,
+        inner: matchedElement3.getBoundingClientRect().width,
+        bodyStart: matchedElement4.getBoundingClientRect().left,
         edge: actual.right,
         transition: getComputedStyle(sidebar).transitionDuration,
       };
@@ -310,7 +360,8 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
   await capture.fill('Check detail width');
   await capture.press('Enter');
   await page.locator('.task-title').filter({ hasText: 'Check detail width' }).click();
-  const detailHandle = (await page.locator('.detail-resize').boundingBox())!;
+  const detailHandle = await visibleBox(page.locator('.detail-resize'));
+
   await page.mouse.move(detailHandle.x + 2, 420);
   const detailLine = await page.locator('.detail-resize').evaluate((el) => {
     const style = getComputedStyle(el);
@@ -336,9 +387,10 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
   await expect(page.locator('.detail-pane')).toHaveCSS('width', '540px');
   await page.setViewportSize({ width: 1024, height: 950 });
   await expect
-    .poll(async () => (await page.locator('.main-workspace').boundingBox())!.width)
+    .poll(async () => (await visibleBox(page.locator('.main-workspace'))).width)
     .toBeGreaterThanOrEqual(300);
-  const next = (await page.locator('.sidebar-resize').boundingBox())!;
+  const next = await visibleBox(page.locator('.sidebar-resize'));
+
   await page.mouse.move(next.x + 2, 420);
   await page.mouse.down();
   await page.mouse.move(next.x - 60, 420);
@@ -346,10 +398,10 @@ test('pane drags track the pointer without easing, widen past320px and preserve 
     document.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1, bubbles: true })),
   );
   await expect(page.locator('.sidebar-resize')).not.toHaveAttribute('data-separator', 'active');
-  const stopped = (await page.locator('.task-sidebar').boundingBox())!.width;
+  const stopped = (await visibleBox(page.locator('.task-sidebar'))).width;
   await page.mouse.move(next.x - 160, 420);
   await page.mouse.up();
-  expect((await page.locator('.task-sidebar').boundingBox())!.width).toBe(stopped);
+  expect((await visibleBox(page.locator('.task-sidebar'))).width).toBe(stopped);
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
 
@@ -382,7 +434,11 @@ test('mobile sheet moves as one box and honors reduced motion and focus restorat
     const frames = [40, 100, 160].map((time) => {
       animation.currentTime = time;
       const bounds = element.getBoundingClientRect();
-      const content = element.querySelector('.sidebar-scroll')!.getBoundingClientRect();
+      const contentElement = element.querySelector('.sidebar-scroll');
+      if (contentElement === null) {
+        throw new Error("Expected element matching '.sidebar-scroll'");
+      }
+      const content = contentElement.getBoundingClientRect();
       return { width: bounds.width, contentWidth: content.width, offset: content.x - bounds.x };
     });
     animation.play();

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import {
   type Workspace,
@@ -21,6 +22,7 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
   const inbox = Object.values(workspace.lists)[0];
   for (const list of data.lists) {
     if (list.id === 'inbox') {
+      assert(inbox !== undefined, 'Missing inbox');
       Object.assign(inbox, { name: list.name, color: list.color });
     } else {
       applyWorkspaceIntent(workspace, { type: 'list.create', list }, context, zone);
@@ -44,7 +46,9 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
     .map((task, order) => ({ ...task, order }));
   applyWorkspaceIntent(workspace, { type: 'task.create', tasks }, context, zone);
   for (const source of data.tasks) {
-    Object.assign(workspace.tasks[source.id], {
+    const task1 = workspace.tasks[source.id];
+    assert(task1 !== undefined, 'Missing task');
+    Object.assign(task1, {
       completedAt: source.completedAt,
       createdAt: source.createdAt,
       updatedAt: source.updatedAt,
@@ -66,13 +70,17 @@ export async function archiveFixture(data: WorkspaceData, zone = 'Asia/Seoul'): 
       context,
       zone,
     );
-    workspace.habits[habit.id].createdAt = habit.createdAt;
+
+    const savedHabit = workspace.habits[habit.id];
+    assert(savedHabit !== undefined, 'Missing habit');
+    savedHabit.createdAt = habit.createdAt;
     if (habit.rules) {
-      workspace.habits[habit.id].rules = structuredClone(habit.rules);
+      savedHabit.rules = structuredClone(habit.rules);
     }
   }
   for (const log of data.habitLogs) {
     const habit = workspace.habits[log.habitId];
+    assert(habit !== undefined, 'Missing habit');
     const rule = currentRule(habit, log.date);
     const id = checkInId(habit.id, log.date);
     workspace.checkIns[id] = {
@@ -133,7 +141,9 @@ export async function conflictingArchive(
         right.pause();
         for (const [index, document] of [left, right].entries()) {
           const next = structuredClone(document.repository.getSnapshot().workspace);
-          changes[index](next);
+          const change = changes[index];
+          assert(change !== undefined, 'Missing change');
+          change(next);
           await document.repository.commit(next);
         }
         await left.includeArchive(await right.exportData());

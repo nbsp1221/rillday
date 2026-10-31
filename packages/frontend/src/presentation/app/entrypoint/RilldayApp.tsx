@@ -1,5 +1,5 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
-import { ToastPortal, ToastProvider, ToastViewport } from '@repo/ui/components/toast';
+import { ToastProvider } from '@repo/ui/components/toast';
 import { TooltipProvider } from '@repo/ui/components/tooltip';
 import { cn } from 'cn';
 import {
@@ -11,6 +11,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import invariant from 'tiny-invariant';
 import type {
   ConnectionPort,
   DataDirectoryPort,
@@ -38,11 +39,12 @@ import { AppRail } from '#widgets/app-navigation';
 import { TaskDetail } from '#widgets/task-detail';
 import { TaskSidebar } from '#widgets/task-sidebar';
 import { WorkspacePanels } from '#widgets/workspace-layout';
+import type {} from '../../shared/styles.d.ts';
 import './workspace.css';
 import './editor.css';
 import { syncError } from '../../shared/lib/operation-errors';
 import { SidebarToggle } from '../../shared/ui/WorkspaceHeader';
-import { WorkspaceToast } from '../../shared/ui/WorkspaceToast';
+import { WorkspaceToastViewport } from '../../shared/ui/WorkspaceToast';
 import { useWorkspaceActions } from '../model/use-workspace-actions';
 import { useWorkspaceLayout } from '../model/use-workspace-layout';
 import { useWorkspaceLifecycle } from '../model/use-workspace-lifecycle';
@@ -77,7 +79,7 @@ function WorkspaceApp(props: RilldayAppProps) {
   const { t } = useI18n();
   const { preferences } = useAppPreferences();
   const appRootRef = useRef<HTMLDivElement>(null);
-  const captureDraftsRef = useRef(new Map<string, CaptureDraft>());
+  const [captureDrafts] = useState(() => new Map<string, CaptureDraft>());
   const connectionState = useSyncExternalStore(
     props.connection.subscribe,
     props.connection.getSnapshot,
@@ -92,8 +94,7 @@ function WorkspaceApp(props: RilldayAppProps) {
   const [captureRequest, setCaptureRequest] = useState(0);
   const { narrow, mobileSidebarOpen, setMobileSidebarOpen } = useWorkspaceLayout(captureRequest);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const historyRevisionRef = useRef(0);
-  const { toasts, notify } = useWorkspaceNotifications(connectionState.error, historyRevisionRef);
+  const { toasts, notify, onAccepted } = useWorkspaceNotifications(connectionState.error);
   const [dialog, setDialog] = useState<'profiles' | 'settings' | 'search' | null>(null);
   const [globalQuery, setGlobalQuery] = useState('');
   const showDetail = area !== 'habits' && Boolean(selectedTaskId);
@@ -113,7 +114,8 @@ function WorkspaceApp(props: RilldayAppProps) {
     }
   }
 
-  const activeAccount = props.accounts.find((a) => a.id === props.activeAccountId)!;
+  const activeAccount = props.accounts.find((a) => a.id === props.activeAccountId);
+  invariant(activeAccount !== undefined, 'Missing activeAccount');
 
   function openSyncSettings() {
     setSettingsSection('sync');
@@ -139,7 +141,7 @@ function WorkspaceApp(props: RilldayAppProps) {
     preferences,
     notify,
     selectTask: setSelectedTaskId,
-    historyRevisionRef,
+    onAccepted,
   });
   useWorkspaceShortcuts({
     connection: props.connection,
@@ -158,7 +160,7 @@ function WorkspaceApp(props: RilldayAppProps) {
     connection: props.connection,
     saveState,
     connectionError: connectionState.error,
-    captureDraftsRef,
+    captureDrafts,
   });
 
   if (selectedTaskId && !data.tasks.some((task) => task.id === selectedTaskId)) {
@@ -167,7 +169,7 @@ function WorkspaceApp(props: RilldayAppProps) {
 
   const controller = useMemo<WorkspaceController>(
     () => ({
-      captureDrafts: captureDraftsRef.current,
+      captureDrafts,
       data,
       apply,
       runOperation,
@@ -178,7 +180,17 @@ function WorkspaceApp(props: RilldayAppProps) {
       notify,
       persistence: props.workspace,
     }),
-    [data, apply, runOperation, selectedTaskId, taskActions, deleteTask, notify, props.workspace],
+    [
+      captureDrafts,
+      data,
+      apply,
+      runOperation,
+      selectedTaskId,
+      taskActions,
+      deleteTask,
+      notify,
+      props.workspace,
+    ],
   );
 
   function navigate(value: string) {
@@ -189,13 +201,13 @@ function WorkspaceApp(props: RilldayAppProps) {
     setMobileSidebarOpen(false);
   }
 
-  async function renameProfile(name: string) {
+  const renameProfile = async (name: string) => {
     try {
       await props.renameAccount(activeAccount.id, name);
     } catch (error) {
       notify(error instanceof Error ? syncError(t, error.message) : t('profiles.renameFailed'));
     }
-  }
+  };
 
   return (
     <WorkspaceContext value={controller}>
@@ -317,23 +329,11 @@ function WorkspaceApp(props: RilldayAppProps) {
               )}
             </main>
           </WorkspacePanels>
-          <ToastPortal>
-            <ToastViewport
-              aria-label={t('common.notifications')}
-              className="left-1/2 right-auto bottom-[25px] z-150 mx-0 w-max -translate-x-1/2 max-w-[calc(100vw_-_24px)] sm:right-auto sm:left-1/2 sm:mx-0 sm:w-max [@media(max-width:_600px)]:bottom-4 [@media(max-width:_600px)]:max-w-[calc(100vw_-_20px)]"
-            >
-              {toasts.map((toast) => (
-                <WorkspaceToast
-                  key={toast.id}
-                  toast={toast}
-                  canUndo={
-                    toast.data?.undoRevision === historyRevisionRef.current && snapshot.canUndo
-                  }
-                  undo={taskActions.undo}
-                />
-              ))}
-            </ToastViewport>
-          </ToastPortal>
+          <WorkspaceToastViewport
+            toasts={toasts}
+            canUndo={snapshot.canUndo}
+            undo={taskActions.undo}
+          />
           {labelEditing && (
             <LabelEditor
               label={labelEditing.name}

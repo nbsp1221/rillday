@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { reloadSavedPage } from '../support/navigation';
 import { storedPreferences } from '../support/storage';
 
@@ -38,11 +40,12 @@ test('shared switches keep track and thumb geometry while keyboard changes persi
   await page.locator('.settings-nav nav > button').nth(2).click();
   const control = page.getByRole('switch', { name: 'Expand completed tasks', exact: true });
   const initial = await control.getAttribute('aria-checked');
-  const bounds = (await control.boundingBox())!;
+  const bounds = await visibleBox(control);
+
   expect(bounds.width).toBe(34);
   expect(bounds.height).toBe(20);
   await control.hover();
-  expect(await control.boundingBox()).toEqual(bounds);
+  expect(await visibleBox(control)).toEqual(bounds);
   await control.focus();
   await control.press('Space');
   await expect(control).toHaveAttribute('aria-checked', String(initial !== 'true'));
@@ -55,7 +58,8 @@ test('shared switches keep track and thumb geometry while keyboard changes persi
   await expect(control).toHaveAttribute('aria-checked', String(initial !== 'true'));
   await control.focus();
   await control.press('Enter');
-  await expect(control).toHaveAttribute('aria-checked', initial!);
+  assert(initial !== null, 'Missing initial');
+  await expect(control).toHaveAttribute('aria-checked', initial);
 });
 
 test('appearance choices support arrows and keep a required value', async ({ page }) => {

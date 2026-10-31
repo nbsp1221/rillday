@@ -21,7 +21,7 @@ test('published OpenAPI describes the account and document connection routes', a
     ['/v1/admin/users', 'post'],
     ['/v1/connection', 'get'],
     ['/v1/connection', 'post'],
-  ]) {
+  ] as const) {
     expect(document.paths[path]).toHaveProperty(method);
   }
 });

@@ -7,11 +7,13 @@ export function withWorkspaceLock<T>(
   action: () => Promise<T>,
   options: WorkspaceLockOptions = {},
 ): Promise<T> {
-  if (!navigator.locks) {
+  // Browser support is optional even though lib.dom declares this property.
+  const locks = navigator.locks as LockManager | undefined;
+  if (!locks) {
     return Promise.reject(new Error('web_locks_required'));
   }
   const mode = options.mode ?? 'exclusive';
-  return navigator.locks.request(
+  return locks.request(
     `rillday-workspace:${workspaceId}:operation`,
     { mode, ...(options.signal ? { signal: options.signal } : {}) },
     action,

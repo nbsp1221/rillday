@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
@@ -91,7 +93,7 @@ test('detail text editors keep caret focus without form rings or layout shifts',
     await page.setViewportSize({ width, height: 700 });
     for (const editor of [title, notes]) {
       await page.locator('.td-header').click({ position: { x: 4, y: 4 } });
-      const before = await editor.boundingBox();
+      const before = await visibleBox(editor);
       await editor.click();
       await expect(editor).toBeFocused();
       const appearance = await editor.evaluate((element) => {
@@ -112,7 +114,7 @@ test('detail text editors keep caret focus without form rings or layout shifts',
       expect(appearance.border).toBe('0px');
       expect(appearance.caret).toBe(appearance.text);
       expect(appearance.background).toBe('rgba(0, 0, 0, 0)');
-      expect(await editor.boundingBox()).toEqual(before);
+      expect(await visibleBox(editor)).toEqual(before);
     }
     await page.locator('.td-date-button').focus();
     await page.keyboard.press('Shift+Tab');
@@ -156,30 +158,45 @@ test('detail cards occupy space only after selection and preserve editing when r
       .poll(() =>
         page.evaluate(() => {
           const sidebar =
-            document.querySelector('.task-sidebar') ?? document.querySelector('.app-rail')!;
+            document.querySelector('.task-sidebar') ?? document.querySelector('.app-rail');
+          if (sidebar === null) {
+            throw new Error('Missing sidebar');
+          }
+          const matchedElement = document.querySelector('.workspace-layout');
+          if (matchedElement === null) {
+            throw new Error("Expected element matching '.workspace-layout'");
+          }
           return (
-            document.querySelector('.workspace-layout')!.getBoundingClientRect().left -
-            sidebar.getBoundingClientRect().right
+            matchedElement.getBoundingClientRect().left - sidebar.getBoundingClientRect().right
           );
         }),
       )
       .toBeLessThan(0.5);
     await expect
       .poll(async () => {
-        const main = (await page.locator('.main-workspace').boundingBox())!;
-        const container = (await page.locator('.workspace-body').boundingBox())!;
+        const main = await visibleBox(page.locator('.main-workspace'));
+        const container = await visibleBox(page.locator('.workspace-body'));
         return main.width - container.width;
       })
       .toBe(0);
-    const available = (await page.locator('.main-workspace').boundingBox())!.width;
+    const available = (await visibleBox(page.locator('.main-workspace'))).width;
     await page.locator('.task-title').filter({ hasText: 'Detail card check' }).click();
     const geometry = await page.locator('.task-detail').evaluate((card) => {
-      const pane = card.parentElement!;
+      const pane = card.parentElement;
+      if (pane === null) {
+        throw new Error('Missing pane');
+      }
       const outer = pane.getBoundingClientRect();
       const inner = card.getBoundingClientRect();
       const style = getComputedStyle(card);
-      const header = card.querySelector('.td-header')!;
-      const body = card.querySelector('.td-body')!;
+      const header = card.querySelector('.td-header');
+      const body = card.querySelector('.td-body');
+      if (body === null) {
+        throw new Error('Missing body');
+      }
+      if (header === null) {
+        throw new Error('Missing header');
+      }
       return {
         insets: [
           inner.top - outer.top,
@@ -204,9 +221,21 @@ test('detail cards occupy space only after selection and preserve editing when r
     if (width >= 900) {
       const gaps = await page.locator('.task-content-stack').evaluate((el) => {
         const row = el.getBoundingClientRect();
-        const view = document.querySelector('.task-scroll')!.getBoundingClientRect();
-        const card = document.querySelector('.task-detail')!.getBoundingClientRect();
-        const handle = document.querySelector('.detail-resize')!.getBoundingClientRect();
+        const viewElement = document.querySelector('.task-scroll');
+        if (viewElement === null) {
+          throw new Error("Expected element matching '.task-scroll'");
+        }
+        const view = viewElement.getBoundingClientRect();
+        const cardElement = document.querySelector('.task-detail');
+        if (cardElement === null) {
+          throw new Error("Expected element matching '.task-detail'");
+        }
+        const card = cardElement.getBoundingClientRect();
+        const handleElement = document.querySelector('.detail-resize');
+        if (handleElement === null) {
+          throw new Error("Expected element matching '.detail-resize'");
+        }
+        const handle = handleElement.getBoundingClientRect();
         return {
           left: row.left - view.left,
           right: card.left - row.right,
@@ -223,13 +252,13 @@ test('detail cards occupy space only after selection and preserve editing when r
     expect(geometry.border).toBe('1px');
     expect(geometry.overflow).toBe(false);
     if (width >= 900) {
-      expect((await page.locator('.main-workspace').boundingBox())!.width).toBeLessThan(available);
+      expect((await visibleBox(page.locator('.main-workspace'))).width).toBeLessThan(available);
     }
     await page.getByLabel('Task description', { exact: true }).fill(`Width ${width} edit`);
     await page.getByLabel('Close task details', { exact: true }).click();
     await expect(page.locator('.detail-pane')).toHaveCount(0);
     await expect
-      .poll(async () => (await page.locator('.main-workspace').boundingBox())!.width)
+      .poll(async () => (await visibleBox(page.locator('.main-workspace'))).width)
       .toBe(available);
     await page.locator('.task-title').filter({ hasText: 'Detail card check' }).click();
     await expect(page.getByLabel('Task description', { exact: true })).toHaveText(
@@ -263,10 +292,26 @@ test('open cards hide the list scrollbar without losing scrolling or balanced li
       .click();
     const geometry = await page.locator('.task-scroll').evaluate((el) => {
       const scroll = el.getBoundingClientRect();
-      const row = el.querySelector('.task-content-stack')!.getBoundingClientRect();
-      const card = document.querySelector('.task-detail')!.getBoundingClientRect();
-      const capture = document.querySelector('.quick-add')!.getBoundingClientRect();
-      const grip = document.querySelector('.detail-resize')!.getBoundingClientRect();
+      const rowElement = el.querySelector('.task-content-stack');
+      if (rowElement === null) {
+        throw new Error("Expected element matching '.task-content-stack'");
+      }
+      const row = rowElement.getBoundingClientRect();
+      const cardElement2 = document.querySelector('.task-detail');
+      if (cardElement2 === null) {
+        throw new Error("Expected element matching '.task-detail'");
+      }
+      const card = cardElement2.getBoundingClientRect();
+      const captureElement = document.querySelector('.quick-add');
+      if (captureElement === null) {
+        throw new Error("Expected element matching '.quick-add'");
+      }
+      const capture = captureElement.getBoundingClientRect();
+      const gripElement = document.querySelector('.detail-resize');
+      if (gripElement === null) {
+        throw new Error("Expected element matching '.detail-resize'");
+      }
+      const grip = gripElement.getBoundingClientRect();
       return {
         scrolls: el.scrollHeight > el.clientHeight,
         clearance: card.left - scroll.right,
@@ -306,7 +351,11 @@ test('open cards hide the list scrollbar without losing scrolling or balanced li
     });
     const closed = await page.locator('.task-scroll').evaluate((el) => {
       const scroll = el.getBoundingClientRect();
-      const row = el.querySelector('.task-content-stack')!.getBoundingClientRect();
+      const rowElement2 = el.querySelector('.task-content-stack');
+      if (rowElement2 === null) {
+        throw new Error("Expected element matching '.task-content-stack'");
+      }
+      const row = rowElement2.getBoundingClientRect();
       return [row.left - scroll.left, scroll.right - row.right];
     });
     expect(closed).toEqual([20, 20]);
@@ -326,8 +375,15 @@ test('short task variants center controls while tall content keeps its first-lin
   const geometry = await rows.evaluateAll((elements) =>
     elements.map((element) => {
       const box = element.getBoundingClientRect();
-      const check = element.querySelector('.task-check')!.getBoundingClientRect();
-      const content = element.querySelector('.task-content')!;
+      const checkElement = element.querySelector('.task-check');
+      if (checkElement === null) {
+        throw new Error("Expected element matching '.task-check'");
+      }
+      const check = checkElement.getBoundingClientRect();
+      const content = element.querySelector('.task-content');
+      if (content === null) {
+        throw new Error('Missing content');
+      }
       const bounds = content.getBoundingClientRect();
       const style = getComputedStyle(content);
       const date = element.querySelector('.row-date')?.getBoundingClientRect();
@@ -344,7 +400,9 @@ test('short task variants center controls while tall content keeps its first-lin
       };
     }),
   );
+  assert(geometry[0] !== undefined, 'Missing geometry[0]');
   expect(geometry[0].height).toBe(40);
+  assert(geometry[1] !== undefined, 'Missing geometry[1]');
   expect(geometry[1].height).toBe(56);
   for (const row of geometry) {
     expect(row.titleInset).toBe(56);
@@ -371,7 +429,10 @@ test('populated Markdown checks retain square visuals and label glyphs', async (
         radius: parseFloat(style.borderRadius) - parseFloat(style.borderLeftWidth),
       };
     });
-    const icon = element.querySelector('.td-tag-chips svg')!;
+    const icon = element.querySelector('.td-tag-chips svg');
+    if (icon === null) {
+      throw new Error('Missing icon');
+    }
     return {
       checks,
       label: {
@@ -403,10 +464,11 @@ test('task rows preserve dates and show list origin only where context is missin
   await expect(parent().locator('.row-list')).toHaveCount(0);
   await expect(parent().locator('.task-meta')).toHaveText('planningpersonal');
   const date = parent().locator('.row-date');
-  const before = (await date.boundingBox())!;
+  const before = await visibleBox(date);
+
   await parent().hover();
   await expect(date).toBeVisible();
-  expect((await date.boundingBox())!.x).toBe(before.x);
+  expect((await visibleBox(date)).x).toBe(before.x);
   await expect(parent().locator('.row-menu-trigger')).toHaveCount(0);
   await parent().click({ button: 'right' });
   const menu = page.locator('[data-rillday-menu]');
@@ -423,9 +485,21 @@ test('task rows preserve dates and show list origin only where context is missin
   await expect(children.locator('.task-row')).toHaveCount(2);
   await expect(children.locator('.row-list')).toHaveCount(0);
   const controls = await parent().evaluate((element) => {
-    const a = element.querySelector('.subtask-disclosure')!.getBoundingClientRect();
-    const b = element.querySelector('.task-check')!.getBoundingClientRect();
-    const visual = getComputedStyle(element.querySelector('.task-check')!, '::before');
+    const aElement = element.querySelector('.subtask-disclosure');
+    if (aElement === null) {
+      throw new Error("Expected element matching '.subtask-disclosure'");
+    }
+    const a = aElement.getBoundingClientRect();
+    const bElement = element.querySelector('.task-check');
+    if (bElement === null) {
+      throw new Error("Expected element matching '.task-check'");
+    }
+    const b = bElement.getBoundingClientRect();
+    const entry = element.querySelector('.task-check');
+    if (entry === null) {
+      throw new Error('Missing entry');
+    }
+    const visual = getComputedStyle(entry, '::before');
     return {
       separated: a.right <= b.left,
       centers: Math.abs(a.y + a.height / 2 - b.y - b.height / 2),
@@ -446,7 +520,11 @@ test('task rows preserve dates and show list origin only where context is missin
   expect(
     await disclosure.evaluate((element) => {
       const button = element.getBoundingClientRect();
-      const row = element.closest('.task-row')!.getBoundingClientRect();
+      const rowElement3 = element.closest('.task-row');
+      if (rowElement3 === null) {
+        throw new Error("Expected element matching '.task-row'");
+      }
+      const row = rowElement3.getBoundingClientRect();
       return (
         button.left >= row.left &&
         button.right <= row.right &&
@@ -474,7 +552,7 @@ test('detail keeps direct property editing and reveals content sections only whe
   const detail = page.getByLabel('Task details', { exact: true });
   await expect(detail.locator('.td-section')).toHaveCount(0);
   expect(
-    (await page.getByLabel('Task description', { exact: true }).boundingBox())!.height,
+    (await visibleBox(page.getByLabel('Task description', { exact: true }))).height,
   ).toBeLessThan(40);
   for (const name of ['Move to list', 'Set priority', 'Add labels']) {
     await expect(detail.getByLabel(name, { exact: true })).toBeVisible();
@@ -517,7 +595,8 @@ test('detail popovers escape the scroll region and fit a short narrow viewport',
     await trigger.click();
     const popup = page.locator('.td-popover,.td-date-panel');
     await expect(popup).toBeVisible();
-    const box = (await popup.boundingBox())!;
+    const box = await visibleBox(popup);
+
     expect(box.x).toBeGreaterThanOrEqual(8);
     expect(box.y).toBeGreaterThanOrEqual(8);
     expect(box.x + box.width).toBeLessThanOrEqual(312);
@@ -562,6 +641,6 @@ test('detail editing keeps keyboard flow between title, notes, menus and checkli
   await notes.pressSequentially('Next item');
   await expect(page.locator('.td-markdown [role="checkbox"]')).toHaveCount(2);
   await expect
-    .poll(async () => (await storedWorkspace(page)).tasks[0].notes)
+    .poll(async () => (await storedWorkspace(page)).tasks[0]?.notes)
     .toContain('- [ ] Next item');
 });

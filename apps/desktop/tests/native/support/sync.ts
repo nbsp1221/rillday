@@ -1,7 +1,16 @@
+import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import type { invoke } from '@tauri-apps/api/core';
 import { type Page, type TestInfo, expect } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
+import { z } from 'zod';
+
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__: { invoke: typeof invoke };
+  }
+}
 
 const fixture = createServerFixture((options) => createServer({ ...options, logger: false }));
 
@@ -29,12 +38,13 @@ export async function verifyNativeSync(page: Page, info: TestInfo) {
     await expect(
       page.getByRole('region', { name: 'Review sync connection', exact: true }),
     ).toBeVisible();
-    const metadata = (await (await fetch(server.origin + '/v1/server')).json()) as {
-      serverId: string;
-    };
-    const user = server.store.prepare('SELECT id FROM user WHERE email=?').get(email) as {
-      id: string;
-    };
+    const metadata = z
+      .object({ serverId: z.string() })
+      .parse(await (await fetch(server.origin + '/v1/server')).json());
+    const user = server.store
+      .prepare<{ id: string }>('SELECT id FROM user WHERE email=?')
+      .get(email);
+    assert(user !== undefined, 'Missing synthetic native sync user');
     credentialKey = createHash('sha256')
       .update(server.origin + '|' + metadata.serverId + '|' + user.id)
       .digest('hex');
@@ -54,11 +64,7 @@ export async function verifyNativeSync(page: Page, info: TestInfo) {
     try {
       if (credentialKey) {
         await page.evaluate(async (key) => {
-          const bridge = (
-            window as unknown as {
-              __TAURI_INTERNALS__: { invoke: (command: string, args: object) => Promise<unknown> };
-            }
-          ).__TAURI_INTERNALS__;
+          const bridge = window.__TAURI_INTERNALS__;
           await bridge.invoke('credential_remove', { key });
           const value = await bridge.invoke('credential_read', { key });
           if (value !== null) {

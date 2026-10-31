@@ -1,3 +1,4 @@
+import invariant from 'tiny-invariant';
 import { v5 as uuidV5 } from 'uuid';
 import type { DomainContext } from '../../shared-kernel/clock.ts';
 import type { Workspace } from '../../workspace/workspace.ts';
@@ -26,9 +27,11 @@ export function duplicateTask(
   }
   for (const task of tree) {
     const parentId = task.location.parentId;
+    const targetId = mapping.get(task.id);
+    invariant(targetId !== undefined, 'Every duplicated task must have a mapped ID');
     createTask(
       workspace,
-      mapping.get(task.id)!,
+      targetId,
       {
         ...taskProperties(task),
         title: task === root ? (title ?? task.title) : task.title,

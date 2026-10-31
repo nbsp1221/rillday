@@ -18,6 +18,7 @@ import {
 } from '@repo/domain';
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import type { WorkspaceIntent } from '../workspace-intents.ts';
 import { todayIn } from '../context.ts';
 import type { Habit, Task } from './model.ts';
@@ -87,39 +88,54 @@ function writeTasks(workspace: Workspace, records: Task[], context: DomainContex
       .map((task) => task.id),
   );
   for (let index = 0; index < ordered.length; index++) {
-    if (!moving.has(ordered[index].id)) {
+    const currentTask = ordered[index];
+    invariant(currentTask !== undefined, 'Ordered task index must exist');
+    if (!moving.has(currentTask.id)) {
       continue;
     }
     const start = index;
-    const left = ranks.get(ordered[start - 1]?.id) ?? null;
-    while (
-      index + 1 < ordered.length &&
-      (moving.has(ordered[index + 1].id) ||
-        (left !== null && (ranks.get(ordered[index + 1].id) ?? left) <= left))
-    ) {
+    const before = ordered[start - 1];
+    const left = before ? (ranks.get(before.id) ?? null) : null;
+
+    while (index + 1 < ordered.length) {
+      const next = ordered[index + 1];
+      invariant(next !== undefined, 'Moving rank segment must stay within task bounds');
+      if (!moving.has(next.id) && !(left !== null && (ranks.get(next.id) ?? left) <= left)) {
+        break;
+      }
       index++;
     }
-    const right = ranks.get(ordered[index + 1]?.id) ?? null;
+    const after = ordered[index + 1];
+    const right = after ? (ranks.get(after.id) ?? null) : null;
     const keys = generateNKeysBetween(left, right, index - start + 1);
-    keys.forEach((rank, offset) => ranks.set(ordered[start + offset].id, rank));
+
+    ordered.slice(start, index + 1).forEach((task, offset) => {
+      const rank = keys[offset];
+      invariant(rank !== undefined, 'Rank generator must return one key per task');
+      ranks.set(task.id, rank);
+    });
   }
   for (const task of ordered) {
     const rank = ranks.get(task.id);
-    if (!supplied.has(task.id) && rank && workspace.tasks[task.id].rank !== rank) {
+
+    const stored = workspace.tasks[task.id];
+    if (!supplied.has(task.id) && rank && stored && stored.rank !== rank) {
       setTaskRank(workspace, task.id, rank, context);
     }
   }
   for (const task of records) {
     const stored = workspace.tasks[task.id];
     const previous = view.tasks.find((candidate) => candidate.id === task.id);
-    const rank = ranks.get(task.id)!;
+    const rank = ranks.get(task.id);
     const labelIds = task.tags.map((name) => {
       let label = Object.values(workspace.labels).find((candidate) => candidate.name === name);
+
       if (!label) {
         const id = context.newId();
         createLabel(workspace, id, { name, color: view.labelColors?.[name] ?? null });
         label = workspace.labels[id];
       }
+      invariant(label !== undefined, 'Missing label');
       return label.id;
     });
     const listId = task.listId === 'inbox' ? inbox.id : task.listId;
@@ -168,12 +184,15 @@ function saveHabit(
     intervalDays: habit.intervalDays ?? 1,
   };
   const rules = previous ? reviseHabitRules(previous, rule, today, weekStartsOn) : [rule];
+  const firstRule = rules[0];
+  invariant(firstRule !== undefined, 'Habit history must contain a first rule');
+
   const data = {
     name: habit.name,
     color: habit.color,
     icon: habit.icon,
     archived: habit.archived,
-    startDate: habit.startDate ?? rules[0].from,
+    startDate: habit.startDate ?? firstRule.from,
     reminderTime: habit.reminderTime,
     zone: accountingZone,
     rank: previous?.rank ?? appendRank(Object.values(workspace.habits)),
