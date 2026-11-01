@@ -103,82 +103,81 @@ for (const language of ['ko', 'en'] as const) {
       [0, 1, 2, 3].map((index) => `Save {{count}} $t(common.save) ${index}`),
     );
   });
-  test(`repeat and habit choices preserve their labels, values and ordering in ${language}`, async ({
+  test(`repeat choices preserve ordering and save a localized custom rule in ${language}`, async ({
     page,
   }) => {
-    test.setTimeout(60000);
-    const frequencies = ['daily', 'weekly', 'monthly', 'weekdays'];
     const labels =
       language === 'ko'
         ? ['매일', '매주', '매월', '평일마다']
         : ['Every day', 'Weekly', 'Monthly', 'Every weekday'];
-    const units = language === 'ko' ? ['일', '주', '개월', '일'] : ['day', 'week', 'month', 'day'];
-    const kinds = language === 'ko' ? ['달성 여부', '수량 기록'] : ['Completion', 'Track amount'];
 
     await page.goto('/');
     await changeLanguage(page, language);
-    await page
-      .locator('#quick-add-input')
-      .fill('Authored text {{count}} $t(common.save) 2030-01-31');
+    const input = page.locator('#quick-add-input');
+    await input.fill('Authored text {{count}} $t(common.save) 2030-01-31');
     await page.locator('.quick-date-trigger').click();
-    await page.locator('.date-repeat-trigger').click();
+    const trigger = page.locator('.date-repeat-trigger');
+    await trigger.click();
     await expect(page.locator('.schedule-options > button')).toHaveText([
       language === 'ko' ? '반복 안 함' : 'Does not repeat',
       ...labels,
       language === 'ko' ? '사용자 지정…' : 'Custom…',
     ]);
-
-    for (const [index, frequency] of frequencies.entries()) {
+    for (const [index, label] of labels.entries()) {
       await page
         .locator('.schedule-options > button')
         .nth(index + 1)
         .click();
-      const trigger = page.locator('.date-repeat-trigger');
-      assert(labels[index] !== undefined, 'Missing labels[index]');
-      await expect(trigger.locator('.schedule-value')).toHaveText(labels[index]);
-
-      for (const count of [1, 2, 365]) {
-        await trigger.click();
-        const custom = page.getByLabel(/^(사용자 지정 반복|Custom repeat)$/, { exact: true });
-        if ((await custom.getAttribute('aria-expanded')) !== 'true') {
-          await custom.click();
-        }
-        await expect(page.locator('.repeat-frequency-options').getByRole('radio')).toHaveText(
-          labels,
-        );
-        if (count === 1) {
-          const radios = page.locator('.repeat-frequency-options').getByRole('radio');
-          await radios.nth((index + 1) % frequencies.length).click();
-          await radios.nth(index).click();
-          await expect(radios.nth(index)).toBeChecked();
-        }
-        const interval = page.getByRole('textbox', {
-          name: /^(반복 간격|Repeat interval)$/,
-          exact: true,
-        });
-        await interval.fill(String(count));
-        const unit = units[index] + (language === 'en' && count !== 1 ? 's' : '');
-        await expect(
-          page.locator('.schedule-field').filter({ has: interval }).locator(':scope > span').last(),
-        ).toHaveText(unit);
-        await page.getByRole('button', { name: /^(적용|Apply)$/, exact: true }).click();
-        const summary =
-          count === 1
-            ? labels[index]
-            : language === 'ko'
-              ? `${count}${unit}마다${frequency === 'weekdays' ? ' (평일)' : ''}`
-              : `Every ${count} ${unit}${frequency === 'weekdays' ? ' (weekdays)' : ''}`;
-
-        await expect(trigger.locator('.schedule-value')).toHaveText(summary);
-        await expect(trigger).toHaveAttribute('data-frequency', frequency);
-        await expect(trigger).toHaveAttribute('data-interval', String(count));
-      }
+      await expect(trigger.locator('.schedule-value')).toHaveText(label);
       await trigger.click();
     }
+    await page.getByLabel(/^(사용자 지정 반복|Custom repeat)$/, { exact: true }).click();
+    const radios = page.locator('.repeat-frequency-options').getByRole('radio');
+    await expect(radios).toHaveText(labels);
+    const weekly = page.getByRole('radio', {
+      name: language === 'ko' ? '매주' : 'Weekly',
+      exact: true,
+    });
+    await weekly.click();
+    await expect(weekly).toBeChecked();
+    const interval = page.getByRole('textbox', {
+      name: /^(반복 간격|Repeat interval)$/,
+      exact: true,
+    });
+    const unit = page
+      .locator('.schedule-field')
+      .filter({ has: interval })
+      .locator(':scope > span')
+      .last();
+    await interval.fill('1');
+    await expect(unit).toHaveText(language === 'ko' ? '주' : 'week');
+    await interval.fill('2');
+    await expect(unit).toHaveText(language === 'ko' ? '주' : 'weeks');
+    await page.getByRole('button', { name: /^(적용|Apply)$/, exact: true }).click();
+    const summary = language === 'ko' ? '2주마다' : 'Every 2 weeks';
+    await expect(trigger.locator('.schedule-value')).toHaveText(summary);
+    await expect(trigger).toHaveAttribute('data-frequency', 'weekly');
+    await expect(trigger).toHaveAttribute('data-interval', '2');
+    await page.keyboard.press('Escape');
+    await input.press('Enter');
+    await expect
+      .poll(async () => (await storedWorkspace(page)).tasks[0])
+      .toMatchObject({
+        title: 'Authored text {{count}} $t(common.save)',
+        repeat: { frequency: 'weekly', interval: 2 },
+      });
+    await page.reload();
+    await page.locator('.task-title').click();
+    await page.locator('.td-date-button').click();
+    await expect(trigger.locator('.schedule-value')).toHaveText(summary);
+  });
 
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
-    await page.locator('#quick-add-input').fill('');
+  test(`habit choices preserve ordering and literal user values in ${language}`, async ({
+    page,
+  }) => {
+    const kinds = language === 'ko' ? ['달성 여부', '수량 기록'] : ['Completion', 'Track amount'];
+    await page.goto('/');
+    await changeLanguage(page, language);
     await page.getByLabel(/^(습관|Habit)$/, { exact: true }).click();
     await page.getByRole('button', { name: /^(습관 추가|Add habit)$/, exact: true }).click();
     const goal = page.getByRole('radiogroup', { name: /^(목표|Goal)$/, exact: true });

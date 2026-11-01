@@ -411,7 +411,7 @@ test('touch long-press reorders on a narrow screen and touch cancellation does n
       type: 'touchStart',
       touchPoints: [{ x: box.x + 60, y: box.y + box.height / 2 }],
     });
-    await page.waitForTimeout(280);
+    await expect(page.locator('.task-drag-overlay')).toBeVisible();
   }
 
   const box = await visibleBox(rows(page).last());

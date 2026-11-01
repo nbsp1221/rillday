@@ -7,8 +7,9 @@ import { type RepeatRule, addDays, dateKey } from '#application';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceCalendar } from '#shared/ui/WorkspaceCalendar';
 import { WorkspacePopover } from '#shared/ui/WorkspacePopover';
+import { repeatLabel } from '../model/repeat-label';
 import { DateFieldPopover } from './DateFieldPopover';
-import { DurationPicker, RepeatPicker, durationLabel, repeatLabel } from './SchedulePickers';
+import { DurationPicker, RepeatPicker, durationLabel } from './SchedulePickers';
 import { TimePicker } from './TimePicker';
 
 type ScheduleProperty = 'time' | 'duration' | 'repeat';

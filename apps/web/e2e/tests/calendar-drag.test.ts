@@ -212,7 +212,7 @@ for (const view of ['Day', 'Week']) {
     const box = await visibleBox(cell);
 
     const x = box.x + 20;
-    const y = box.y + 33;
+    const y = box.y + box.height / 2 + 1;
     expect(
       await page.evaluate(
         ({ x, y }) =>
@@ -228,13 +228,17 @@ for (const view of ['Day', 'Week']) {
     await expect(preview).toHaveAttribute('data-time', '10:30');
     await expect(preview).toHaveAttribute('data-date', today);
     expect(await sourceRecord(page)).toEqual(before);
+    const previewBox = await visibleBox(preview);
+    expect(Math.abs(previewBox.y - box.y - box.height / 2)).toBeLessThan(1);
+    // The 45-minute fixture spans three quarters of an hour with a 2px event gap.
+    expect(previewBox.height + 2).toBeCloseTo(box.height * 0.75, 0);
     expect(
-      await preview.evaluate((el) => ({
-        top: parseFloat(el.style.top),
-        height: parseFloat(el.style.height),
-        pointer: getComputedStyle(el).pointerEvents,
-      })),
-    ).toEqual({ top: 672, height: 46, pointer: 'none' });
+      await page.evaluate(
+        ({ x, y }) =>
+          document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-task-id]')?.dataset.taskId,
+        { x, y },
+      ),
+    ).toBe(fixtureId('block'));
     await drop(page, block, { clientX: x, clientY: y });
     await expect
       .poll(async () => {
@@ -248,6 +252,10 @@ for (const view of ['Day', 'Week']) {
         zone: await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone),
       });
     await expect(preview).toHaveCount(0);
+    const committed = page.locator(`.calendar-task.timed[data-task-id="${fixtureId('source')}"]`);
+    const committedBox = await visibleBox(committed);
+    expect(Math.abs(committedBox.y - previewBox.y)).toBeLessThan(1);
+    expect(Math.abs(committedBox.height - previewBox.height)).toBeLessThan(1);
     await page.reload();
     await page.getByLabel('Calendar', { exact: true }).click();
     await page.locator('.calendar-time-scroll').evaluate((el) => (el.scrollTop = 8 * 64));
@@ -597,7 +605,7 @@ test('touch long-press supports a real drop and touch cancellation never writes'
       type: 'touchStart',
       touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
     });
-    await page.waitForTimeout(280);
+    await expect(page.locator('.task-drag-overlay')).toBeVisible();
   };
 
   const target = page.locator('.calendar-day').nth(10);

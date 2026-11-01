@@ -204,7 +204,7 @@ test('matrix touch cancellation and long-press drop share the pointer destinatio
       type: 'touchStart',
       touchPoints: [{ x: from.x + 40, y: from.y + from.height / 2 }],
     });
-    await page.waitForTimeout(280);
+    await expect(page.locator('.task-drag-overlay')).toBeVisible();
     await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [to] });
     await expect(target).toHaveAttribute('data-drop-active', 'true');
   }

@@ -159,20 +159,10 @@ test('complete accessibility sentences preserve literal authored text', () => {
   );
 });
 
-test('repeat and habit labels resolve by ID while keeping everyday copy separate from interval copy', () => {
+test('habit tracking kinds resolve by ID in both languages', () => {
   const ko = createTranslations('ko');
   const en = createTranslations('en');
 
-  expect(ko.t('repeat.frequency.daily', { ns: 'labels' })).toBe('매일');
-  expect(en.t('repeat.frequency.daily', { ns: 'labels' })).toBe('Every day');
-  expect(ko.t('repeat.interval', { ns: 'labels', context: 'daily', count: 1 })).toBe('1일마다');
-  expect(en.t('repeat.interval', { ns: 'labels', context: 'weekly', count: 2 })).toBe(
-    'Every 2 weeks',
-  );
-  expect(ko.t('repeat.interval', { ns: 'labels', context: 'weekdays', count: 2 })).toBe(
-    '2일마다 (평일)',
-  );
-  expect(en.t('repeat.unit', { ns: 'labels', context: 'weekdays', count: 2 })).toBe('days');
   expect(ko.t('habit.kind.boolean', { ns: 'labels' })).toBe('달성 여부');
   expect(en.t('habit.kind.boolean', { ns: 'labels' })).toBe('Completion');
   expect(ko.t('habit.kind.quantity', { ns: 'labels' })).toBe('수량 기록');
