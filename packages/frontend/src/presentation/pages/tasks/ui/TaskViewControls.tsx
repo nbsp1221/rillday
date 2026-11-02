@@ -1,5 +1,6 @@
 import { cn } from 'cn';
 import { ArrowDownWideNarrow, Layers3 } from 'lucide-react';
+import invariant from 'tiny-invariant';
 import type { TaskViewOptions } from '#application';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceActions } from '#shared/ui/WorkspaceActions';
@@ -29,12 +30,18 @@ export function TaskViewControls({
     ...(!listScope ? [{ key: 'list', label: t('lists.title') } as const] : []),
     { key: 'priority', label: t('tasks.priority') },
   ] as const;
+  const sort = sorts.find((item) => item.key === value.sort);
+  const group = groups.find((item) => item.key === value.group);
+  invariant(
+    sort !== undefined && group !== undefined,
+    'Task view options must be available in this scope',
+  );
   return (
     <div className="header-actions flex items-center gap-[9px] [@media(max-width:_600px)]:gap-[3px] [.workspace-actions_&]:gap-2 [@media(max-width:_600px)]:[.workspace-actions_&]:gap-1 task-view-controls">
       <WorkspaceActions
         label={t('tasks.sort')}
         title={t('tasks.sortValue', {
-          value: sorts.find((item) => item.key === value.sort)!.label,
+          value: sort.label,
         })}
         className="view-option size-(--workspace-control-size) max-[600px]:size-7"
         triggerClassName={cn(
@@ -51,7 +58,7 @@ export function TaskViewControls({
       <WorkspaceActions
         label={t('tasks.group')}
         title={t('tasks.groupValue', {
-          value: groups.find((item) => item.key === value.group)!.label,
+          value: group.label,
         })}
         className="view-option size-(--workspace-control-size) max-[600px]:size-7"
         triggerClassName={cn(

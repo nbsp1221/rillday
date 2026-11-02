@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { cn } from 'cn';
 import { Meter } from 'react-aria-components/Meter';
 
@@ -21,7 +20,7 @@ export function HabitProgressRing({
             'progress-ring relative inline-grid size-16 shrink-0 place-items-center rounded-full bg-[conic-gradient(var(--link)_var(--progress),var(--surface-selected)_0)] before:absolute before:inset-1 before:rounded-[inherit] before:bg-background',
             compact && 'is-compact size-4 before:inset-0.5',
           )}
-          style={{ '--progress': `${percentage}%` } as CSSProperties}
+          style={{ '--progress': `${percentage}%` }}
         >
           {!compact && (
             <span className="progress-ring-value relative flex items-baseline gap-0.5">

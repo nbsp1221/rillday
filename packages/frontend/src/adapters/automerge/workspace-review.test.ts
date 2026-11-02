@@ -46,6 +46,7 @@ function resolveSemanticReview(
 function fixture(recurring = false) {
   const workspace = createWorkspace(context);
   const listId = Object.keys(workspace.lists)[0];
+  expect.assert(listId !== undefined);
   const first = createTask(
     workspace,
     context.newId(),
@@ -67,7 +68,9 @@ function fixture(recurring = false) {
     ),
     context,
   );
+
   const second = createTask(workspace, context.newId(), taskData(listId, 'Second'), context);
+
   const unrelated = createTask(workspace, context.newId(), taskData(listId, 'Unrelated'), context);
   const empty: Workspace = {
     tasks: {},
@@ -138,17 +141,29 @@ test('a concurrent parent cycle stays pending while disjoint edits remain visibl
   expect(inspectWorkspace(readWorkspace(merged)).map((problem) => problem.code)).toEqual(['cycle']);
   const heads = Automerge.getHeads(merged);
   const inspection = inspectDocument(merged, readWorkspace(left));
+
   expect(inspection.semantic?.options).toHaveLength(2);
   expect(() => validateWorkspace(inspection.workspace)).not.toThrow();
-  expect(inspection.workspace.tasks[first.id].location.parentId).toBe(second.id);
-  expect(inspection.workspace.tasks[first.id].title).toBe('Keep this title');
-  expect(inspection.workspace.tasks[second.id].priority).toBe(3);
-  expect(inspection.workspace.tasks[unrelated.id].notes).toBe('Keep these notes');
+
+  expect.assert(inspection.workspace.tasks[first.id] !== undefined);
+  expect(inspection.workspace.tasks[first.id]?.location.parentId).toBe(second.id);
+
+  expect.assert(inspection.workspace.tasks[first.id] !== undefined);
+  expect(inspection.workspace.tasks[first.id]?.title).toBe('Keep this title');
+
+  expect.assert(inspection.workspace.tasks[second.id] !== undefined);
+  expect(inspection.workspace.tasks[second.id]?.priority).toBe(3);
+
+  expect.assert(inspection.workspace.tasks[unrelated.id] !== undefined);
+  expect(inspection.workspace.tasks[unrelated.id]?.notes).toBe('Keep these notes');
   expect(Automerge.getHeads(merged)).toEqual(heads);
-  const choice = inspection.semantic!.options.find(
-    (option) => option.workspace.tasks[second.id].location.parentId === first.id,
-  )!;
-  const resolved = resolveSemanticReview(merged, inspection.semantic!, choice.id);
+
+  expect.assert(inspection.semantic !== undefined);
+  const choice = inspection.semantic.options.find(
+    (option) => option.workspace.tasks[second.id]?.location.parentId === first.id,
+  );
+  expect.assert(choice !== undefined);
+  const resolved = resolveSemanticReview(merged, inspection.semantic, choice.id);
   expect(inspectDocument(resolved).semantic).toBeUndefined();
   expect(readWorkspace(resolved).tasks[first.id]).toMatchObject({
     title: 'Keep this title',
@@ -170,18 +185,24 @@ test('pending semantic decisions survive binary reload and stale confirmation ca
   );
   const merged = Automerge.load<WorkspaceDocument>(Automerge.save(Automerge.merge(left, right)));
   const pending = inspectDocument(merged);
+
   expect(pending.semantic?.options).toHaveLength(2);
   const newer = Automerge.change(merged, (draft) => {
     const before = readWorkspace(draft);
     const after = produce(before, (workspace) => {
-      workspace.tasks[unrelated.id].title = 'Newer edit';
+      const task1 = workspace.tasks[unrelated.id];
+      expect.assert(task1 !== undefined);
+      task1.title = 'Newer edit';
     });
     writeWorkspace(draft, before, after);
   });
-  expect(() =>
-    resolveSemanticReview(newer, pending.semantic!, pending.semantic!.options[0].id),
-  ).toThrow('edit_conflict');
-  expect(inspectDocument(newer).workspace.tasks[unrelated.id].title).toBe('Newer edit');
+
+  const semantic = pending.semantic;
+  expect.assert(semantic !== undefined);
+  const option = semantic.options[0];
+  expect.assert(option !== undefined);
+  expect(() => resolveSemanticReview(newer, semantic, option.id)).toThrow('edit_conflict');
+  expect(inspectDocument(newer).workspace.tasks[unrelated.id]?.title).toBe('Newer edit');
 });
 
 test('reopening cannot hide an edited next occurrence or its newly added child before explicit review', () => {
@@ -189,13 +210,15 @@ test('reopening cannot hide an edited next occurrence or its newly added child b
   const completed = change(doc, (draft) => completeTask(draft, first.id, true, context));
   const next = Object.values(readWorkspace(completed).tasks).find(
     (task) => task.generatedFromId === first.id,
-  )!;
+  );
+  expect.assert(next !== undefined);
   const reopened = change(Automerge.clone(completed), (draft) =>
     completeTask(draft, first.id, false, context),
   );
   const childId = context.newId();
   const edited = change(Automerge.clone(completed), (draft) => {
     editTask(draft, next.id, { title: 'Keep this next occurrence' }, context);
+
     createTask(
       draft,
       childId,
@@ -206,29 +229,37 @@ test('reopening cannot hide an edited next occurrence or its newly added child b
   });
   const merged = Automerge.merge(reopened, edited);
   const inspection = inspectDocument(merged);
+
   expect(inspection.semantic?.options).toHaveLength(2);
   expect(inspection.workspace.tasks[next.id]).toMatchObject({
     title: 'Keep this next occurrence',
     voided: false,
     trashedAt: null,
   });
+  expect.assert(inspection.workspace.tasks[childId] !== undefined);
   expect(inspection.workspace.tasks[childId].title).toBe('New child');
-  expect(inspection.workspace.tasks[first.id].notes).toBe('Unrelated parent note');
+
+  expect.assert(inspection.workspace.tasks[first.id] !== undefined);
+  expect(inspection.workspace.tasks[first.id]?.notes).toBe('Unrelated parent note');
   expect(() => validateWorkspace(inspection.workspace)).not.toThrow();
-  const keep = inspection.semantic!.options.find(
-    (option) => !option.workspace.tasks[next.id].voided,
-  )!;
-  const result = resolveSemanticReview(merged, inspection.semantic!, keep.id);
+
+  expect.assert(inspection.semantic !== undefined);
+  const keep = inspection.semantic.options.find(
+    (option) => option.workspace.tasks[next.id]?.voided === false,
+  );
+  expect.assert(keep !== undefined);
+  const result = resolveSemanticReview(merged, inspection.semantic, keep.id);
   expect(inspectDocument(result).semantic).toBeUndefined();
   expect(() => validateWorkspace(readWorkspace(result))).not.toThrow();
   const omitted = structuredClone(inspection.workspace);
   delete omitted.tasks[next.id];
   delete omitted.tasks[childId];
+
   expect(
     compareWorkspaceReviewChoices(
       omitted,
       inspection.workspace,
-      inspection.semantic!.problems,
+      inspection.semantic.problems,
       omitted,
     ),
   ).toBeGreaterThan(0);
@@ -243,8 +274,10 @@ test('a delete/edit conflict keeps the edited record visible until the deletion 
     editLabel(draft, id, { name: 'Edited-label' }),
   );
   const inspection = inspectDocument(Automerge.merge(deleted, edited));
+  expect.assert(inspection.workspace.labels[id] !== undefined);
   expect(inspection.workspace.labels[id].name).toBe('Edited-label');
   expect(inspection.conflicts).toHaveLength(1);
+  expect.assert(inspection.conflicts[0] !== undefined);
   expect(inspection.conflicts[0].field).toBe('$presence');
 });
 
@@ -258,10 +291,13 @@ test('removing a label concurrently with attaching it offers valid decisions wit
   );
   const merged = Automerge.merge(deleted, assigned);
   const inspection = inspectDocument(merged);
+
   expect(inspection.semantic?.options).toHaveLength(2);
   expect(() => validateWorkspace(inspection.workspace)).not.toThrow();
-  for (const option of inspection.semantic!.options) {
-    expect(option.workspace.tasks[first.id].title).toBe('Keep this title');
+  expect.assert(inspection.semantic !== undefined);
+  for (const option of inspection.semantic.options) {
+    expect.assert(option.workspace.tasks[first.id] !== undefined);
+    expect(option.workspace.tasks[first.id]?.title).toBe('Keep this title');
   }
 });
 
@@ -286,12 +322,19 @@ test('restoring a referenced parent includes the label required by that parent',
     );
   });
   const inspection = inspectDocument(Automerge.merge(removed, nested));
+
   expect(inspection.semantic?.options).toHaveLength(2);
-  const keepParent = inspection.semantic!.options.find(
-    (option) => option.workspace.tasks[second.id].location.parentId === first.id,
-  )!;
+
+  expect.assert(inspection.semantic !== undefined);
+  const keepParent = inspection.semantic.options.find(
+    (option) => option.workspace.tasks[second.id]?.location.parentId === first.id,
+  );
+  expect.assert(keepParent !== undefined);
+  expect.assert(keepParent.workspace.labels[labelId] !== undefined);
   expect(keepParent.workspace.labels[labelId].name).toBe('Review');
-  expect(keepParent.workspace.tasks[second.id].notes).toBe('Keep this note');
+
+  expect.assert(keepParent.workspace.tasks[second.id] !== undefined);
+  expect(keepParent.workspace.tasks[second.id]?.notes).toBe('Keep this note');
   expect(() => validateWorkspace(keepParent.workspace)).not.toThrow();
 });
 
@@ -312,11 +355,15 @@ test('choosing a valid label name does not decide its independent delete/edit co
   const removed = change(Automerge.clone(initial), (draft) => removeLabel(draft, firstId, context));
   const merged = Automerge.merge(Automerge.merge(left, right), removed);
   const inspection = inspectDocument(merged);
-  const choice = inspection.semantic!.options.find(
+
+  expect.assert(inspection.semantic !== undefined);
+  const choice = inspection.semantic.options.find(
     (option) => option.workspace.labels[firstId]?.name === 'Alpha',
-  )!;
-  const resolved = inspectDocument(resolveSemanticReview(merged, inspection.semantic!, choice.id));
+  );
+  expect.assert(choice !== undefined);
+  const resolved = inspectDocument(resolveSemanticReview(merged, inspection.semantic, choice.id));
   expect(resolved.semantic).toBeUndefined();
+  expect.assert(resolved.workspace.labels[firstId] !== undefined);
   expect(resolved.workspace.labels[firstId].name).toBe('Alpha');
   expect(
     resolved.conflicts.some(
@@ -357,6 +404,8 @@ test('coupled habit dates and rules remain valid atomic alternatives under concu
   });
   const inspection = inspectDocument(Automerge.merge(moved, revised));
   const habit = inspection.workspace.habits[habitId];
+  expect.assert(habit !== undefined);
+  expect.assert(habit.rules[0] !== undefined);
   expect(habit.startDate).toBe(habit.rules[0].from);
   expect(habit.name).toBe('Keep this name');
   expect(habit.color).toBe('#abcdef');
@@ -384,11 +433,15 @@ test('a semantic deletion choice safely coexists with a pending quantity correct
   const previous = readWorkspace(removed);
   const merged = Automerge.merge(Automerge.merge(removed, corrected), incremented);
   const inspection = inspectDocument(merged, previous);
+
   expect(inspection.workspace.habits[habitId]).toBeUndefined();
   expect(Object.keys(inspection.workspace.checkIns)).toHaveLength(0);
   expect(inspection.conflicts.some((conflict) => conflict.field === '$quantity')).toBe(true);
-  const keep = inspection.semantic!.options.find((option) => option.workspace.habits[habitId])!;
+  expect.assert(inspection.semantic !== undefined);
+  const keep = inspection.semantic.options.find((option) => option.workspace.habits[habitId]);
+  expect.assert(keep !== undefined);
   const log = Object.values(keep.workspace.checkIns)[0];
+  expect.assert(log !== undefined);
   expect(log.note).toBe('Keep this note');
   expect(log.skipped).toBe(true);
   expect(quantityValue(log.quantity)).toBe(10);
@@ -415,15 +468,24 @@ test('label naming alternatives preserve independent color and notes while expan
     editLabel(draft, labelId, { name: 'Collision' }),
   );
   const inspection = inspectDocument(Automerge.merge(added, renamed));
+
   expect(inspection.semantic?.options).toHaveLength(2);
-  for (const option of inspection.semantic!.options) {
+  expect.assert(inspection.semantic !== undefined);
+  for (const option of inspection.semantic.options) {
+    expect.assert(option.workspace.labels[labelId] !== undefined);
     expect(option.workspace.labels[labelId].color).toBe('#0000ff');
-    expect(option.workspace.tasks[first.id].notes).toBe('Keep these notes');
+
+    expect.assert(option.workspace.tasks[first.id] !== undefined);
+    expect(option.workspace.tasks[first.id]?.notes).toBe('Keep these notes');
     expect(() => validateWorkspace(option.workspace)).not.toThrow();
   }
-  const renamedOption = inspection.semantic!.options.find(
-    (option) => option.workspace.labels[labelId].name === 'Collision',
-  )!;
+
+  const renamedOption = inspection.semantic.options.find(
+    (option) => option.workspace.labels[labelId]?.name === 'Collision',
+  );
+  expect.assert(renamedOption !== undefined);
   expect(renamedOption.workspace.labels[newId]).toBeUndefined();
-  expect(renamedOption.workspace.tasks[first.id].labelIds).toEqual([]);
+
+  expect.assert(renamedOption.workspace.tasks[first.id] !== undefined);
+  expect(renamedOption.workspace.tasks[first.id]?.labelIds).toEqual([]);
 });

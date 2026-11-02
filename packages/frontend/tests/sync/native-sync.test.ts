@@ -41,32 +41,36 @@ test.each([
     const authorize = vi.fn().mockRejectedValue(failure);
     const remote = { url: server.origin, serverId: info.serverId, authorize };
     const current = await disk.open(id, remote);
+
     onTestFinished(() => current.repository.close());
-    onTestFinished(() => current.synchronization!.close());
+
+    onTestFinished(() => current.synchronization?.close());
+
     await expect
-      .poll(() => current.synchronization!.getSnapshot())
+      .poll(() => current.synchronization?.getSnapshot())
       .toMatchObject({
         state: 'error',
         error: failure.message,
       });
     const updated = produce(current.repository.getSnapshot().workspace, (draft) => {
-      createTask(
-        draft,
-        context.newId(),
-        taskData(Object.keys(draft.lists)[0], 'Keep unsent input'),
-        context,
-      );
+      const entry = Object.keys(draft.lists)[0];
+      expect.assert(entry !== undefined);
+      createTask(draft, context.newId(), taskData(entry, 'Keep unsent input'), context);
     });
     await current.repository.commit(updated);
     authorize.mockResolvedValue(account.token);
-    await current.synchronization!.sync();
-    expect(current.synchronization!.getSnapshot().state).toBe('synced');
+    expect.assert(current.synchronization !== undefined);
+    await current.synchronization.sync();
+
+    expect(current.synchronization.getSnapshot().state).toBe('synced');
     const observer = await device().open(id, {
       ...remote,
       authorize: () => Promise.resolve(account.token),
     });
+
     onTestFinished(() => observer.repository.close());
-    onTestFinished(() => observer.synchronization!.close());
+
+    onTestFinished(() => observer.synchronization?.close());
     expect(
       Object.values(observer.repository.getSnapshot().workspace.tasks).map((task) => task.title),
     ).toEqual(['Keep unsent input']);
@@ -97,24 +101,25 @@ test('the real server persists native sync, merges devices and accepts offline e
   const firstDevice = device();
   const secondDevice = device();
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Review'),
-    context,
-  );
+  const entry1 = Object.keys(workspace.lists)[0];
+  expect.assert(entry1 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry1, 'Review'), context);
   const initial = await firstDevice.create(workspace);
   onTestFinished(() => initial.repository.close());
   const id = initial.repository.id;
   await initial.repository.close();
   expect((await account.request('/v1/connection', { documentId: id })).status).toBe(200);
   const first = await firstDevice.open(id, remote);
-  onTestFinished(() => first.synchronization!.close());
+
+  onTestFinished(() => first.synchronization?.close());
   onTestFinished(() => first.repository.close());
-  await first.synchronization!.sync();
-  expect(first.synchronization!.getSnapshot().state).toBe('synced');
+  expect.assert(first.synchronization !== undefined);
+  await first.synchronization.sync();
+
+  expect(first.synchronization.getSnapshot().state).toBe('synced');
   const second = await secondDevice.open(id, remote);
-  onTestFinished(() => second.synchronization!.close());
+
+  onTestFinished(() => second.synchronization?.close());
   onTestFinished(() => second.repository.close());
   await Promise.all([
     first.repository.commit(
@@ -128,7 +133,9 @@ test('the real server persists native sync, merges devices and accepts offline e
       ),
     ),
   ]);
-  await Promise.all([first.synchronization!.sync(), second.synchronization!.sync()]);
+
+  expect.assert(second.synchronization !== undefined);
+  await Promise.all([first.synchronization.sync(), second.synchronization.sync()]);
   // Server acknowledgment does not wait for delivery to the other device.
   await expect
     .poll(() => second.repository.getSnapshot().workspace.tasks[task.id])
@@ -139,9 +146,11 @@ test('the real server persists native sync, merges devices and accepts offline e
   const died = once(server.child, 'exit');
   server.child.kill('SIGKILL');
   await died;
-  await first.synchronization!.close();
+
+  await first.synchronization.close();
   await first.repository.close();
-  await second.synchronization!.close();
+
+  await second.synchronization.close();
   await second.repository.close();
   const offline = await firstDevice.open(id);
   onTestFinished(() => offline.repository.close());
@@ -154,11 +163,14 @@ test('the real server persists native sync, merges devices and accepts offline e
   server = launchServer(options);
   await server.ready;
   const reopened = await firstDevice.open(id, remote);
-  onTestFinished(() => reopened.synchronization!.close());
+
+  onTestFinished(() => reopened.synchronization?.close());
   onTestFinished(() => reopened.repository.close());
-  await reopened.synchronization!.sync();
+  expect.assert(reopened.synchronization !== undefined);
+  await reopened.synchronization.sync();
   const observer = await device().open(id, remote);
-  onTestFinished(() => observer.synchronization!.close());
+
+  onTestFinished(() => observer.synchronization?.close());
   onTestFinished(() => observer.repository.close());
   expect(observer.repository.getSnapshot().workspace.tasks[task.id]).toMatchObject({
     title: 'Reviewed on first device',
@@ -188,9 +200,36 @@ test('a native heartbeat tick does not terminate a connection still obtaining it
   expect(JSON.parse(event.data)).toMatchObject({ type: 'authenticated' });
 });
 
-test.each(['revoked', 'expired', 'banned'] as const)(
-  'an already authenticated native connection rejects further frames after its session becomes %s',
-  async (status) => {
+type SessionFixture = {
+  server: Awaited<ReturnType<typeof fixture>>;
+  account: Awaited<ReturnType<typeof setupAdministrator>>;
+};
+
+async function revokeSession({ account }: SessionFixture) {
+  expect((await account.request('/api/auth/sign-out', {})).status).toBe(200);
+}
+
+const invalidSessions = [
+  { status: 'revoked', invalidate: revokeSession },
+  {
+    status: 'expired',
+    invalidate: ({ server, account }: SessionFixture) => {
+      server.store
+        .prepare('UPDATE session SET expiresAt=? WHERE userId=?')
+        .run('2000-01-01T00:00:00.000Z', account.owner);
+    },
+  },
+  {
+    status: 'banned',
+    invalidate: ({ server, account }: SessionFixture) => {
+      server.store.prepare('UPDATE user SET banned=1 WHERE id=?').run(account.owner);
+    },
+  },
+];
+
+test.each(invalidSessions)(
+  'an already authenticated native connection rejects further frames after its session becomes $status',
+  async ({ invalidate }) => {
     const server = await fixture();
     onTestFinished(() => server.dispose());
     const account = await setupAdministrator(server.origin);
@@ -202,15 +241,7 @@ test.each(['revoked', 'expired', 'banned'] as const)(
     const authenticated = once(socket, 'message');
     socket.send(JSON.stringify({ type: 'authenticate', token: account.token }));
     await authenticated;
-    if (status === 'revoked') {
-      expect((await account.request('/api/auth/sign-out', {})).status).toBe(200);
-    } else if (status === 'expired') {
-      server.store
-        .prepare('UPDATE session SET expiresAt=? WHERE userId=?')
-        .run('2000-01-01T00:00:00.000Z', account.owner);
-    } else {
-      server.store.prepare('UPDATE user SET banned=1 WHERE id=?').run(account.owner);
-    }
+    await Promise.resolve(invalidate({ server, account }));
     const closed = once(socket, 'close');
     socket.send(new Uint8Array([0]));
     expect(z.object({ code: z.number() }).parse((await closed)[0]).code).toBe(1008);
@@ -223,10 +254,12 @@ test('a failed server write cannot acknowledge a large Unicode edit; native reco
   const account = await setupAdministrator(server.origin);
   const documents = device();
   const workspace = createWorkspace(context);
+  const entry2 = Object.keys(workspace.lists)[0];
+  expect.assert(entry2 !== undefined);
   const task = createTask(
     workspace,
     context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Large Unicode notes'),
+    taskData(entry2, 'Large Unicode notes'),
     context,
   );
   const initial = await documents.create(workspace);
@@ -241,14 +274,19 @@ test('a failed server write cannot acknowledge a large Unicode edit; native reco
       .parse(await (await fetch(server.origin + '/v1/server')).json()).serverId,
     authorize: () => Promise.resolve(account.token),
   });
+
   onTestFinished(async () => {
-    await document.synchronization!.close();
+    expect.assert(document.synchronization !== undefined);
+    await document.synchronization.close();
     await document.repository.close();
   });
-  await document.synchronization!.sync();
-  const saved = server.store
+  expect.assert(document.synchronization !== undefined);
+  await document.synchronization.sync();
+  const entry3 = server.store
     .prepare<{ data: Uint8Array }>('SELECT data FROM workspace_documents WHERE owner=?')
-    .get(account.owner)!.data;
+    .get(account.owner);
+  expect.assert(entry3 !== undefined);
+  const saved = entry3.data;
   const notes = '東京都📚'.repeat(30000) + randomBytes(524288).toString('base64');
   expect(new TextEncoder().encode(notes).length).toBeGreaterThan(1024 * 1024);
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -262,19 +300,22 @@ test('a failed server write cannot acknowledge a large Unicode edit; native reco
         editTask(draft, task.id, { notes }, context),
       ),
     );
-    await expect.poll(() => document.synchronization!.getSnapshot().state).toBe('offline');
-    expect(document.synchronization!.getSnapshot().pending).toBe(1);
+
+    await expect.poll(() => document.synchronization?.getSnapshot().state).toBe('offline');
+
+    expect(document.synchronization.getSnapshot().pending).toBe(1);
     expect(
       server.store
         .prepare<{ data: Uint8Array }>('SELECT data FROM workspace_documents WHERE owner=?')
-        .get(account.owner)!.data,
+        .get(account.owner)?.data,
     ).toEqual(saved);
   } finally {
     server.store.raw.pragma('query_only=OFF');
   }
   // Exercise the SDK's five-second reconnect delay without waiting for wall time.
   await vi.advanceTimersByTimeAsync(5000);
-  await document.synchronization!.sync();
+
+  await document.synchronization.sync();
   const observer = await device().open(id, {
     url: server.origin,
     serverId: z
@@ -282,11 +323,13 @@ test('a failed server write cannot acknowledge a large Unicode edit; native reco
       .parse(await (await fetch(server.origin + '/v1/server')).json()).serverId,
     authorize: () => Promise.resolve(account.token),
   });
+
   onTestFinished(async () => {
-    await observer.synchronization!.close();
+    expect.assert(observer.synchronization !== undefined);
+    await observer.synchronization.close();
     await observer.repository.close();
   });
-  expect(observer.repository.getSnapshot().workspace.tasks[task.id].notes).toBe(notes);
+  expect(observer.repository.getSnapshot().workspace.tasks[task.id]?.notes).toBe(notes);
 });
 
 test('restoring a server backup preserves later device history and offline edits through native synchronization', async () => {
@@ -306,30 +349,34 @@ test('restoring a server backup preserves later device history and offline edits
   const firstDevice = device();
   const secondDevice = device();
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Backup point'),
-    context,
-  );
+  const entry4 = Object.keys(workspace.lists)[0];
+  expect.assert(entry4 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry4, 'Backup point'), context);
   const initial = await firstDevice.create(workspace);
   onTestFinished(() => initial.repository.close());
   const id = initial.repository.id;
   await initial.repository.close();
   await account.request('/v1/connection', { documentId: id });
   const first = await firstDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await first.synchronization!.close();
+    expect.assert(first.synchronization !== undefined);
+    await first.synchronization.close();
     await first.repository.close();
   });
-  await first.synchronization!.sync();
+  expect.assert(first.synchronization !== undefined);
+  await first.synchronization.sync();
   const second = await secondDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await second.synchronization!.close();
+    expect.assert(second.synchronization !== undefined);
+    await second.synchronization.close();
     await second.repository.close();
   });
-  await second.synchronization!.sync();
-  await second.synchronization!.close();
+  expect.assert(second.synchronization !== undefined);
+  await second.synchronization.sync();
+
+  await second.synchronization.close();
   await second.repository.close();
   const backup = resolve(directory, 'backup.sqlite');
   await server.store.raw.backup(backup);
@@ -338,8 +385,10 @@ test('restoring a server backup preserves later device history and offline edits
       editTask(draft, task.id, { notes: 'Online change made after the backup' }, context),
     ),
   );
-  await first.synchronization!.sync();
-  await first.synchronization!.close();
+
+  await first.synchronization.sync();
+
+  await first.synchronization.close();
   await first.repository.close();
   const offline = await secondDevice.open(id);
   onTestFinished(() => offline.repository.close());
@@ -358,17 +407,23 @@ test('restoring a server backup preserves later device history and offline edits
   });
   onTestFinished(() => recovered.close());
   const reconnected = await firstDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await reconnected.synchronization!.close();
+    expect.assert(reconnected.synchronization !== undefined);
+    await reconnected.synchronization.close();
     await reconnected.repository.close();
   });
-  await reconnected.synchronization!.sync();
+  expect.assert(reconnected.synchronization !== undefined);
+  await reconnected.synchronization.sync();
   const returning = await secondDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await returning.synchronization!.close();
+    expect.assert(returning.synchronization !== undefined);
+    await returning.synchronization.close();
     await returning.repository.close();
   });
-  await returning.synchronization!.sync();
+  expect.assert(returning.synchronization !== undefined);
+  await returning.synchronization.sync();
   const expected = {
     title: 'Offline change made after the backup',
     notes: 'Online change made after the backup',
@@ -386,12 +441,9 @@ test('archive replacement retains another device offline edits as durable review
   const account = await setupAdministrator(server.origin);
   const documents = device();
   const workspace = createWorkspace(context);
-  const task = createTask(
-    workspace,
-    context.newId(),
-    taskData(Object.keys(workspace.lists)[0], 'Archive point'),
-    context,
-  );
+  const entry5 = Object.keys(workspace.lists)[0];
+  expect.assert(entry5 !== undefined);
+  const task = createTask(workspace, context.newId(), taskData(entry5, 'Archive point'), context);
   const initial = await documents.create(workspace);
   onTestFinished(() => initial.repository.close());
   const id = initial.repository.id;
@@ -406,20 +458,27 @@ test('archive replacement retains another device offline edits as durable review
     authorize: () => Promise.resolve(account.token),
   };
   const online = await documents.open(id, remote);
+
   onTestFinished(async () => {
-    await online.synchronization!.close();
+    expect.assert(online.synchronization !== undefined);
+    await online.synchronization.close();
     await online.repository.close();
   });
-  await online.synchronization!.sync();
+  expect.assert(online.synchronization !== undefined);
+  await online.synchronization.sync();
   const archive = await online.exportData();
   const otherDevice = device();
   const other = await otherDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await other.synchronization!.close();
+    expect.assert(other.synchronization !== undefined);
+    await other.synchronization.close();
     await other.repository.close();
   });
-  await other.synchronization!.sync();
-  await other.synchronization!.close();
+  expect.assert(other.synchronization !== undefined);
+  await other.synchronization.sync();
+
+  await other.synchronization.close();
   await other.repository.close();
   const offline = await otherDevice.open(id);
   onTestFinished(() => offline.repository.close());
@@ -434,23 +493,31 @@ test('archive replacement retains another device offline edits as durable review
       editTask(draft, task.id, { title: 'Edited after export', notes: 'Online note' }, context),
     ),
   );
-  await online.synchronization!.sync();
+
+  await online.synchronization.sync();
   await online.replaceArchive(archive);
-  await online.synchronization!.sync();
+
+  await online.synchronization.sync();
   const returning = await otherDevice.open(id, remote);
+
   onTestFinished(async () => {
-    await returning.synchronization!.close();
+    expect.assert(returning.synchronization !== undefined);
+    await returning.synchronization.close();
     await returning.repository.close();
   });
-  await returning.synchronization!.sync();
+  expect.assert(returning.synchronization !== undefined);
+  await returning.synchronization.sync();
   const choices = returning.repository
     .getSnapshot()
     .decisions.flatMap((decision) =>
       decision.choices.map((choice) => choice.workspace.tasks[task.id]),
     );
-  expect(choices.some((task) => task.title === 'Offline title')).toBe(true);
-  expect(choices.some((task) => task.notes === 'Offline authored note')).toBe(true);
-  await returning.synchronization!.close();
+
+  expect(choices.some((task) => task?.title === 'Offline title')).toBe(true);
+
+  expect(choices.some((task) => task?.notes === 'Offline authored note')).toBe(true);
+
+  await returning.synchronization.close();
   await returning.repository.close();
   const reopened = await otherDevice.open(id);
   onTestFinished(() => reopened.repository.close());

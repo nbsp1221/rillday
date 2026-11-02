@@ -20,6 +20,7 @@ test('ten private accounts own isolated native documents; an eleventh account is
   );
   for (const [index, account] of accounts.entries()) {
     const document = documents[index];
+    expect.assert(document !== undefined);
     expect(
       (await account.request('/v1/connection', { documentId: document.documentId })).status,
     ).toBe(200);
@@ -28,12 +29,16 @@ test('ten private accounts own isolated native documents; an eleventh account is
       .run(document.binary, account.owner);
   }
   for (const [index, account] of accounts.entries()) {
+    expect.assert(accounts[(index + 1) % 10] !== undefined);
+    expect.assert(documents[index] !== undefined);
+    expect.assert(accounts[(index + 1) % 10] !== undefined);
     expect(
-      (await account.request('/v1/connection?owner=' + accounts[(index + 1) % 10].owner)).body,
+      (await account.request('/v1/connection?owner=' + accounts[(index + 1) % 10]?.owner)).body,
     ).toEqual({ documentId: documents[index].documentId });
     const row = server.store
       .prepare<{ data: Uint8Array }>('SELECT data FROM workspace_documents WHERE owner=?')
       .get(account.owner);
+
     expect(row?.data).toEqual(Buffer.from(documents[index].binary));
   }
   expect(new Set(accounts.map((account) => account.owner)).size).toBe(10);

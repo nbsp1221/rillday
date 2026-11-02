@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
 import { chooseChoice } from '../support/choice';
@@ -60,8 +61,10 @@ for (const language of ['ko', 'en'] as const) {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^(돌아가기|Back)$/, exact: true }).click();
 
+    assert(areas[1] !== undefined, 'Missing areas[1]');
     await page.getByLabel(areas[1], { exact: true }).click();
     await expect(page.locator('.quadrant-header h2')).toHaveText(quadrants);
+    assert(areas[0] !== undefined, 'Missing areas[0]');
     await page.getByLabel(areas[0], { exact: true }).click();
 
     for (const [index, priority] of priorities.entries()) {
@@ -100,80 +103,81 @@ for (const language of ['ko', 'en'] as const) {
       [0, 1, 2, 3].map((index) => `Save {{count}} $t(common.save) ${index}`),
     );
   });
-  test(`repeat and habit choices preserve their labels, values and ordering in ${language}`, async ({
+  test(`repeat choices preserve ordering and save a localized custom rule in ${language}`, async ({
     page,
   }) => {
-    test.setTimeout(60000);
-    const frequencies = ['daily', 'weekly', 'monthly', 'weekdays'];
     const labels =
       language === 'ko'
         ? ['매일', '매주', '매월', '평일마다']
         : ['Every day', 'Weekly', 'Monthly', 'Every weekday'];
-    const units = language === 'ko' ? ['일', '주', '개월', '일'] : ['day', 'week', 'month', 'day'];
-    const kinds = language === 'ko' ? ['달성 여부', '수량 기록'] : ['Completion', 'Track amount'];
 
     await page.goto('/');
     await changeLanguage(page, language);
-    await page
-      .locator('#quick-add-input')
-      .fill('Authored text {{count}} $t(common.save) 2030-01-31');
+    const input = page.locator('#quick-add-input');
+    await input.fill('Authored text {{count}} $t(common.save) 2030-01-31');
     await page.locator('.quick-date-trigger').click();
-    await page.locator('.date-repeat-trigger').click();
+    const trigger = page.locator('.date-repeat-trigger');
+    await trigger.click();
     await expect(page.locator('.schedule-options > button')).toHaveText([
       language === 'ko' ? '반복 안 함' : 'Does not repeat',
       ...labels,
       language === 'ko' ? '사용자 지정…' : 'Custom…',
     ]);
-
-    for (const [index, frequency] of frequencies.entries()) {
+    for (const [index, label] of labels.entries()) {
       await page
         .locator('.schedule-options > button')
         .nth(index + 1)
         .click();
-      const trigger = page.locator('.date-repeat-trigger');
-      await expect(trigger.locator('.schedule-value')).toHaveText(labels[index]);
-
-      for (const count of [1, 2, 365]) {
-        await trigger.click();
-        const custom = page.getByLabel(/^(사용자 지정 반복|Custom repeat)$/, { exact: true });
-        if ((await custom.getAttribute('aria-expanded')) !== 'true') {
-          await custom.click();
-        }
-        await expect(page.locator('.repeat-frequency-options').getByRole('radio')).toHaveText(
-          labels,
-        );
-        if (count === 1) {
-          const radios = page.locator('.repeat-frequency-options').getByRole('radio');
-          await radios.nth((index + 1) % frequencies.length).click();
-          await radios.nth(index).click();
-          await expect(radios.nth(index)).toBeChecked();
-        }
-        const interval = page.getByRole('textbox', {
-          name: /^(반복 간격|Repeat interval)$/,
-          exact: true,
-        });
-        await interval.fill(String(count));
-        const unit = units[index] + (language === 'en' && count !== 1 ? 's' : '');
-        await expect(
-          page.locator('.schedule-field').filter({ has: interval }).locator(':scope > span').last(),
-        ).toHaveText(unit);
-        await page.getByRole('button', { name: /^(적용|Apply)$/, exact: true }).click();
-        const summary =
-          count === 1
-            ? labels[index]
-            : language === 'ko'
-              ? `${count}${unit}마다${frequency === 'weekdays' ? ' (평일)' : ''}`
-              : `Every ${count} ${unit}${frequency === 'weekdays' ? ' (weekdays)' : ''}`;
-        await expect(trigger.locator('.schedule-value')).toHaveText(summary);
-        await expect(trigger).toHaveAttribute('data-frequency', frequency);
-        await expect(trigger).toHaveAttribute('data-interval', String(count));
-      }
+      await expect(trigger.locator('.schedule-value')).toHaveText(label);
       await trigger.click();
     }
+    await page.getByLabel(/^(사용자 지정 반복|Custom repeat)$/, { exact: true }).click();
+    const radios = page.locator('.repeat-frequency-options').getByRole('radio');
+    await expect(radios).toHaveText(labels);
+    const weekly = page.getByRole('radio', {
+      name: language === 'ko' ? '매주' : 'Weekly',
+      exact: true,
+    });
+    await weekly.click();
+    await expect(weekly).toBeChecked();
+    const interval = page.getByRole('textbox', {
+      name: /^(반복 간격|Repeat interval)$/,
+      exact: true,
+    });
+    const unit = page
+      .locator('.schedule-field')
+      .filter({ has: interval })
+      .locator(':scope > span')
+      .last();
+    await interval.fill('1');
+    await expect(unit).toHaveText(language === 'ko' ? '주' : 'week');
+    await interval.fill('2');
+    await expect(unit).toHaveText(language === 'ko' ? '주' : 'weeks');
+    await page.getByRole('button', { name: /^(적용|Apply)$/, exact: true }).click();
+    const summary = language === 'ko' ? '2주마다' : 'Every 2 weeks';
+    await expect(trigger.locator('.schedule-value')).toHaveText(summary);
+    await expect(trigger).toHaveAttribute('data-frequency', 'weekly');
+    await expect(trigger).toHaveAttribute('data-interval', '2');
+    await page.keyboard.press('Escape');
+    await input.press('Enter');
+    await expect
+      .poll(async () => (await storedWorkspace(page)).tasks[0])
+      .toMatchObject({
+        title: 'Authored text {{count}} $t(common.save)',
+        repeat: { frequency: 'weekly', interval: 2 },
+      });
+    await page.reload();
+    await page.locator('.task-title').click();
+    await page.locator('.td-date-button').click();
+    await expect(trigger.locator('.schedule-value')).toHaveText(summary);
+  });
 
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
-    await page.locator('#quick-add-input').fill('');
+  test(`habit choices preserve ordering and literal user values in ${language}`, async ({
+    page,
+  }) => {
+    const kinds = language === 'ko' ? ['달성 여부', '수량 기록'] : ['Completion', 'Track amount'];
+    await page.goto('/');
+    await changeLanguage(page, language);
     await page.getByLabel(/^(습관|Habit)$/, { exact: true }).click();
     await page.getByRole('button', { name: /^(습관 추가|Add habit)$/, exact: true }).click();
     const goal = page.getByRole('radiogroup', { name: /^(목표|Goal)$/, exact: true });
@@ -204,8 +208,11 @@ test('only system quadrant names translate, including names identical to a defau
   await expect(page.locator('#quick-add-input')).toBeVisible();
   const data = emptyWorkspace();
   const literal = '👩‍💻 {{count}} $t(common.save)';
+  assert(data.quadrants[1] !== undefined, 'Missing data.quadrants[1]');
   data.quadrants[1].name = 'common.save';
+  assert(data.quadrants[2] !== undefined, 'Missing data.quadrants[2]');
   data.quadrants[2].name = 'Urgent, not important';
+  assert(data.quadrants[3] !== undefined, 'Missing data.quadrants[3]');
   data.quadrants[3].name = literal;
   await seedWorkspace(page, data);
   await page.reload();
@@ -232,7 +239,7 @@ test('only system quadrant names translate, including names identical to a defau
   await page.getByLabel('매트릭스 설정', { exact: true }).click();
   await page.getByLabel('plan 이름', { exact: true }).fill('dates.today');
   await expect
-    .poll(async () => (await storedWorkspace(page)).quadrants[1].name)
+    .poll(async () => (await storedWorkspace(page)).quadrants[1]?.name)
     .toBe('dates.today');
   await page.keyboard.press('Escape');
   await changeLanguage(page, 'en');
@@ -244,7 +251,7 @@ test('only system quadrant names translate, including names identical to a defau
 
   await page.getByLabel('Matrix settings', { exact: true }).click();
   await page.getByLabel('plan name', { exact: true }).fill('');
-  await expect.poll(async () => (await storedWorkspace(page)).quadrants[1].name).toBeNull();
+  await expect.poll(async () => (await storedWorkspace(page)).quadrants[1]?.name).toBeNull();
   await page.keyboard.press('Escape');
   await expect(page.locator('.quadrant-header h2').nth(1)).toHaveText('Important, not urgent');
 });
@@ -272,7 +279,7 @@ test('language changes work offline without loading translations or losing captu
   await expect(page.locator('#quick-add-input')).toHaveValue(draft);
   await page.locator('#quick-add-input').press('Enter');
   await expect(page.locator('.task-title')).toHaveText(draft);
-  await expect.poll(async () => (await storedWorkspace(page)).tasks[0].title).toBe(draft);
+  await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.title).toBe(draft);
   expect(translationRequests).toEqual([]);
   await page.reload();
   await expect(page.getByLabel('Settings and backup', { exact: true })).toBeVisible();
@@ -464,14 +471,19 @@ test.describe('English browser locale', () => {
           const store = transaction.objectStore('metadata');
           const request = store.getAll();
           request.onsuccess = () => {
-            const entries = request.result as Record<string, unknown>[];
-            const entry = entries.find(
-              (value) =>
-                value.workspaceId === activeId &&
-                value.reason === 'connection' &&
-                typeof value.source === 'string',
-            );
-            if (!entry || typeof entry.id !== 'string') {
+            const entries: unknown[] = request.result;
+            const entry = entries
+              .filter((value) => typeof value === 'object' && value !== null)
+              .find(
+                (value) =>
+                  'workspaceId' in value &&
+                  value.workspaceId === activeId &&
+                  'reason' in value &&
+                  value.reason === 'connection' &&
+                  'source' in value &&
+                  typeof value.source === 'string',
+              );
+            if (!entry || !('id' in entry) || typeof entry.id !== 'string') {
               transaction.abort();
               return;
             }

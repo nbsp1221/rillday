@@ -9,12 +9,16 @@ const context = { now: () => '2026-10-23T10:00:00.000Z', newId: () => crypto.ran
 test('conflict text identifies label alternatives using authored names', () => {
   const first = createWorkspace(context);
   const listId = Object.keys(first.lists)[0];
+  expect.assert(listId !== undefined);
   const task = createTask(first, context.newId(), taskData(listId, 'Read'), context);
   first.labels.research = { id: 'research', name: 'Research', color: null, rank: 'a0' };
   first.labels.personal = { id: 'personal', name: 'Personal', color: null, rank: 'a1' };
   task.labelIds = ['research'];
   const second = structuredClone(first);
-  second.tasks[task.id].labelIds = ['personal'];
+
+  const task1 = second.tasks[task.id];
+  expect.assert(task1 !== undefined);
+  task1.labelIds = ['personal'];
   const [issue] = workspaceDecisions([
     {
       id: 'labels',
@@ -27,6 +31,7 @@ test('conflict text identifies label alternatives using authored names', () => {
     },
   ]);
   const { t } = createTranslations('en');
+  expect.assert(issue !== undefined);
   expect(issue.choices.map((choice) => formatChange(choice.description, t, []))).toEqual([
     'Labels: Research',
     'Labels: Personal',
@@ -50,6 +55,7 @@ test('conflict text distinguishes matrix view alternatives', () => {
     },
   ]);
   const { t } = createTranslations('en');
+  expect.assert(issue !== undefined);
   expect(issue.choices.map((choice) => formatChange(choice.description, t, []))).toEqual([
     'Matrix view: Simple',
     'Matrix view: Advanced',

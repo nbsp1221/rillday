@@ -35,6 +35,7 @@ const context = { now: () => '2026-10-23T10:00:00.000Z', newId: () => crypto.ran
 function fixture() {
   const state = createWorkspace(context);
   const listId = Object.keys(state.lists)[0];
+  expect.assert(listId !== undefined);
   const task = createTask(
     state,
     context.newId(),
@@ -90,13 +91,17 @@ test('field encoding preserves disjoint changes and offers actual conflicting ti
     editTask(draft, task.id, { title: 'Remote title' }, context),
   );
   let merged = Automerge.merge(disjoint, competing);
-  const conflict = documentConflicts(merged).find((entry) => entry.field === 'title')!;
+  const conflict = documentConflicts(merged).find((entry) => entry.field === 'title');
+  expect.assert(conflict !== undefined);
   expect(conflict.options.map((option) => option.value)).toEqual(
     expect.arrayContaining(['Local title', 'Remote title']),
   );
   const version = recordVersion(merged, { collection: 'tasks', id: task.id });
+
+  const firstOption = conflict.options[0];
+  expect.assert(firstOption !== undefined);
   merged = Automerge.change(merged, (draft) =>
-    resolveDocumentConflict(draft, conflict, conflict.options[0].id),
+    resolveDocumentConflict(draft, conflict, firstOption.id),
   );
   expect(documentConflicts(merged)).toHaveLength(0);
   expect(recordVersion(merged, { collection: 'tasks', id: task.id })).not.toBe(version);
@@ -128,7 +133,9 @@ test('a concurrent stale edit cannot resurrect a purged task', () => {
   );
   const merged = Automerge.merge(purged, stale);
   const workspace = readWorkspace(merged);
-  expect(workspace.tasks[task.id].purgedAt).toBe(context.now());
+
+  expect.assert(workspace.tasks[task.id] !== undefined);
+  expect(workspace.tasks[task.id]?.purgedAt).toBe(context.now());
   expect(() => editTask(workspace, task.id, { title: 'Resurrected' }, context)).toThrow();
   expect(() =>
     createTask(workspace, task.id, taskData(task.location.listId, 'Reused'), context),
@@ -141,7 +148,7 @@ test('a concurrent stale edit cannot resurrect a purged task', () => {
       const resolved = Automerge.change(Automerge.clone(merged), (draft) =>
         resolveDocumentConflict(draft, conflict, option.id),
       );
-      expect(readWorkspace(resolved).tasks[task.id].purgedAt).toBe(context.now());
+      expect(readWorkspace(resolved).tasks[task.id]?.purgedAt).toBe(context.now());
     }
   }
 });
@@ -156,25 +163,34 @@ test('resolving a label name preserves an independent delete/edit decision', () 
   );
   const deleted = change(Automerge.clone(initial), (draft) => removeLabel(draft, id, context));
   let merged = Automerge.merge(Automerge.merge(left, right), deleted);
-  const name = documentConflicts(merged).find((entry) => entry.field === 'name')!;
-  const existence = documentConflicts(merged).find((entry) => entry.field === '$presence')!;
+  const name = documentConflicts(merged).find((entry) => entry.field === 'name');
+  expect.assert(name !== undefined);
+  const existence = documentConflicts(merged).find((entry) => entry.field === '$presence');
+  expect.assert(existence !== undefined);
   expect(name).toBeDefined();
   expect(existence).toBeDefined();
-  merged = Automerge.change(merged, (draft) =>
-    resolveDocumentConflict(draft, name, name.options[0].id),
-  );
+
+  const nameOption = name.options[0];
+  expect.assert(nameOption !== undefined);
+  merged = Automerge.change(merged, (draft) => resolveDocumentConflict(draft, name, nameOption.id));
   const remaining = documentConflicts(merged);
   expect(remaining).toHaveLength(1);
   expect(remaining[0]).toMatchObject({ id: existence.id, options: existence.options });
-  merged = Automerge.change(merged, (draft) =>
-    resolveDocumentConflict(
-      draft,
-      remaining[0],
-      remaining[0].options.find((option) => (option.value as { alive: boolean }).alive)!.id,
-    ),
+
+  const presence = remaining[0];
+  expect.assert(presence !== undefined);
+  const keep = presence.options.find(
+    (option) =>
+      typeof option.value === 'object' &&
+      option.value !== null &&
+      'alive' in option.value &&
+      option.value.alive === true,
   );
+  expect.assert(keep !== undefined);
+  merged = Automerge.change(merged, (draft) => resolveDocumentConflict(draft, presence, keep.id));
   expect(documentConflicts(merged)).toHaveLength(0);
-  expect(readWorkspace(merged).labels[id].name).toBe(name.options[0].value);
+  expect.assert(name.options[0] !== undefined);
+  expect(readWorkspace(merged).labels[id]?.name).toBe(name.options[0].value);
 });
 
 test('confirming deletion retires conflicts on the deleted record without erasing native history', () => {
@@ -190,14 +206,23 @@ test('confirming deletion retires conflicts on the deleted record without erasin
   const deleted = change(Automerge.clone(initial), (draft) => removeLabel(draft, id, context));
   const merged = Automerge.merge(Automerge.merge(local, remote), deleted);
   const conflicts = documentConflicts(merged);
-  const presence = conflicts.find((entry) => entry.field === '$presence')!;
-  const deletion = presence.options.find((option) => !(option.value as { alive: boolean }).alive)!;
+  const presence = conflicts.find((entry) => entry.field === '$presence');
+  expect.assert(presence !== undefined);
+  const deletion = presence.options.find(
+    (option) =>
+      typeof option.value === 'object' &&
+      option.value !== null &&
+      'alive' in option.value &&
+      option.value.alive === false,
+  );
+  expect.assert(deletion !== undefined);
   const resolved = Automerge.change(merged, (draft) =>
     resolveDocumentConflict(draft, presence, deletion.id),
   );
   expect(readWorkspace(resolved).labels[id]).toBeUndefined();
   expect(documentConflicts(resolved)).toEqual([]);
-  const name = conflicts.find((entry) => entry.field === 'name')!;
+  const name = conflicts.find((entry) => entry.field === 'name');
+  expect.assert(name !== undefined);
   expect(Automerge.getConflicts(resolved.fields, name.id)).toBeDefined();
 });
 
@@ -213,20 +238,23 @@ test('domain validation inside a native change rolls back invalid task relations
   });
   const child = Object.values(readWorkspace(withChild).tasks).find(
     (candidate) => candidate.id !== task.id,
-  )!;
+  );
+  expect.assert(child !== undefined);
   const before = Automerge.getHeads(withChild);
   expect(() =>
     Automerge.change(withChild, (draft) => {
       const state = readWorkspace(draft);
       const invalid = produce(state, (next) => {
-        next.tasks[task.id].location.parentId = child.id;
+        const task1 = next.tasks[task.id];
+        expect.assert(task1 !== undefined);
+        task1.location.parentId = child.id;
       });
       writeWorkspace(draft, state, invalid);
       validateWorkspace(readWorkspace(draft));
     }),
   ).toThrow('cycle');
   expect(Automerge.getHeads(withChild)).toEqual(before);
-  expect(readWorkspace(withChild).tasks[task.id].location.parentId).toBeNull();
+  expect(readWorkspace(withChild).tasks[task.id]?.location.parentId).toBeNull();
 });
 
 function quantityFixture(value?: number) {
@@ -278,6 +306,7 @@ test('quantity entries merge through native map operations and unseen correction
   );
   const merged = Automerge.merge(left, right);
   const log = Object.values(readWorkspace(merged).checkIns)[0];
+  expect.assert(log !== undefined);
   expect(quantityValue(log.quantity)).toBe(0.3);
   expect(documentConflicts(merged)).toHaveLength(0);
   const corrected = change(Automerge.clone(merged), (draft) =>
@@ -288,6 +317,7 @@ test('quantity entries merge through native map operations and unseen correction
   );
   let conflictDoc = Automerge.merge(corrected, added);
   const result = Object.values(readWorkspace(conflictDoc).checkIns)[0];
+  expect.assert(result !== undefined);
   expect(quantityValue(result.quantity)).toBe(10);
   expect(
     Object.values(result.quantity.adjustments).some(
@@ -297,12 +327,15 @@ test('quantity entries merge through native map operations and unseen correction
   expect(inspectWorkspace(readWorkspace(conflictDoc))).toEqual([
     { code: 'quantity_correction_conflict', targets: [{ collection: 'checkIns', id: result.id }] },
   ]);
-  const conflict = documentConflicts(conflictDoc).find((entry) => entry.field === '$quantity')!;
+  const conflict = documentConflicts(conflictDoc).find((entry) => entry.field === '$quantity');
+  expect.assert(conflict !== undefined);
   expect(conflict.options.map((option) => option.value)).toEqual(expect.arrayContaining([10, 11]));
   conflictDoc = Automerge.change(conflictDoc, (draft) =>
     resolveDocumentConflict(draft, conflict, '11'),
   );
-  expect(quantityValue(readWorkspace(conflictDoc).checkIns[result.id].quantity)).toBe(11);
+  const checkIn = readWorkspace(conflictDoc).checkIns[result.id];
+  expect.assert(checkIn !== undefined);
+  expect(quantityValue(checkIn.quantity)).toBe(11);
   expect(documentConflicts(conflictDoc)).toHaveLength(0);
   expect(() => validateWorkspace(readWorkspace(conflictDoc))).not.toThrow();
 });
@@ -322,16 +355,20 @@ test.each([
     );
     let merged = Automerge.merge(left, right);
     const log = Object.values(readWorkspace(merged).checkIns)[0];
+    expect.assert(log !== undefined);
     expect(quantityValue(log.quantity)).toBe(mergedValue);
     expect(inspectWorkspace(readWorkspace(merged))).toEqual([
       { code: 'quantity_out_of_range', targets: [{ collection: 'checkIns', id: log.id }] },
     ]);
-    const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity')!;
+    const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity');
+    expect.assert(conflict !== undefined);
     expect(conflict.options.map((option) => option.value)).toContain(chosen);
     merged = Automerge.change(merged, (draft) =>
       resolveDocumentConflict(draft, conflict, String(chosen)),
     );
-    expect(quantityValue(readWorkspace(merged).checkIns[log.id].quantity)).toBe(chosen);
+    const checkIn1 = readWorkspace(merged).checkIns[log.id];
+    expect.assert(checkIn1 !== undefined);
+    expect(quantityValue(checkIn1.quantity)).toBe(chosen);
     expect(documentConflicts(merged)).toHaveLength(0);
     expect(() => validateWorkspace(readWorkspace(merged))).not.toThrow();
   },
@@ -346,7 +383,8 @@ test('a stale review cannot overwrite a newer quantity edit', () => {
     incrementCheckIn(draft, habitId, '2026-10-23', 1, context),
   );
   let merged = Automerge.merge(corrected, added);
-  const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity')!;
+  const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity');
+  expect.assert(conflict !== undefined);
   merged = Automerge.change(merged, (draft) => {
     const before = readWorkspace(draft);
     const next = produce(before, (state) =>
@@ -357,7 +395,9 @@ test('a stale review cannot overwrite a newer quantity edit', () => {
   expect(() =>
     Automerge.change(merged, (draft) => resolveDocumentConflict(draft, conflict, '10')),
   ).toThrow('edit_conflict');
-  expect(quantityValue(Object.values(readWorkspace(merged).checkIns)[0].quantity)).toBe(20);
+  const entry1 = Object.values(readWorkspace(merged).checkIns)[0];
+  expect.assert(entry1 !== undefined);
+  expect(quantityValue(entry1.quantity)).toBe(20);
 });
 
 test('concurrent manual corrections remain separate choices instead of being added together', () => {
@@ -369,7 +409,8 @@ test('concurrent manual corrections remain separate choices instead of being add
     recordCheckIn(draft, habitId, '2026-10-23', { value: 20 }, context),
   );
   let merged = Automerge.merge(left, right);
-  const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity')!;
+  const conflict = documentConflicts(merged).find((entry) => entry.field === '$quantity');
+  expect.assert(conflict !== undefined);
   expect(
     conflict.options.map((option) => option.value).sort((a, b) => Number(a) - Number(b)),
   ).toEqual([10, 20]);

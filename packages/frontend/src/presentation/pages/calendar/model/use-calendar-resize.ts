@@ -65,12 +65,12 @@ export function useCalendarResize(scroller: HTMLDivElement | null, tasks: Map<st
       return current;
     }
 
-    function preview(pointerY: number) {
+    const preview = (pointerY: number) => {
       if (!active) {
         return;
       }
       active.pointerY = pointerY;
-      const bounds = grid!.getBoundingClientRect();
+      const bounds = grid.getBoundingClientRect();
       const pixelsPerMinute = bounds.height / 1440;
       const patch = resizeCalendarTask(
         active.task,
@@ -90,7 +90,7 @@ export function useCalendarResize(scroller: HTMLDivElement | null, tasks: Map<st
       if (time) {
         time.textContent = describe(range.start, range.end);
       }
-    }
+    };
 
     const resizable = interact('.calendar-task.timed', { context: scroller })
       .resizable({
@@ -102,7 +102,10 @@ export function useCalendarResize(scroller: HTMLDivElement | null, tasks: Map<st
         ],
         listeners: {
           start(event: ResizeEvent) {
-            const element = event.target as HTMLElement;
+            const element = event.target;
+            if (!(element instanceof HTMLElement)) {
+              return;
+            }
             const task = findTask(element.dataset.taskId ?? '');
             if (!task?.time) {
               return;

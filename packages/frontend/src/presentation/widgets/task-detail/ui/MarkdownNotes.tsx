@@ -120,7 +120,6 @@ export function MarkdownNotes({
   const [parseFailure, setParseFailure] = useState({ documentId, failed: false });
 
   if (parseFailure.documentId !== documentId) {
-    // eslint-disable-next-line @eslint-react/set-state-in-effect -- Reset the document before rendering its editor.
     setParseFailure({ documentId, failed: false });
   }
 
@@ -151,9 +150,10 @@ export function MarkdownNotes({
         return;
       }
 
-      const list = (event.target as HTMLElement).closest(
-        '.td-markdown .mdxeditor-select-content[role="listbox"]',
-      );
+      const list =
+        event.target instanceof Element
+          ? event.target.closest('.td-markdown .mdxeditor-select-content[role="listbox"]')
+          : null;
 
       if (!list) {
         return;

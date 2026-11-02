@@ -5,6 +5,7 @@ import {
   recordQuantity,
   validateWorkspace,
 } from '@repo/domain';
+import invariant from 'tiny-invariant';
 import { createDomainContext, deviceZone } from './context.ts';
 import { applyWorkspaceIntent } from './workspace/apply-intent.ts';
 import {
@@ -27,7 +28,8 @@ export function createDemoWorkspace(today = dateKey()): Workspace {
   let order = 0;
 
   const task = (title: string, options: Partial<Task> = {}) => {
-    const item = createTaskRecord(title, data, { order: order++, ...options })!;
+    const item = createTaskRecord(title, data, { order: order++, ...options });
+    invariant(item !== null, 'Demo tasks must have a valid title');
     data.tasks.push(item);
     return item;
   };
@@ -40,6 +42,7 @@ export function createDemoWorkspace(today = dateKey()): Workspace {
     notes:
       'Choose three outcomes you can finish this week.\n\nStart small and make time for what matters.\n\n- [x] Review current projects\n- [ ] Choose three important outcomes\n- [ ] Schedule focused work',
   });
+
   task('Collect links to read', { parentId: planning.id, tags: ['research'] });
   task('Organize notes on one page', { parentId: planning.id });
   task('Review the weekend shopping list', {
@@ -203,42 +206,51 @@ export function createDemoWorkspace(today = dateKey()): Workspace {
     data.lists.map((list) => [list.id, list.id === 'inbox' ? 'inbox' : context.newId()]),
   );
   for (const list of data.lists.filter((item) => item.id !== 'inbox')) {
-    applyWorkspaceIntent(
-      workspace,
-      { type: 'list.create', list: { ...list, id: listIds.get(list.id)! } },
-      context,
-      zone,
-    );
+    const id = listIds.get(list.id);
+    invariant(id !== undefined, 'Demo lists must have mapped IDs');
+    applyWorkspaceIntent(workspace, { type: 'list.create', list: { ...list, id } }, context, zone);
   }
-  const records = data.tasks.map((item) => ({ ...item, listId: listIds.get(item.listId)! }));
+  const records = data.tasks.map((item) => {
+    const listId = listIds.get(item.listId);
+    invariant(listId !== undefined, 'Demo tasks must reference a seeded list');
+    return { ...item, listId };
+  });
   applyWorkspaceIntent(workspace, { type: 'task.create', tasks: records }, context, zone);
   for (const item of records) {
-    workspace.tasks[item.id].completedAt = item.completedAt;
+    const task = workspace.tasks[item.id];
+    invariant(task !== undefined, 'Every seeded task must be created');
+    task.completedAt = item.completedAt;
     if (item.deleted) {
-      workspace.tasks[item.id].trashedAt = context.now();
-      workspace.tasks[item.id].trashGroup = context.newId();
+      task.trashedAt = context.now();
+      task.trashGroup = context.newId();
     }
   }
   for (const item of data.habits) {
+    const id = habitIds.get(item.id);
+    invariant(id !== undefined, 'Demo habits must have mapped IDs');
     applyWorkspaceIntent(
       workspace,
-      { type: 'habit.save', habit: { ...item, id: habitIds.get(item.id)! }, weekStartsOn: 0 },
+      { type: 'habit.save', habit: { ...item, id }, weekStartsOn: 0 },
       context,
       zone,
     );
   }
   for (const { value, ...log } of data.habitLogs) {
-    const habitId = habitIds.get(log.habitId)!;
+    const habitId = habitIds.get(log.habitId);
+    invariant(habitId !== undefined, 'Demo check-ins must reference a seeded habit');
     const habit = workspace.habits[habitId];
+    invariant(habit !== undefined, 'Every seeded habit must be created');
+    const rule = habit.rules[0];
+    invariant(rule !== undefined, 'A demo habit must have a first rule');
     const id = checkInId(habitId, log.date);
     workspace.checkIns[id] = {
       ...log,
       id,
       habitId,
       quantity: recordQuantity(value, context.newId()),
-      goal: habit.rules[0].goal,
-      unit: habit.rules[0].unit,
-      ruleFrom: habit.rules[0].from,
+      goal: rule.goal,
+      unit: rule.unit,
+      ruleFrom: rule.from,
     };
   }
   validateWorkspace(workspace);

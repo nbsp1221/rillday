@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
@@ -41,7 +43,7 @@ test('a rejected inline rename keeps the editor and selection available for corr
   await expect(title).toHaveValue(invalidTitle);
   await expect(title).toBeFocused();
   await expect(page.locator('.toast')).toContainText('The change is invalid');
-  expect((await storedWorkspace(page)).tasks[0].title).toBe('Task to review');
+  expect((await storedWorkspace(page)).tasks[0]?.title).toBe('Task to review');
 
   await title.fill('Corrected title');
   await title.press('Enter');
@@ -106,14 +108,16 @@ test('row menus fit the viewport, close after action and support contextual tras
   const before = (await storedWorkspace(page)).tasks;
   expect(before).toHaveLength(28);
   const target = before.find((task) => task.title === 'List item 27');
+  assert(target !== undefined, 'Missing target');
   expect(target).toBeDefined();
-  const row = page.locator(`.task-row[data-task-id="${target!.id}"]`);
+  const row = page.locator(`.task-row[data-task-id="${target.id}"]`);
   await row.scrollIntoViewIfNeeded();
   await row.click({ button: 'right' });
   const menu = page.locator('[data-rillday-menu]');
   await expect(menu).toBeVisible();
-  const bounds = await menu.boundingBox();
-  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(792);
+  const bounds = await visibleBox(menu);
+
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(792);
   await menu.getByRole('menuitem', { name: 'Pin to top', exact: true }).click();
   await expect(menu).toHaveCount(0);
   await row.click({ button: 'right' });
@@ -127,14 +131,14 @@ test('row menus fit the viewport, close after action and support contextual tras
   await expect
     .poll(
       async () =>
-        (await storedWorkspace(page)).tasks.find((task) => task.id === target!.id)?.deleted,
+        (await storedWorkspace(page)).tasks.find((task) => task.id === target.id)?.deleted,
     )
     .toBe(true);
   await menu.getByRole('menuitem', { name: 'Restore', exact: true }).click();
   await expect
     .poll(async () => {
       const tasks = (await storedWorkspace(page)).tasks;
-      const restored = tasks.find((task) => task.id === target!.id);
+      const restored = tasks.find((task) => task.id === target.id);
       return {
         ids: tasks.map((task) => task.id).sort((left, right) => left.localeCompare(right)),
         deletedIds: tasks.filter((task) => task.deleted).map((task) => task.id),
@@ -144,7 +148,7 @@ test('row menus fit the viewport, close after action and support contextual tras
     .toEqual({
       ids: before.map((task) => task.id).sort((left, right) => left.localeCompare(right)),
       deletedIds: [],
-      restored: { id: target!.id, title: target!.title, deleted: false },
+      restored: { id: target.id, title: target.title, deleted: false },
     });
 });
 
@@ -167,7 +171,7 @@ test('keyboard row navigation opens details, cancels inline edits and continues 
   await page.getByLabel('Edit title in list', { exact: true }).fill('Cancelled title');
   await page.keyboard.press('Escape');
   await expect(rows.nth(1)).toBeFocused();
-  expect((await storedWorkspace(page)).tasks[1].title).toBe('Keyboard two');
+  expect((await storedWorkspace(page)).tasks[1]?.title).toBe('Keyboard two');
   const selectedId = await rows.nth(1).getAttribute('data-task-id');
   expect(selectedId).not.toBeNull();
   await page.keyboard.press('Space');
@@ -203,7 +207,8 @@ test('duplication retains the child tree and undo restores the original workspac
     .click();
   await expect.poll(async () => (await storedWorkspace(page)).tasks.length).toBe(4);
   const state = await storedWorkspace(page);
-  const copy = state.tasks.find((task) => task.title === 'Parent to duplicate (copy)')!;
+  const copy = state.tasks.find((task) => task.title === 'Parent to duplicate (copy)');
+  assert(copy !== undefined, 'Missing copy');
   expect(
     state.tasks.some((task) => task.parentId === copy.id && task.title === 'Child to duplicate'),
   ).toBe(true);

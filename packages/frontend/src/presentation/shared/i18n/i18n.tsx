@@ -46,14 +46,11 @@ function LocalizedFormatting({
   const { t } = useTranslation('translation', { lng: language });
   const value = useMemo<I18nContextValue>(() => {
     const dateLocale = language === 'ko' ? 'ko-KR' : 'en-US';
-    const dates = [false, true].map(
-      (withWeekday) =>
-        new TemporalIntl.DateTimeFormat(dateLocale, {
-          month: 'short',
-          day: 'numeric',
-          ...(withWeekday ? { weekday: 'short' } : {}),
-        }),
-    );
+    const dateOptions = { month: 'short', day: 'numeric' } as const;
+    const dates = [
+      new TemporalIntl.DateTimeFormat(dateLocale, dateOptions),
+      new TemporalIntl.DateTimeFormat(dateLocale, { ...dateOptions, weekday: 'short' }),
+    ] as const;
     const times = new TemporalIntl.DateTimeFormat(dateLocale, {
       hour: 'numeric',
       minute: '2-digit',
@@ -88,7 +85,7 @@ function LocalizedFormatting({
         if (date === addDays(today, -1)) {
           return t('dates.yesterday');
         }
-        return dates[Number(withWeekday)].format(Temporal.PlainDate.from(date));
+        return dates[withWeekday ? 1 : 0].format(Temporal.PlainDate.from(date));
       },
       formatTime: (time) => {
         if (!time) {

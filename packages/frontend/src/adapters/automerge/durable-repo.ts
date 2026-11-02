@@ -1,6 +1,11 @@
 import type { StorageAdapterInterface } from '@automerge/automerge-repo/slim';
 import * as A from '@automerge/automerge';
-import { type DocHandle, Repo, type RepoConfig } from '@automerge/automerge-repo';
+import {
+  type DocHandle,
+  Repo,
+  type RepoConfig,
+  isValidDocumentId,
+} from '@automerge/automerge-repo';
 
 export type SnapshotStorage = Pick<StorageAdapterInterface, 'load' | 'save'>;
 
@@ -66,6 +71,9 @@ export class DurableRepo<T> {
     createNetwork: NetworkFactory = noNetwork,
     signal?: AbortSignal,
   ) {
+    if (!isValidDocumentId(documentId)) {
+      throw new Error('invalid_document_id');
+    }
     let network: OwnedNetwork | undefined;
     let repo: Repo | undefined;
     try {
@@ -76,8 +84,8 @@ export class DurableRepo<T> {
         throw new Error('workspace_not_found');
       }
       const handle = binary
-        ? repo.import<T>(binary, { docId: documentId as DocHandle<T>['documentId'] })
-        : await repo.find<T>(documentId as DocHandle<T>['documentId'], { signal });
+        ? repo.import<T>(binary, { docId: documentId })
+        : await repo.find<T>(documentId, { signal });
       const workspace = new DurableRepo<T>(storage, handle, repo, network);
       if (binary) {
         const saved = A.load(binary);
@@ -114,7 +122,7 @@ export class DurableRepo<T> {
     }
   }
 
-  private persistChange = () => {
+  private readonly persistChange = () => {
     const doc = this.handle.fullDoc();
     const heads = A.getHeads(doc);
     const binary = A.save(doc);
@@ -130,7 +138,7 @@ export class DurableRepo<T> {
     return write;
   };
 
-  private onChange = () => {
+  private readonly onChange = () => {
     void this.persistChange();
   };
 

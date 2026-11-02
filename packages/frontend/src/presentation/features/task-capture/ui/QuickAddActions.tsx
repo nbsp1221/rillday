@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { Flag, Plus } from 'lucide-react';
 import type { CaptureDraft } from '#entities/workspace';
-import { type Task, dateKey, parseQuickInput } from '#application';
+import { dateKey, parseQuickInput } from '#application';
 import { useAppPreferences } from '#entities/preferences';
 import { CaptureDatePicker, priorityColor, taskPriorities } from '#entities/task';
 import { useI18n } from '#shared/i18n';
@@ -37,9 +37,8 @@ export function QuickAddActions({
             : {}),
         }
       : null;
-  const effectivePriority = (
-    draft.priority !== '' ? Number(draft.priority) : parsed.priority
-  ) as Task['priority'];
+  const effectivePriority =
+    taskPriorities.find((priority) => String(priority) === draft.priority) ?? parsed.priority;
   const priorityLabel = t(`priority.${effectivePriority}`, { ns: 'labels' });
 
   return (

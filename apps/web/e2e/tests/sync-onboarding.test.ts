@@ -81,7 +81,7 @@ test('first setup validates accessible email and password fields before sending 
         input
           .getAttribute('aria-describedby')
           ?.split(/\s+/)
-          .some((id) => document.getElementById(id)?.textContent?.includes('Enter a value.')),
+          .some((id) => document.getElementById(id)?.textContent.includes('Enter a value.')),
       ),
     ).toBe(true);
     await email.fill('not-an-email');
@@ -286,9 +286,12 @@ for (const width of [1440, 390]) {
             await expect(page.locator('.sync-login-form')).toBeVisible();
             await expect(page.locator('html')).toHaveAttribute('data-theme', colorScheme);
             const geometry = await page.locator('.sync-settings').evaluate((root) => {
-              const email = root.querySelector<HTMLInputElement>('input[type=email]')!;
-              const group = root.querySelector<HTMLElement>('[data-slot=input-group]')!;
-              const fields = root.querySelector<HTMLElement>('[data-slot=field-group]')!;
+              const email = root.querySelector<HTMLInputElement>('input[type=email]');
+              const group = root.querySelector<HTMLElement>('[data-slot=input-group]');
+              const fields = root.querySelector<HTMLElement>('[data-slot=field-group]');
+              if (email === null || group === null || fields === null) {
+                throw new Error('Missing account form fields');
+              }
               const a = email.getBoundingClientRect();
               const b = group.getBoundingClientRect();
               return {

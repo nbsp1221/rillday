@@ -1,3 +1,4 @@
+import invariant from 'tiny-invariant';
 import { expect, test, vi } from 'vitest';
 import {
   type Task,
@@ -33,10 +34,9 @@ function fixture() {
           draft.tasks.push(...intent.tasks);
         }
         if (intent.type === 'task.update') {
-          Object.assign(
-            draft.tasks.find((task) => task.id === intent.id)!,
-            intent.patch,
-          );
+          const entry = draft.tasks.find((task) => task.id === intent.id);
+          invariant(entry !== undefined, 'Task update fixture must reference an existing task');
+          Object.assign(entry, intent.patch);
         }
         if (intent.type === 'task.reorder') {
           reorderTask(draft, intent.from, intent.to, intent.placement);
@@ -98,6 +98,7 @@ test('field edits preserve history grouping, normalize schedules and suppress un
   expect(port.apply).not.toHaveBeenCalled();
 
   expect(actions.update(task.id, { date: '2026-11-12' }).status).toBe('applied');
+  expect.assert(state.data.tasks[0] !== undefined);
   expect(state.data.tasks[0].repeat?.anchorDay).toBe(12);
   expect(port.apply).toHaveBeenCalledExactlyOnceWith(
     {
@@ -109,6 +110,7 @@ test('field edits preserve history grouping, normalize schedules and suppress un
   );
 
   actions.update(task.id, { date: null });
+
   expect([
     state.data.tasks[0].date,
     state.data.tasks[0].time,
@@ -124,14 +126,18 @@ test('calendar preserves time on a date-only move; all-day and undated have dist
     repeat: { frequency: 'weekly', interval: 1 },
   });
   actions.schedule(task.id, { date: '2026-10-21' });
+  expect.assert(state.data.tasks[0] !== undefined);
   expect(state.data.tasks[0].time).toBe('14:30');
 
   actions.schedule(task.id, { date: '2026-10-21', time: null });
+
   expect(state.data.tasks[0].time).toBeNull();
+
   expect(state.data.tasks[0].repeat).not.toBeNull();
   expect(actions.schedule(task.id, { date: '2026-10-21', time: null }).status).toBe('unchanged');
 
   actions.schedule(task.id, { date: null });
+
   expect(state.data.tasks[0].repeat).toBeNull();
 });
 
@@ -142,7 +148,9 @@ test('detail date changes extend a repeat end while calendar moves retain their 
     repeat: { frequency: 'monthly', interval: 1, until: '2026-11-20' },
   });
   actions.setDate(task.id, '2026-12-12');
+  expect.assert(state.data.tasks[0] !== undefined);
   expect(state.data.tasks[0].repeat?.until).toBe('2026-12-12');
+
   expect(state.data.tasks[0].repeat?.anchorDay).toBe(12);
 });
 
@@ -152,10 +160,13 @@ test('list moves detach an explicitly moved child, keep same-list children and u
   const parent = add();
   const child = add({ parentId: parent.id });
   expect(actions.moveToList(child.id, 'inbox').status).toBe('unchanged');
+  expect.assert(state.data.tasks[1] !== undefined);
   expect(state.data.tasks[1].parentId).toBe(parent.id);
 
   actions.moveToList(child.id, 'work');
+
   expect(state.data.tasks[1].parentId).toBeNull();
+
   expect(state.data.tasks[1].listId).toBe('work');
 
   state.data.tasks[1].completedAt = '2026-10-20T00:00:00Z';
@@ -171,9 +182,12 @@ test('matrix urgency includes tomorrow and retains dates and priority within the
   expect(actions.moveToQuadrant(task.id, 'do').status).toBe('unchanged');
 
   actions.moveToQuadrant(task.id, 'plan');
+  expect.assert(state.data.tasks[0] !== undefined);
   expect(state.data.tasks[0].date).toBe(addDays(today, 2));
+
   expect(state.data.tasks[0].priority).toBe(3);
 
+  expect.assert(state.data.quadrants[3] !== undefined);
   expect(matrixTaskPatch(task, state.data.quadrants[3], 'complex', today)).toStrictEqual({
     priority: 1,
     date: addDays(today, 2),
@@ -206,6 +220,7 @@ test('capture keeps rejected lines, honors manual clearing and carries contextua
   };
   const result = prepareTaskCapture(draft, { listId: 'work', tag: 'work' }, {}, '2026-10-20');
   expect(result.rejected).toStrictEqual(['#untitled']);
+  expect.assert(result.pending[0] !== undefined);
   expect(result.pending[0].options).toStrictEqual({
     listId: 'work',
     date: null,

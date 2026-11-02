@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { appearance, settleAnimations } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
 import { storedWorkspace } from '../support/storage';
@@ -6,8 +8,9 @@ import { archiveFixture } from '../support/workspace-archive';
 
 async function fits(page: Page, surface: Locator) {
   await settleAnimations(surface);
-  const box = (await surface.boundingBox())!;
-  const viewport = page.viewportSize()!;
+  const box = await visibleBox(surface);
+  const viewport = page.viewportSize();
+  assert(viewport !== null, 'Missing viewport');
   const inset = (await surface.getAttribute('role')) === 'menu' ? 5 : 8;
   expect(box.x).toBeGreaterThanOrEqual(inset);
   expect(box.y).toBeGreaterThanOrEqual(inset);
@@ -58,11 +61,11 @@ test('long habit editors use the same modal, trap focus and keep actions visible
   ).toBe(false);
   await expect(page.getByLabel('Habit name', { exact: true })).toBeFocused();
   await page.getByRole('radio', { name: 'Track amount', exact: true }).click();
-  const before = await dialog.locator('.modal-footer').boundingBox();
+  const before = await visibleBox(dialog.locator('.modal-footer'));
   await dialog.locator('.modal-body').evaluate((el) => {
     el.scrollTop = el.scrollHeight;
   });
-  expect(await dialog.locator('.modal-footer').boundingBox()).toEqual(before);
+  expect(await visibleBox(dialog.locator('.modal-footer'))).toEqual(before);
   expect(
     await dialog
       .locator('.modal-body')
@@ -94,8 +97,10 @@ test('modal captions activate their own control without extending over blank fie
         el.dataset.clicks = String(Number(el.dataset.clicks) + 1);
       });
     });
-    const bounds = (await field.boundingBox())!;
-    const labelBounds = (await caption.boundingBox())!;
+    const bounds = await visibleBox(field);
+
+    const labelBounds = await visibleBox(caption);
+
     await dialog.getByLabel('Close', { exact: true }).focus();
     await page.mouse.click(bounds.x + bounds.width - 4, labelBounds.y + labelBounds.height / 2);
     await page.mouse.click(bounds.x + 4, labelBounds.y + labelBounds.height + 4);
@@ -110,7 +115,8 @@ test('modal captions activate their own control without extending over blank fie
     }
   }
   const picker = dialog.getByRole('button', { name: 'List color', exact: true });
-  const bounds = (await picker.locator('xpath=..').boundingBox())!;
+  const bounds = await visibleBox(picker.locator('xpath=..'));
+
   await page.mouse.click(bounds.x + bounds.width - 4, bounds.y + 4);
   await expect(picker).toHaveAttribute('aria-expanded', 'false');
   await expect(dialog.getByLabel('List name', { exact: true })).not.toBeFocused();
@@ -230,10 +236,12 @@ for (const theme of ['dark', 'light']) {
         ring: style.getPropertyValue('--tw-ring-color'),
       };
     });
-    const buttons = await save.boundingBox();
-    const deleteBox = await remove.boundingBox();
-    expect(buttons!.width).toBeGreaterThanOrEqual(72);
-    expect(deleteBox!.x + deleteBox!.width + 8).toBeLessThanOrEqual(buttons!.x);
+    const buttons = await visibleBox(save);
+
+    const deleteBox = await visibleBox(remove);
+
+    expect(buttons.width).toBeGreaterThanOrEqual(72);
+    expect(deleteBox.x + deleteBox.width + 8).toBeLessThanOrEqual(buttons.x);
     for (const button of [save, remove]) {
       expect((await appearance(button)).contrast).toBeGreaterThanOrEqual(4.5);
       await button.hover();
@@ -243,7 +251,10 @@ for (const theme of ['dark', 'light']) {
     }
     expect(
       await save.evaluate((el) => {
-        const context = document.createElement('canvas').getContext('2d')!;
+        const context = document.createElement('canvas').getContext('2d');
+        if (context === null) {
+          throw new Error('Missing context');
+        }
         context.fillStyle = getComputedStyle(el).getPropertyValue('--button-primary-foreground');
         return context.fillStyle;
       }),
@@ -274,7 +285,8 @@ for (const theme of ['dark', 'light']) {
     const disabled = page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true });
     await expect(disabled).toBeDisabled();
     const disabledFill = await disabled.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const disabledBox = (await disabled.boundingBox())!;
+    const disabledBox = await visibleBox(disabled);
+
     await page.mouse.move(
       disabledBox.x + disabledBox.width / 2,
       disabledBox.y + disabledBox.height / 2,
@@ -366,8 +378,8 @@ test('portalled color controls keep localized slider names and ignore composing 
   await page.getByRole('button', { name: 'Custom color', exact: true }).click();
   await expect(page.getByRole('slider', { name: 'Hue', exact: true })).toBeVisible();
   const hex = page.getByRole('textbox', { name: 'HEX color', exact: true });
-  expect((await page.locator('.color-picker-back').boundingBox())!.height).toBe(32);
-  expect((await hex.boundingBox())!.height).toBe(36);
+  expect((await visibleBox(page.locator('.color-picker-back'))).height).toBe(32);
+  expect((await visibleBox(hex)).height).toBe(36);
   await hex.focus();
   await hex.dispatchEvent('keydown', { key: 'Escape', keyCode: 229, isComposing: true });
   await expect(page.locator('.color-picker-panel')).toBeVisible();
@@ -420,12 +432,15 @@ test('property popovers choose an axis that fits intermediate widths and viewpor
     await page.setViewportSize({ width, height: 480 });
     await expect
       .poll(async () => {
-        const b = (await child.boundingBox())!;
+        const b = await visibleBox(child);
+
         return b.x >= 7.5 && b.x + b.width <= width - 7.5 && b.y >= 7.5 && b.y + b.height <= 472.5;
       })
       .toBe(true);
-    const b = (await child.boundingBox())!;
-    const f = (await child.locator('.date-field-footer').boundingBox())!;
+    const b = await visibleBox(child);
+
+    const f = await visibleBox(child.locator('.date-field-footer'));
+
     expect(f.y + f.height).toBeLessThanOrEqual(b.y + b.height);
   }
   await page.keyboard.press('Escape');
@@ -490,6 +505,7 @@ for (const language of ['ko', 'en']) {
       const data = await read();
       const source =
         '| Item | State |\n| --- | --- |\n| One | Done |\n\n```js\nconst sample = 1;\n```';
+      assert(data.tasks[0] !== undefined, 'Missing data.tasks[0]');
       data.tasks[0].notes = source;
       await page.getByLabel(text('설정과 백업', 'Settings and backup'), { exact: true }).click();
       await page.locator('input[type=file]').setInputFiles({
@@ -540,7 +556,8 @@ for (const language of ['ko', 'en']) {
               ];
             }),
           ).toEqual(skin);
-          const b = (await popup.boundingBox())!;
+          const b = await visibleBox(popup);
+
           expect(b.x).toBeGreaterThanOrEqual(8);
           expect(b.x + b.width).toBeLessThanOrEqual(width - 8);
           if ((await popup.getAttribute('role')) === 'dialog') {
@@ -561,7 +578,7 @@ for (const language of ['ko', 'en']) {
           await expect(trigger).toBeFocused();
         }
       }
-      expect((await read()).tasks[0].notes).toBe(source);
+      expect((await read()).tasks[0]?.notes).toBe(source);
       await page
         .getByRole('button', { name: text('할 일 작업 메뉴', 'Task actions menu'), exact: true })
         .focus();

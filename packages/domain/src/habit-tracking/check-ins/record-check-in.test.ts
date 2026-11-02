@@ -42,6 +42,7 @@ test('quantity increments retain decimal precision and protect skipped entries',
     incrementCheckIn(workspace, id, '2026-10-23', 0.1, context);
   }
   const key = checkInId(id, '2026-10-23');
+  expect.assert(workspace.checkIns[key] !== undefined);
   expect(quantityValue(workspace.checkIns[key].quantity)).toBe(1);
   recordCheckIn(workspace, id, '2026-10-23', { skipped: true }, context);
   expect(() => incrementCheckIn(workspace, id, '2026-10-23', 1, context)).toThrow(
@@ -66,7 +67,9 @@ test('check-ins enforce calendar and habit boundaries and retain the captured ru
     context,
   );
   recordCheckIn(workspace, id, '2026-10-22', { note: 'Keep the old goal' }, context);
-  expect(quantityValue(workspace.checkIns[checkInId(id, '2026-10-22')].quantity)).toBe(2);
+  const checkIn = workspace.checkIns[checkInId(id, '2026-10-22')];
+  expect.assert(checkIn !== undefined);
+  expect(quantityValue(checkIn.quantity)).toBe(2);
   expect(workspace.checkIns[checkInId(id, '2026-10-22')]).toMatchObject({
     goal: 8,
     ruleFrom: '2026-10-01',
@@ -75,6 +78,7 @@ test('check-ins enforce calendar and habit boundaries and retain the captured ru
     editHabit(workspace, id, { ...data, rules: [{ ...data.rules[0], goal: 12 }] }, 0, context),
   ).toThrow('historical_rule_immutable');
   const checkIns = structuredClone(workspace.checkIns);
+  expect.assert(workspace.habits[id] !== undefined);
   editHabit(
     workspace,
     id,

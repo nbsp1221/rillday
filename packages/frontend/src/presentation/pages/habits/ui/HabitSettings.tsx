@@ -4,6 +4,7 @@ import { ToggleGroup, ToggleGroupItem } from '@repo/ui/components/toggle-group';
 import { cn } from 'cn';
 import { Check } from 'lucide-react';
 import { useState } from 'react';
+import invariant from 'tiny-invariant';
 import { type Habit, habitAmountSchema } from '#application';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceChoiceField } from '#shared/ui/WorkspaceChoice';
@@ -22,8 +23,10 @@ export function HabitSettings({
   dayNames: string[];
 }) {
   const { t, dateLocale } = useI18n();
-  const minimum = habitAmountSchema.minValue!;
-  const maximum = habitAmountSchema.maxValue!;
+  const minimum = habitAmountSchema.minValue;
+  invariant(minimum !== null, 'Missing minimum');
+  const maximum = habitAmountSchema.maxValue;
+  invariant(maximum !== null, 'Missing maximum');
   const amountError = t('controls.numberRange', {
     minimum: minimum.toLocaleString(dateLocale),
     maximum: maximum.toLocaleString(dateLocale),
@@ -99,9 +102,9 @@ export function HabitSettings({
           aria-label={t('habits.goal')}
           className="duration-presets grid gap-2 [&_>_button]:flex [&_>_button]:items-center [&_>_button]:justify-center [&_>_button]:gap-1 [&_>_button]:min-h-(--control-height) [&_>_button]:py-1 [&_>_button]:px-1 [&_>_button]:border [&_>_button]:border-control-border [&_>_button]:rounded-sm [&_>_button[aria-checked='true']]:border-link [&_>_button[aria-checked='true']]:text-link [&_>_button[aria-checked='true']]:bg-overlay-hover [&_>_button[aria-pressed='true']]:border-link [&_>_button[aria-pressed='true']]:text-link [&_>_button[aria-pressed='true']]:bg-overlay-hover [&_>_button:hover]:bg-overlay-hover habit-goal-modes grid-cols-[repeat(2,_minmax(0,_1fr))]"
           value={value.kind}
-          onValueChange={(kind) => {
-            if (kind) {
-              onChange({ kind: kind as typeof value.kind });
+          onValueChange={(kind: unknown) => {
+            if (kind === 'boolean' || kind === 'quantity') {
+              onChange({ kind });
             }
           }}
         >

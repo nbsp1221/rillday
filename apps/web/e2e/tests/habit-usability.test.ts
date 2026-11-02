@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
 import { reloadSavedPage } from '../support/navigation';
@@ -83,8 +84,10 @@ test('quantity drafts can be cleared, validated and committed; Escape saves note
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);
-      const habit = workspace.habits.find((habit) => habit.name === 'Drink enough water')!;
-      const log = workspace.habitLogs.find((log) => log.habitId === habit.id && log.date === today);
+      const habit = workspace.habits.find((habit) => habit.name === 'Drink enough water');
+      const log = workspace.habitLogs.find(
+        (log) => log.habitId === habit?.id && log.date === today,
+      );
       return { value: log?.value, note: log?.note };
     })
     .toEqual({ value: 3.5, note: 'Note after updating quantity' });
@@ -113,12 +116,17 @@ test('narrow habit details contain focus and the shared date calendar dismisses 
   await page.locator('.habit-date-button').click();
   const calendar = page.locator('.habit-date-panel');
   await expect(calendar).toBeVisible();
-  const boundaries = await calendar.locator('[data-date]').evaluateAll((buttons) =>
-    buttons.map((button) => ({
-      date: button.getAttribute('data-date')!,
-      disabled: (button as HTMLButtonElement).disabled,
-    })),
-  );
+  const boundaries = await calendar
+    .locator('[data-date]')
+    .evaluateAll((buttons: HTMLButtonElement[]) =>
+      buttons.map((button) => {
+        const date = button.dataset.date;
+        if (date === undefined) {
+          throw new Error('Missing habit date');
+        }
+        return { date, disabled: button.disabled };
+      }),
+    );
   expect(boundaries.some((item) => item.date > today)).toBe(true);
   expect(boundaries.filter((item) => item.date > today).every((item) => item.disabled)).toBe(true);
   await calendar.getByLabel('Choose month and year', { exact: true }).click();
@@ -149,7 +157,11 @@ test('habit day axes and menu targets fit both the full page and the space remai
           .first()
           .evaluate((row) => {
             const box = row.getBoundingClientRect();
-            const menu = row.querySelector('.row-menu-trigger')!.getBoundingClientRect();
+            const menuElement = row.querySelector('.row-menu-trigger');
+            if (menuElement === null) {
+              throw new Error("Expected element matching '.row-menu-trigger'");
+            }
+            const menu = menuElement.getBoundingClientRect();
             const days = [...row.querySelectorAll('.habit-day-wrap')].map((el) => {
               const r = el.getBoundingClientRect();
               return r.x + r.width / 2;
@@ -160,7 +172,10 @@ test('habit day axes and menu targets fit both the full page and the space remai
             });
             const cells = [...row.querySelectorAll('.habit-day')].map((el) => {
               const r = el.getBoundingClientRect();
-              const wrap = el.parentElement!.getBoundingClientRect();
+              if (el.parentElement === null) {
+                throw new Error('Missing el.parentElement');
+              }
+              const wrap = el.parentElement.getBoundingClientRect();
               return {
                 width: r.width,
                 fits: r.left >= wrap.left - 0.1 && r.right <= wrap.right + 0.1,
@@ -172,7 +187,13 @@ test('habit day axes and menu targets fit both the full page and the space remai
               headCount: heads.length,
               right: box.right - menu.right,
               size: [menu.width, menu.height],
-              axes: days.map((x, i) => Math.abs(x - heads[i])),
+              axes: days.map((x, i) => {
+                const head = heads[i];
+                if (head === undefined) {
+                  throw new Error('Missing calendar column heading');
+                }
+                return Math.abs(x - head);
+              }),
               overflow: document.documentElement.scrollWidth > innerWidth,
             };
           });
@@ -230,8 +251,8 @@ test('habit cards update quantity progress and retain it after reload', async ({
   await expect
     .poll(async () => {
       const workspace = await storedWorkspace(page);
-      const habit = workspace.habits.find((habit) => habit.name === 'Drink enough water')!;
-      return workspace.habitLogs.find((log) => log.habitId === habit.id && log.date === today)
+      const habit = workspace.habits.find((habit) => habit.name === 'Drink enough water');
+      return workspace.habitLogs.find((log) => log.habitId === habit?.id && log.date === today)
         ?.value;
     })
     .toBe(8);
@@ -257,7 +278,8 @@ test('a check-in edit retains its selected date when the current day crosses a m
 
   const records = async () => {
     const workspace = await storedWorkspace(page);
-    const habit = workspace.habits.find((entry) => entry.name === 'Drink enough water')!;
+    const habit = workspace.habits.find((entry) => entry.name === 'Drink enough water');
+    assert(habit !== undefined, 'Missing water habit fixture');
     return workspace.habitLogs
       .filter((entry) => entry.habitId === habit.id && entry.date >= today)
       .map(({ date, value, note }) => ({ date, value, note }));

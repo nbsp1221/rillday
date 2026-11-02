@@ -9,11 +9,12 @@ import {
   quantityProblems,
   quantityValue,
   recordQuantity,
+  workspaceCollectionSchema,
 } from '@repo/domain';
 import { z } from 'zod';
 
-const collections = ['tasks', 'lists', 'labels', 'habits', 'checkIns', 'quadrants'] as const;
-const addressSchema = z.tuple([z.enum(collections), z.string(), z.string()]);
+const collections = workspaceCollectionSchema.options;
+const addressSchema = z.tuple([workspaceCollectionSchema, z.string(), z.string()]);
 const presenceSchema = z.strictObject({ alive: z.boolean(), revision: z.string() });
 const habitScheduleSchema = z.strictObject({ startDate: z.string(), rules: z.array(z.unknown()) });
 const quantityEntrySchema = z.strictObject({
@@ -23,7 +24,7 @@ const quantityEntrySchema = z.strictObject({
 });
 
 export type WorkspaceDocument = {
-  format: 1;
+  format: unknown;
   fields: Record<string, Automerge.ImmutableString>;
   quantities: Record<string, Automerge.ImmutableString>;
   matrixMode: Automerge.ImmutableString;
@@ -159,10 +160,12 @@ export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after:
       if ('quantity' in record) {
         writeQuantity(doc, id, old && 'quantity' in old ? old : undefined, record);
       }
-      if ('rules' in record) {
+      if ('rules' in record && 'startDate' in record) {
         const schedule = { startDate: record.startDate, rules: record.rules };
         const previous =
-          old && 'rules' in old ? { startDate: old.startDate, rules: old.rules } : undefined;
+          old && 'rules' in old && 'startDate' in old
+            ? { startDate: old.startDate, rules: old.rules }
+            : undefined;
         if (canonical(previous) !== canonical(schedule)) {
           doc.fields[key(collection, id, 'habitSchedule')] = encode(schedule);
         }
@@ -194,7 +197,14 @@ export function readWorkspace(doc: Automerge.Doc<WorkspaceDocument>): Workspace 
   if (doc.format !== 1) {
     throw new Error('invalid_workspace');
   }
-  const result: Record<string, unknown> = Object.fromEntries(collections.map((name) => [name, {}]));
+  const result: Record<WorkspaceCollection, Record<string, unknown>> = {
+    tasks: {},
+    lists: {},
+    labels: {},
+    habits: {},
+    checkIns: {},
+    quadrants: {},
+  };
   const rows = new Map<
     string,
     { collection: WorkspaceCollection; id: string; data: Record<string, unknown>; alive: boolean }
@@ -234,11 +244,10 @@ export function readWorkspace(doc: Automerge.Doc<WorkspaceDocument>): Workspace 
       delete row.data.quantityGeneration;
       row.data.quantity = { generation, adjustments: quantities.get(row.id) ?? {} };
     }
-    const target = result[row.collection] as Record<string, unknown>;
+    const target = result[row.collection];
     target[row.id] = row.data;
   }
-  result.matrixMode = String(doc.matrixMode);
-  return parseWorkspace(result);
+  return parseWorkspace({ ...result, matrixMode: String(doc.matrixMode) });
 }
 
 export function documentConflicts(

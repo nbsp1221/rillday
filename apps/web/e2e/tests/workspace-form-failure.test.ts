@@ -131,16 +131,15 @@ test('quiet save UI still reports failures and retries task and preference write
     if (!original) {
       throw new Error('IndexedDB put method is unavailable');
     }
-    Object.assign(window, { failTaskSave: true, failPreferenceSave: false });
+    const flags = Object.assign(window, { failTaskSave: true, failPreferenceSave: false });
     IDBObjectStore.prototype.put = function (value, key) {
-      const flags = window as unknown as { failTaskSave: boolean; failPreferenceSave: boolean };
       if (
         (this.name === 'documents' && flags.failTaskSave) ||
         (this.name === 'metadata' && key === 'preferences' && flags.failPreferenceSave)
       ) {
         throw new DOMException('Synthetic storage failure', 'QuotaExceededError');
       }
-      return original.call(this, value, key!);
+      return original.call(this, value, key);
     };
   });
   const input = page.getByLabel('Quick add task', { exact: true });

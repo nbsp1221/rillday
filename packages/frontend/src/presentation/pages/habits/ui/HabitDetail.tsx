@@ -102,7 +102,7 @@ export function HabitDetail({
         event.key !== 'Escape' ||
         event.isComposing ||
         event.keyCode === 229 ||
-        !detailRef.current?.contains(event.target as Node)
+        (event.target instanceof Node && !detailRef.current?.contains(event.target))
       ) {
         return;
       }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import invariant from 'tiny-invariant';
 import type { Habit } from '#application';
 import { useAppPreferences } from '#entities/preferences';
 import { useI18n } from '#shared/i18n';
@@ -12,6 +13,9 @@ export function habitColors(color: string): CSSProperties & {
         .map((value) => parseInt(value, 16) / 255)
         .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4))
     : [0, 0, 0];
+  invariant(linearRgb[2] !== undefined, 'Missing linearRgb[2]');
+  invariant(linearRgb[1] !== undefined, 'Missing linearRgb[1]');
+  invariant(linearRgb[0] !== undefined, 'Missing linearRgb[0]');
   const luminance = 0.2126 * linearRgb[0] + 0.7152 * linearRgb[1] + 0.0722 * linearRgb[2];
   return {
     '--habit-color': color,

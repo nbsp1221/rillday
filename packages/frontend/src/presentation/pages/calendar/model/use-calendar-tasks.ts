@@ -8,12 +8,14 @@ export function calendarEventLanes(tasks: Task[]): Map<string, { lane: number; c
 
   for (const date of dates) {
     const events = tasks
-      .filter((task) => task.date === date && task.time)
-      .map((task) => {
-        const time = Temporal.PlainTime.from(task.time!);
+      .flatMap((task) => {
+        if (task.date !== date || !task.time) {
+          return [];
+        }
+        const time = Temporal.PlainTime.from(task.time);
         const start = time.hour * 60 + time.minute;
 
-        return { task, start, end: Math.min(1440, start + Math.max(task.duration, 15)), lane: 0 };
+        return [{ task, start, end: Math.min(1440, start + Math.max(task.duration, 15)), lane: 0 }];
       })
       .sort((a, b) => a.start - b.start || b.end - a.end || a.task.id.localeCompare(b.task.id));
 

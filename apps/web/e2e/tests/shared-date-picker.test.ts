@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { appearance } from '@repo/test-support/browser-appearance';
 import { chooseChoice } from '../support/choice';
 import { selectCalendarDate, setPickerTime } from '../support/date-picker';
@@ -11,13 +13,14 @@ test('capture and details share leap-day selection and retain it after reload', 
   await page.goto('/');
   const input = page.locator('#quick-add-input');
   await input.fill('Leap-year event');
-  const before = (await page.locator('.quick-add').boundingBox())!;
+  const before = await visibleBox(page.locator('.quick-add'));
+
   await page.locator('.quick-date-trigger').click();
   const panel = page.locator('.date-picker-panel');
   await expect(panel.locator('button[data-date]')).toHaveCount(42);
   await selectCalendarDate(page, '2032-02-29');
   await panel.getByRole('button', { name: 'Complete', exact: true }).click();
-  expect((await page.locator('.quick-add').boundingBox())!.height).toBe(before.height);
+  expect((await visibleBox(page.locator('.quick-add'))).height).toBe(before.height);
   await input.press('Enter');
   await page.locator('.task-title').click();
   await page.locator('.td-date-button').click();
@@ -25,7 +28,7 @@ test('capture and details share leap-day selection and retain it after reload', 
     'data-date',
     '2032-02-29',
   );
-  expect((await panel.boundingBox())!.width).toBe(304);
+  expect((await visibleBox(panel)).width).toBe(304);
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await storedWorkspace(page)).tasks[0]?.date).toBe('2032-02-29');
   await reloadSavedPage(page);
@@ -90,6 +93,7 @@ test('detail time duration repeat interval and calendar end date persist; cleari
   await expect
     .poll(async () => {
       const task = (await storedWorkspace(page)).tasks[0];
+      assert(task !== undefined, 'Missing task');
       return { date: task.date, time: task.time, duration: task.duration, repeat: task.repeat };
     })
     .toEqual({
@@ -183,10 +187,11 @@ for (const theme of ['dark', 'light']) {
     await page.locator('.td-date-button').click();
     const panel = page.locator('.date-picker-panel');
     const footer = panel.locator('.date-picker-footer');
-    const before = await footer.boundingBox();
+    const before = await visibleBox(footer);
     await panel.locator('.date-picker-body').evaluate((el) => (el.scrollTop = el.scrollHeight));
-    expect(await footer.boundingBox()).toEqual(before);
-    const bounds = (await panel.boundingBox())!;
+    expect(await visibleBox(footer)).toEqual(before);
+    const bounds = await visibleBox(panel);
+
     expect(bounds.x).toBeGreaterThanOrEqual(8);
     expect(bounds.y).toBeGreaterThanOrEqual(8);
     expect(bounds.y + bounds.height).toBeLessThanOrEqual(472);
@@ -237,8 +242,15 @@ for (const language of ['ko', 'en']) {
           elements.map((el) => {
             const r = el.getBoundingClientRect();
             const icons = el.querySelectorAll(':scope > svg');
+            if (icons[0] === undefined) {
+              throw new Error('Missing icons[0]');
+            }
             const left = icons[0].getBoundingClientRect();
-            const right = icons[icons.length - 1].getBoundingClientRect();
+            const icon = icons[icons.length - 1];
+            if (icon === undefined) {
+              throw new Error('Missing icon');
+            }
+            const right = icon.getBoundingClientRect();
             return {
               left: left.left - r.left,
               right: r.right - right.right,
@@ -261,18 +273,31 @@ for (const language of ['ko', 'en']) {
       );
       await popup.getByLabel(en ? 'Custom repeat' : '사용자 지정 반복', { exact: true }).hover();
       const axes = await popup.evaluate((el) => {
-        const title = el.querySelector('.date-field-header > strong')!.getBoundingClientRect();
+        const titleElement = el.querySelector('.date-field-header > strong');
+        if (titleElement === null) {
+          throw new Error("Expected element matching '.date-field-header > strong'");
+        }
+        const title = titleElement.getBoundingClientRect();
         const buttons = Array.from(el.querySelectorAll('.schedule-options > button'));
-        const action = el.querySelector('.date-field-footer > button')!;
+        const action = el.querySelector('.date-field-footer > button');
+        if (action === null) {
+          throw new Error('Missing action');
+        }
         const range = document.createRange();
         range.selectNodeContents(action);
         return {
           title: title.x,
-          options: buttons.map((button) => ({
-            x: button.querySelector('span')!.getBoundingClientRect().x,
-            height: button.getBoundingClientRect().height,
-            radius: getComputedStyle(button).borderRadius,
-          })),
+          options: buttons.map((button) => {
+            const matchedElement = button.querySelector('span');
+            if (matchedElement === null) {
+              throw new Error("Expected element matching 'span'");
+            }
+            return {
+              x: matchedElement.getBoundingClientRect().x,
+              height: button.getBoundingClientRect().height,
+              radius: getComputedStyle(button).borderRadius,
+            };
+          }),
           action: range.getBoundingClientRect().x,
           actionBox: action.getBoundingClientRect().x,
           padding: parseFloat(getComputedStyle(action).paddingLeft),
@@ -285,19 +310,37 @@ for (const language of ['ko', 'en']) {
       for (const option of axes.options) {
         expect(option.x).toBe(axes.title);
         expect(option.height).toBe(36);
+        assert(axes.options[0] !== undefined, 'Missing axes.options[0]');
         expect(option.radius).toBe(axes.options[0].radius);
       }
       await popup.getByLabel(en ? 'Custom repeat' : '사용자 지정 반복', { exact: true }).click();
       await expect(popup.locator('.repeat-frequencies > legend')).toBeVisible();
       // Expansion can reposition the popup; compare gutters in the same layout state.
-      const customAxes = await popup.evaluate((el) => ({
-        title: el.querySelector('.date-field-header > strong')!.getBoundingClientRect().x,
-        legend: el.querySelector('.repeat-frequencies > legend')!.getBoundingClientRect().x,
-        field: Array.from(el.querySelectorAll('.repeat-custom-fields > .schedule-field'))
-          .at(-1)!
-          .querySelector(':scope > span')!
-          .getBoundingClientRect().x,
-      }));
+      const customAxes = await popup.evaluate((el) => {
+        const customAxesElement = el.querySelector('.date-field-header > strong');
+        if (customAxesElement === null) {
+          throw new Error("Expected element matching '.date-field-header > strong'");
+        }
+        const customAxesElement2 = el.querySelector('.repeat-frequencies > legend');
+        if (customAxesElement2 === null) {
+          throw new Error("Expected element matching '.repeat-frequencies > legend'");
+        }
+        const entry = Array.from(el.querySelectorAll('.repeat-custom-fields > .schedule-field')).at(
+          -1,
+        );
+        if (entry === undefined) {
+          throw new Error('Missing entry');
+        }
+        const customAxesElement3 = entry.querySelector(':scope > span');
+        if (customAxesElement3 === null) {
+          throw new Error("Expected element matching ':scope > span'");
+        }
+        return {
+          title: customAxesElement.getBoundingClientRect().x,
+          legend: customAxesElement2.getBoundingClientRect().x,
+          field: customAxesElement3.getBoundingClientRect().x,
+        };
+      });
       expect(customAxes.legend).toBe(customAxes.title);
       expect(customAxes.field).toBe(customAxes.title);
       if (en) {
@@ -321,14 +364,16 @@ for (const kind of ['capture', 'detail']) {
     await selectCalendarDate(page, '2032-02-29');
     const parent = page.locator('.date-picker-panel');
     await page.locator('.date-time-trigger').scrollIntoViewIfNeeded();
-    const before = await parent.boundingBox();
+    const before = await visibleBox(parent);
     await page.locator('.date-time-trigger').press('ArrowDown');
     const child = page.locator('.date-field-popover');
     await expect(child).toHaveAttribute('aria-label', 'Time');
     await expect(page.getByRole('combobox', { name: 'Task time', exact: true })).toBeFocused();
-    expect(await parent.boundingBox()).toEqual(before);
-    const rootBox = (await parent.boundingBox())!;
-    const childBox = (await child.boundingBox())!;
+    expect(await visibleBox(parent)).toEqual(before);
+    const rootBox = await visibleBox(parent);
+
+    const childBox = await visibleBox(child);
+
     expect(
       Math.max(childBox.x - rootBox.x - rootBox.width, rootBox.x - childBox.x - childBox.width),
     ).toBe(8);
@@ -393,8 +438,10 @@ for (const height of [480, 300]) {
           await page.getByLabel('Custom repeat', { exact: true }).click();
           await page.getByLabel('Repeat end date', { exact: true }).click();
         }
-        const b = (await child.boundingBox())!;
-        const footer = (await child.locator('.date-field-footer').boundingBox())!;
+        const b = await visibleBox(child);
+
+        const footer = await visibleBox(child.locator('.date-field-footer'));
+
         expect(b.x).toBeGreaterThanOrEqual(8);
         expect(b.y).toBeGreaterThanOrEqual(8);
         expect(b.y + b.height).toBeLessThanOrEqual(height - 8);

@@ -1,5 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { type Task, createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
 import { browserToday } from '../support/clock';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
@@ -41,20 +43,28 @@ async function seed(page: Page, time = '09:00', duration = 60) {
 }
 
 async function saved(page: Page) {
-  return (await storedWorkspace(page)).tasks.find((task) => task.id === fixtureId('resize-event'))!;
+  const task = (await storedWorkspace(page)).tasks.find(
+    (task) => task.id === fixtureId('resize-event'),
+  );
+  assert(task !== undefined, 'Expected a saved fixture value');
+  return task;
 }
 
 async function resize(page: Page, card: Locator, edge: 'start' | 'end', minutes: number) {
   await card.scrollIntoViewIfNeeded();
   await card.evaluate((element) => {
-    const scroller = element.closest('.calendar-time-scroll')!;
+    const scroller = element.closest('.calendar-time-scroll');
+    if (scroller === null) {
+      throw new Error('Missing scroller');
+    }
     const card = element.getBoundingClientRect();
     const viewport = scroller.getBoundingClientRect();
     scroller.scrollTop += card.top - viewport.top - viewport.height / 3;
   });
   const handle = card.locator(`[data-calendar-resize="${edge}"]`);
   await expect(handle).toHaveCount(1);
-  const box = (await handle.boundingBox())!;
+  const box = await visibleBox(handle);
+
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await expect(handle).toHaveCSS('cursor', 'ns-resize');
   await page.mouse.down();
@@ -69,11 +79,12 @@ test('time edges preview immediately and persist both ends without moving the ev
 }) => {
   const card = await seed(page);
   const original = await saved(page);
+
   await resize(page, card, 'end', 30);
   await expect(card.locator('[data-calendar-time]')).toContainText('10:30');
   await expect(page.locator('.calendar-view')).not.toHaveAttribute('data-dragging', 'true');
   expect((await saved(page)).duration).toBe(60);
-  await expect.poll(async () => (await card.boundingBox())!.height).toBe(94);
+  await expect.poll(async () => (await visibleBox(card)).height).toBe(94);
 
   await page.mouse.up();
   await expect.poll(async () => (await saved(page)).duration).toBe(90);
@@ -81,6 +92,7 @@ test('time edges preview immediately and persist both ends without moving the ev
   await page.mouse.up();
   await expect.poll(async () => (await saved(page)).time).toBe('08:45');
   const updated = await saved(page);
+
   expect(updated.duration).toBe(105);
   for (const key of [
     'date',
@@ -104,9 +116,11 @@ test('native edge autoscroll keeps the event mounted and cancellation restores i
   const card = await seed(page);
   await resize(page, card, 'end', 15);
   const scroller = page.locator('.calendar-time-scroll');
-  const viewport = (await scroller.boundingBox())!;
+  const viewport = await visibleBox(scroller);
+
   const originalScroll = await scroller.evaluate((element) => element.scrollTop);
-  const box = (await card.boundingBox())!;
+  const box = await visibleBox(card);
+
   await page.mouse.move(box.x + box.width / 2, viewport.y + viewport.height - 10);
   await expect
     .poll(() => scroller.evaluate((element) => element.scrollTop))
@@ -135,7 +149,7 @@ test('Escape, pointer cancellation and blur roll back the preview without saving
 }) => {
   const card = await seed(page);
   const original = await saved(page);
-  const height = (await card.boundingBox())!.height;
+  const height = (await visibleBox(card)).height;
   for (const reason of ['escape', 'pointercancel', 'blur']) {
     await resize(page, card, 'end', 30);
     if (reason === 'escape') {
@@ -145,15 +159,17 @@ test('Escape, pointer cancellation and blur roll back the preview without saving
         if (reason === 'blur') {
           window.dispatchEvent(new Event('blur'));
         } else {
-          document
-            .querySelector('.calendar-time-scroll')!
-            .dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }));
+          const matchedElement = document.querySelector('.calendar-time-scroll');
+          if (matchedElement === null) {
+            throw new Error("Expected element matching '.calendar-time-scroll'");
+          }
+          matchedElement.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }));
         }
       }, reason);
     }
     await page.mouse.up();
     await expect(card).not.toHaveAttribute('data-resizing');
-    expect((await card.boundingBox())!.height).toBe(height);
+    expect((await visibleBox(card)).height).toBe(height);
     expect(await saved(page)).toEqual(original);
   }
 });
@@ -190,7 +206,8 @@ test('the final calendar quarter hour fits inside midnight', async ({ page }) =>
     time: '23:45',
   });
   expect(task).not.toBeNull();
-  data.tasks.push(task!);
+  assert(task !== null, 'Missing task');
+  data.tasks.push(task);
   await page.goto('/');
   await expect(page.locator('#quick-add-input')).toBeVisible();
   await seedWorkspace(page, data);
@@ -204,7 +221,10 @@ test('the final calendar quarter hour fits inside midnight', async ({ page }) =>
   const event = page.locator('.calendar-task.timed');
   await expect(event).toBeVisible();
   const geometry = await event.evaluate((element) => {
-    const cell = element.closest<HTMLElement>('[data-hour]')!;
+    const cell = element.closest<HTMLElement>('[data-hour]');
+    if (cell === null) {
+      throw new Error('Missing cell');
+    }
     return {
       height: element.getBoundingClientRect().height / cell.getBoundingClientRect().height,
       overflow: element.getBoundingClientRect().bottom - cell.getBoundingClientRect().bottom,

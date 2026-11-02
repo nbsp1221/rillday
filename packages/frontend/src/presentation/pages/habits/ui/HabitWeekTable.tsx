@@ -154,7 +154,6 @@ export function HabitWeekTable({
   const { data } = useWorkspace();
   const { dayNames, scheduleLabel } = useHabitDisplay();
   const habits = data.habits.filter((habit) => habit.archived === showArchived);
-  const weeklyProgress = dates.map((date) => habitDayProgress(data.habits, data.habitLogs, date));
 
   return (
     <div className="habit-table [margin:0_var(--habit-inset)_24px]">
@@ -162,8 +161,9 @@ export function HabitWeekTable({
         <span className="habit-column-label [align-self:end] pb-3 [@container((max-width:_760px))]:hidden">
           {showArchived ? t('habits.archiveHeading') : t('habits.myHabits')}
         </span>
-        {dates.map((date, index) => {
+        {dates.map((date) => {
           const day = Temporal.PlainDate.from(date);
+          const progress = habitDayProgress(data.habits, data.habitLogs, date);
 
           return (
             <div
@@ -178,13 +178,13 @@ export function HabitWeekTable({
               <strong>{day.day}</strong>
               {!showArchived && (
                 <HabitProgressRing
-                  {...weeklyProgress[index]}
+                  {...progress}
                   compact
                   label={t('habits.dateProgress', {
-                    count: weeklyProgress[index].total,
+                    count: progress.total,
                     date: formatDate(date),
-                    done: weeklyProgress[index].completed,
-                    total: weeklyProgress[index].total,
+                    done: progress.completed,
+                    total: progress.total,
                   })}
                 />
               )}

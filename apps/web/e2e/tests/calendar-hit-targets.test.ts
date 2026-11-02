@@ -1,24 +1,26 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
 import { fixtureId, seedWorkspace, storedWorkspace } from '../support/storage';
 
 async function calendar(page: Page, duration = 120, date = '2026-10-31') {
   await page.goto('/');
   await page.locator('.quick-add').waitFor();
   const data = emptyWorkspace();
-  data.tasks = [
-    createTaskRecord('Move the full event body', data, {
-      id: 'calendar-body',
-      date,
-      time: '09:00',
-      duration,
-      notes: 'Keep details',
-      priority: 2,
-      order: 0,
-      createdAt: '2026-10-01T00:00:00.000Z',
-      updatedAt: '2026-10-01T00:00:00.000Z',
-    })!,
-  ];
+  const task = createTaskRecord('Move the full event body', data, {
+    id: 'calendar-body',
+    date,
+    time: '09:00',
+    duration,
+    notes: 'Keep details',
+    priority: 2,
+    order: 0,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+  });
+  assert(task !== null, 'Missing calendar task fixture');
+  data.tasks = [task];
   await seedWorkspace(page, data);
   await page.reload();
   await page.locator('.quick-add').waitFor();
@@ -35,14 +37,19 @@ async function calendar(page: Page, duration = 120, date = '2026-10-31') {
 }
 
 async function saved(page: Page) {
-  return (await storedWorkspace(page)).tasks.find(
+  const task = (await storedWorkspace(page)).tasks.find(
     (task) => task.id === fixtureId('calendar-body'),
-  )!;
+  );
+  assert(task !== undefined, 'Expected the saved calendar task');
+  return task;
 }
 
 async function centerCard(card: Locator) {
   await card.evaluate((element) => {
-    const scroller = element.closest('.calendar-time-scroll')!;
+    const scroller = element.closest('.calendar-time-scroll');
+    if (scroller === null) {
+      throw new Error('Missing scroller');
+    }
     const viewport = scroller.getBoundingClientRect();
     scroller.scrollTop += element.getBoundingClientRect().top - viewport.top - viewport.height / 3;
   });
@@ -50,7 +57,8 @@ async function centerCard(card: Locator) {
 
 async function grabBody(page: Page, card: Locator, fraction: number) {
   await centerCard(card);
-  const box = (await card.boundingBox())!;
+  const box = await visibleBox(card);
+
   const point = { x: box.x + box.width * 0.6, y: box.y + box.height * fraction };
   await page.mouse.move(point.x, point.y);
   await page.mouse.down();
@@ -69,11 +77,12 @@ for (const date of ['2026-10-01', '2026-10-31']) {
       .locator('.calendar-hour-cell[data-hour="9"]')
       .filter({ hasNot: card })
       .last();
-    const targetDate = (await target.getAttribute('data-date'))!;
+    const targetDate = await target.getAttribute('data-date');
+    assert(targetDate !== null, 'Missing target date');
     expect(targetDate).not.toBe(date);
     for (const fraction of [0.45, 0.8]) {
       const point = await grabBody(page, card, fraction);
-      const bounds = (await target.boundingBox())!;
+      const bounds = await visibleBox(target);
       await page.mouse.move(bounds.x + bounds.width / 2, point.y, { steps: 4 });
       const preview = page.locator('.calendar-time-preview');
       await expect(preview).toHaveAttribute('data-date', targetDate);
@@ -100,7 +109,8 @@ for (const date of ['2026-10-01', '2026-10-31']) {
 test('a resized event can be moved from its newly extended lower body', async ({ page }) => {
   const { card } = await calendar(page, 30);
   await centerCard(card);
-  const edge = (await card.locator('[data-calendar-resize="end"]').boundingBox())!;
+  const edge = await visibleBox(card.locator('[data-calendar-resize="end"]'));
+
   await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2);
   await page.mouse.down();
   await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2 + 96, { steps: 4 });
@@ -152,10 +162,16 @@ for (const duration of [15, 30, 45]) {
     ).toBe(true);
     const title = card.locator('.calendar-task-title');
     await expect(title).toHaveCSS('-webkit-line-clamp', duration < 45 ? '1' : '2');
-    const boxes = await card.evaluate((element) => ({
-      height: element.getBoundingClientRect().height,
-      titleHeight: element.querySelector('.calendar-task-title')!.getBoundingClientRect().height,
-    }));
+    const boxes = await card.evaluate((element) => {
+      const boxesElement = element.querySelector('.calendar-task-title');
+      if (boxesElement === null) {
+        throw new Error("Expected element matching '.calendar-task-title'");
+      }
+      return {
+        height: element.getBoundingClientRect().height,
+        titleHeight: boxesElement.getBoundingClientRect().height,
+      };
+    });
     expect(boxes.titleHeight).toBeLessThanOrEqual(boxes.height - (duration < 30 ? 0 : 8));
     await expect(title.locator('[data-calendar-time]')).toHaveCSS(
       'line-height',

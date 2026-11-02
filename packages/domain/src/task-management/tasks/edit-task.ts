@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import invariant from 'tiny-invariant';
 import type { DomainContext } from '../../shared-kernel/clock.ts';
 import type { Workspace } from '../../workspace/workspace.ts';
 import { canonical } from '../../shared-kernel/canonical.ts';
@@ -45,7 +46,11 @@ export function editTask(
     }
     const depths = new Map([[id, depth]]);
     for (const child of children) {
-      const childDepth = depths.get(child.location.parentId!)! + 1;
+      const parentId = child.location.parentId;
+      invariant(parentId !== null, 'A descendant must have a parent');
+      const parentDepth = depths.get(parentId);
+      invariant(parentDepth !== undefined, 'Parent depth must be calculated before its children');
+      const childDepth = parentDepth + 1;
       if (childDepth > 100) {
         throw new Fault('tree_too_deep');
       }

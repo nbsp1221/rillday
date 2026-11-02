@@ -1,6 +1,6 @@
+import type { ReactNode } from 'react';
 import { pointerIntersection } from '@dnd-kit/collision';
 import { useDragOperation, useDroppable } from '@dnd-kit/react';
-import { type ReactNode, useRef } from 'react';
 import { useI18n } from '#shared/i18n';
 
 interface SidebarDropProps {
@@ -19,7 +19,6 @@ export function SidebarTaskTarget({
   name: string;
   children: (props: SidebarDropProps) => ReactNode;
 }) {
-  const elementRef = useRef<HTMLElement>(null);
   const { source } = useDragOperation();
   const { t } = useI18n();
   const disabled =
@@ -33,18 +32,15 @@ export function SidebarTaskTarget({
       : scope === 'completed'
         ? t('drag.complete')
         : t('drag.toList', { name });
-  const { isDropTarget } = useDroppable({
+  const { isDropTarget, ref } = useDroppable({
     id: `sidebar:${scope ?? name}`,
-    element: elementRef,
     accept: 'task',
     disabled,
     collisionDetector: pointerIntersection,
     data: { sidebarScope: scope, dropLabel: label },
   });
   return children({
-    'ref': (element) => {
-      elementRef.current = element;
-    },
+    'ref': ref,
     'data-task-drop': scope,
     'data-drop-active': isDropTarget || undefined,
     'aria-description': isDropTarget ? label : undefined,

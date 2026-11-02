@@ -1,4 +1,5 @@
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import type { Priority, RepeatRule } from './model.ts';
 import { addDays, clockTime, dateKey } from './dates.ts';
 
@@ -94,7 +95,9 @@ class QuickInputParser {
     this.task.title = this.task.title.replace(
       /(^|\s)[!！]([1-4])(?=\s|$)/g,
       (_match: string, space: string, level: string) => {
-        this.task.priority = levels[level];
+        const priority = levels[level];
+        invariant(priority !== undefined, 'Priority token must match a supported level');
+        this.task.priority = priority;
         return space;
       },
     );

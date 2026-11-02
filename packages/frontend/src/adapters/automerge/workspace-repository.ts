@@ -7,6 +7,7 @@ import {
   preservesWorkspaceReview,
   validateWorkspace,
 } from '@repo/domain';
+import invariant from 'tiny-invariant';
 import type {
   WorkspaceDecision,
   WorkspaceRepository,
@@ -45,17 +46,17 @@ function conflictValue(workspace: Workspace, conflict: DocumentConflict): unknow
 
 export class AutomergeWorkspaceRepository implements WorkspaceRepository {
   readonly id: string;
-  private snapshot!: WorkspaceRepositorySnapshot;
+  private snapshot: WorkspaceRepositorySnapshot;
   private readonly listeners = new Set<() => void>();
   private readonly document: DurableRepo<WorkspaceDocument>;
-  private conflicts = new Map<string, DocumentConflict>();
+  private readonly conflicts = new Map<string, DocumentConflict>();
   private semantic: SemanticReview | undefined;
   private closed = false;
 
   constructor(document: DurableRepo<WorkspaceDocument>) {
     this.document = document;
     this.id = document.handle.documentId;
-    this.inspect();
+    this.snapshot = this.inspect();
     document.handle.on('change', this.onChange);
   }
 
@@ -70,9 +71,9 @@ export class AutomergeWorkspaceRepository implements WorkspaceRepository {
     return recordVersion(this.document.handle.fullDoc(), target);
   }
 
-  private inspect() {
+  private inspect(previous?: Workspace): WorkspaceRepositorySnapshot {
     const doc = this.document.handle.fullDoc();
-    const inspection = inspectDocument(doc, this.snapshot?.workspace);
+    const inspection = inspectDocument(doc, previous);
     this.conflicts.clear();
     const decisions: WorkspaceDecision[] = inspection.conflicts.map((conflict) => {
       const id = hash(canonical([conflict.id, conflict.version]));
@@ -89,6 +90,10 @@ export class AutomergeWorkspaceRepository implements WorkspaceRepository {
     });
     this.semantic = inspection.semantic;
     if (inspection.semantic) {
+      invariant(
+        inspection.semantic.problems[0] !== undefined,
+        'Missing inspection.semantic.problems[0]',
+      );
       decisions.push({
         id: inspection.semantic.id + ':' + inspection.semantic.version,
         code: inspection.semantic.problems[0].code,
@@ -99,7 +104,7 @@ export class AutomergeWorkspaceRepository implements WorkspaceRepository {
         })),
       });
     }
-    this.snapshot = {
+    return {
       workspace: inspection.workspace,
       saved: this.document.saved,
       error: undefined,
@@ -125,8 +130,8 @@ export class AutomergeWorkspaceRepository implements WorkspaceRepository {
     }
   }
 
-  private onChange = () => {
-    this.inspect();
+  private readonly onChange = () => {
+    this.snapshot = this.inspect(this.snapshot.workspace);
     this.publish();
     void this.observeSave(this.document.flush());
   };

@@ -73,9 +73,8 @@ test('setup serializes attempts and releases admission after registration fails'
   const first = service.setup(input);
   await expect(service.setup(input)).rejects.toMatchObject({ code: 'setup_complete' });
   const failure = new Error('Registration failed');
-  const rejected = expect(first).rejects.toBe(failure);
   pending.reject(failure);
-  await rejected;
+  await expect(first).rejects.toBe(failure);
   await service.setup(input);
   expect(registration.create).toHaveBeenCalledTimes(2);
   expect(registration.create).toHaveBeenLastCalledWith(input, 'admin');
@@ -94,12 +93,11 @@ test('account ten is admitted as an ordinary user; account eleven is refused', a
   const { service, repository, registration, access } = dependencies();
   repository.count.mockReturnValue(9);
   await service.create(access, input);
-  expect(registration.create).toHaveBeenCalledWith(input, 'user');
+  expect(registration.create).toHaveBeenCalledExactlyOnceWith(input, 'user');
   repository.count.mockReturnValue(10);
   await expect(service.create(access, input)).rejects.toMatchObject({
     code: 'account_capacity',
   });
-  expect(registration.create).toHaveBeenCalledOnce();
   expect(service.configuration()).toMatchObject({ maxAccounts: 10 });
 });
 

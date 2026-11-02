@@ -1,6 +1,16 @@
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import type axe from 'axe-core';
 import { expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
+
+declare global {
+  interface Window {
+    axe: typeof axe;
+  }
+}
+
 const require = createRequire(import.meta.url);
 
 for (const width of [320, 390, 768, 1024, 1440]) {
@@ -24,12 +34,12 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
       );
-      const brand = (await page
-        .getByRole('link', { name: 'Rillday home', exact: true })
-        .boundingBox())!;
-      const navigation = (await page
-        .getByRole('navigation', { name: 'Main navigation' })
-        .boundingBox())!;
+      const brand = await visibleBox(page.getByRole('link', { name: 'Rillday home', exact: true }));
+
+      const navigation = await visibleBox(
+        page.getByRole('navigation', { name: 'Main navigation' }),
+      );
+
       expect(navigation.x - brand.x - brand.width).toBeGreaterThanOrEqual(15);
       const screenshot = page.locator('figure img:visible');
       await expect(screenshot).toHaveCount(1);
@@ -37,26 +47,35 @@ for (const width of [320, 390, 768, 1024, 1440]) {
       expect(await screenshot.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(
         width < 640 ? 720 : 2880,
       );
-      const imageBox = (await screenshot.boundingBox())!;
+      const imageBox = await visibleBox(screenshot);
+
       expect(imageBox.y).toBeLessThan(650);
       expect(await screenshot.evaluate((image: HTMLImageElement) => image.currentSrc)).toContain(
         width < 640 ? 'tasks-mobile-' : 'tasks-',
       );
       const actions = page.locator('#intro-title').locator('..').getByRole('link');
       for (const action of await actions.all()) {
-        expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await visibleBox(action)).height).toBeGreaterThanOrEqual(44);
       }
       if (width < 640) {
         const [primary, secondary] = await actions.all();
-        const primaryBox = (await primary.boundingBox())!;
-        const secondaryBox = (await secondary.boundingBox())!;
+        assert(primary !== undefined, 'Missing primary');
+        const primaryBox = await visibleBox(primary);
+
+        assert(secondary !== undefined, 'Missing secondary');
+        const secondaryBox = await visibleBox(secondary);
+
         expect(primaryBox.x).toBe(secondaryBox.x);
         expect(primaryBox.width).toBe(secondaryBox.width);
       }
       if (width >= 768) {
         const setupButtons = await page.locator('#get-started article > a').all();
-        const first = (await setupButtons[0].boundingBox())!;
-        const second = (await setupButtons[1].boundingBox())!;
+        assert(setupButtons[0] !== undefined, 'Missing setupButtons[0]');
+        const first = await visibleBox(setupButtons[0]);
+
+        assert(setupButtons[1] !== undefined, 'Missing setupButtons[1]');
+        const second = await visibleBox(setupButtons[1]);
+
         expect(first.y).toBe(second.y);
         expect(first.height).toBe(second.height);
       }
@@ -64,11 +83,17 @@ for (const width of [320, 390, 768, 1024, 1440]) {
         .getByRole('navigation', { name: 'Footer navigation' })
         .getByRole('link')
         .all()) {
-        expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+        expect((await visibleBox(link)).height).toBeGreaterThanOrEqual(44);
       }
-      for (const href of await page
-        .locator('a[href^="#"]')
-        .evaluateAll((links) => links.map((link) => link.getAttribute('href')!))) {
+      for (const href of await page.locator('a[href^="#"]').evaluateAll((links) =>
+        links.map((link) => {
+          const href = link.getAttribute('href');
+          if (href === null) {
+            throw new Error('Anchor must have an href');
+          }
+          return href;
+        }),
+      )) {
         await expect(page.locator(href)).toHaveCount(1);
       }
       const origin = new URL(page.url()).origin;
@@ -133,9 +158,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto('/');
     await page.evaluate(readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'));
     const violations = await page.evaluate(async () => {
-      const axe = (
-        window as typeof window & { axe: { run: () => Promise<{ violations: { id: string }[] }> } }
-      ).axe;
+      const axe = window.axe;
       return (await axe.run()).violations.map((violation) => violation.id);
     });
     expect(violations).toEqual([]);

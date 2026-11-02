@@ -1,5 +1,4 @@
 import { type Workspace, type WorkspaceTarget, canonical, quantityValue } from '@repo/domain';
-import type { Habit, Priority } from './model.ts';
 import type { WorkspaceChange, WorkspaceIssue, WorkspaceLabel } from './persistence.ts';
 import type { WorkspaceDecision } from './repository.ts';
 
@@ -61,30 +60,42 @@ function describe(
       ),
     };
   }
-  if (field === 'priority') {
-    return { type: 'system', label: { system: 'priority', value: value as Priority } };
+  if (field === 'priority' && (value === 0 || value === 1 || value === 2 || value === 3)) {
+    return { type: 'system', label: { system: 'priority', value } };
   }
-  if (field === 'matrixMode') {
+  if (field === 'matrixMode' && (value === 'simple' || value === 'complex')) {
     return {
       type: 'system',
-      label: { system: 'matrix.mode', value: value as Workspace['matrixMode'] },
+      label: { system: 'matrix.mode', value },
     };
   }
-  if (target.collection === 'habits' && field === 'frequency') {
+  if (
+    target.collection === 'habits' &&
+    field === 'frequency' &&
+    (value === 'daily' || value === 'weekdays' || value === 'weekly' || value === 'interval')
+  ) {
     return {
       type: 'system',
-      label: { system: 'habit.frequency', value: value as Habit['frequency'] },
+      label: { system: 'habit.frequency', value },
     };
   }
-  if (target.collection === 'habits' && field === 'kind') {
-    return { type: 'system', label: { system: 'habit.kind', value: value as Habit['kind'] } };
+  if (
+    target.collection === 'habits' &&
+    field === 'kind' &&
+    (value === 'boolean' || value === 'quantity')
+  ) {
+    return { type: 'system', label: { system: 'habit.kind', value } };
   }
-  if (target.collection === 'tasks' && field === 'frequency') {
+  if (
+    target.collection === 'tasks' &&
+    field === 'frequency' &&
+    (value === 'daily' || value === 'weekly' || value === 'monthly' || value === 'weekdays')
+  ) {
     return {
       type: 'system',
       label: {
         system: 'repeat.frequency',
-        value: value as 'daily' | 'weekly' | 'monthly' | 'weekdays',
+        value,
       },
     };
   }
@@ -134,8 +145,9 @@ function visibleRecord(
                 : [field, value],
       ),
   );
-  if (target.collection === 'tasks') {
-    const task = workspace.tasks[target.id];
+  if (target.collection === 'tasks' && 'location' in record) {
+    const task = record;
+
     const siblings = Object.values(workspace.tasks)
       .filter(
         (candidate) =>
@@ -179,7 +191,8 @@ function difference(
     );
     return describe(changed, workspace, target);
   });
-  return items.length === 1 ? items[0] : { type: 'list', items };
+  const first = items[0];
+  return items.length === 1 && first !== undefined ? first : { type: 'list', items };
 }
 
 function title(workspace: Workspace, targets: WorkspaceTarget[]): string | WorkspaceLabel {
@@ -203,28 +216,37 @@ function title(workspace: Workspace, targets: WorkspaceTarget[]): string | Works
     if ('name' in record && record.name) {
       return record.name;
     }
-    if ('habitId' in record && workspace.habits[record.habitId]) {
-      return workspace.habits[record.habitId].name;
+    if ('habitId' in record) {
+      const habit = workspace.habits[record.habitId];
+      if (habit) {
+        return habit.name;
+      }
     }
   }
   return { system: 'pending-edit' };
 }
 
 export function workspaceDecisions(reviews: WorkspaceDecision[]): WorkspaceIssue[] {
-  return reviews
-    .filter((review) => review.choices.length > 0)
-    .map((review) => ({
-      id: review.id,
-      code: review.code,
-      title: title(review.choices[0].workspace, review.targets),
-      choices: review.choices.map((choice, index) => ({
-        id: choice.id,
-        description: difference(
-          choice.workspace,
-          review.choices[index === 0 ? 1 : 0]?.workspace ?? choice.workspace,
-          review.targets,
-          review.choices.length > 1,
-        ),
-      })),
-    }));
+  return reviews.flatMap((review) => {
+    const first = review.choices[0];
+    if (!first) {
+      return [];
+    }
+    return [
+      {
+        id: review.id,
+        code: review.code,
+        title: title(first.workspace, review.targets),
+        choices: review.choices.map((choice, index) => ({
+          id: choice.id,
+          description: difference(
+            choice.workspace,
+            review.choices[index === 0 ? 1 : 0]?.workspace ?? choice.workspace,
+            review.targets,
+            review.choices.length > 1,
+          ),
+        })),
+      },
+    ];
+  });
 }

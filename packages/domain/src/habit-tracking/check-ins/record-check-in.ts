@@ -92,5 +92,9 @@ export function incrementCheckIn(
     context.newId(),
   );
   recordCheckIn(workspace, habitId, date, {}, context);
-  workspace.checkIns[checkInId(habitId, date)].quantity = quantity;
+  const checkIn = workspace.checkIns[checkInId(habitId, date)];
+  if (!checkIn) {
+    throw new Fault('not_found', 'not-found');
+  }
+  checkIn.quantity = quantity;
 }

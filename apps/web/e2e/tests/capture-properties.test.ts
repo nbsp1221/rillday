@@ -1,4 +1,5 @@
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { selectCalendarDate } from '../support/date-picker';
 import { storedWorkspace } from '../support/storage';
 
@@ -12,7 +13,8 @@ const priority = (page: Page) =>
 
 test('date and priority popovers never expand capture or submit its draft', async ({ page }) => {
   await page.goto('/');
-  const before = (await page.locator('.quick-add').boundingBox())!;
+  const before = await visibleBox(page.locator('.quick-add'));
+
   await input(page).fill('Explicit choice tomorrow !3');
   await date(page).click();
   await selectCalendarDate(page, '2030-01-03');
@@ -26,7 +28,7 @@ test('date and priority popovers never expand capture or submit its draft', asyn
   await page.getByRole('menuitemradio', { name: 'High priority', exact: true }).click();
   await expect(priority(page)).toBeFocused();
   await expect(priority(page)).toHaveAttribute('title', 'High priority');
-  expect((await page.locator('.quick-add').boundingBox())!.height).toBe(before.height);
+  expect((await visibleBox(page.locator('.quick-add'))).height).toBe(before.height);
   await expect(page.locator('.task-title')).toHaveCount(0);
   await expect(date(page)).toHaveAttribute('title', /2030-01-03/);
   await input(page).press('Enter');

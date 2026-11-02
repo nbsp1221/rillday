@@ -19,7 +19,7 @@ export default defineConfig({
           ['LICENSE', '../../LICENSE'],
           ['licenses/pretendard-OFL-1.1.txt', '../../packages/ui/LICENSE.pretendard'],
           ['social-preview.png', './public/screenshots/tasks-light.png'],
-        ]) {
+        ] as const) {
           this.emitFile({
             type: 'asset',
             fileName,

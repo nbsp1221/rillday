@@ -6,7 +6,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/react';
 import { Input } from '@repo/ui/components/input';
 import { cn } from 'cn';
 import { ChevronDown, ChevronRight, Check as CompletionCheck, Pin, Repeat2 } from 'lucide-react';
-import { type CSSProperties, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { type Task, workspaceLabelColor } from '#application';
 import { TaskMetadataToken, taskDateTone } from '#entities/task';
 import { useWorkspace } from '#entities/workspace';
@@ -117,7 +117,6 @@ export function TaskRow({
     }
 
     const measure = () => {
-      // eslint-disable-next-line @eslint-react/set-state-in-effect -- Set measured alignment before paint.
       setTall(hasMultilineContent(element));
     };
 
@@ -189,7 +188,7 @@ export function TaskRow({
             canDrag ? 'cursor-grab touch-none' : '',
             isDragSource ? 'cursor-grabbing' : '',
           )}
-          style={{ '--task-depth': indent } as CSSProperties}
+          style={{ '--task-depth': indent }}
           onFocus={(event) => {
             if (
               event.target === event.currentTarget &&
@@ -202,12 +201,16 @@ export function TaskRow({
           onClick={(event) => {
             selectTask(task.id);
 
-            if (!(event.target as HTMLElement).closest('button,input,textarea')) {
+            if (
+              !(event.target instanceof Element
+                ? event.target.closest('button,input,textarea')
+                : null)
+            ) {
               event.currentTarget.focus({ preventScroll: true });
             }
           }}
           onContextMenu={(event) => {
-            if ((event.target as HTMLElement).closest('input,textarea')) {
+            if (event.target instanceof Element ? event.target.closest('input,textarea') : null) {
               return;
             }
 
