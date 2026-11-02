@@ -7,6 +7,7 @@ import {
   createWorkspace,
   taskData,
   validateWorkspace,
+  workspaceCollectionSchema,
 } from '@repo/domain';
 import { expect, test } from 'vitest';
 import { WorkspaceHistory } from '../../application/workspace-history.ts';
@@ -34,7 +35,7 @@ test('capture, repeat completion, offline reload and Undo use typed domain data 
     const history = new WorkspaceHistory(
       ([collection, id]) =>
         recordVersion(store.handle.fullDoc(), {
-          collection: collection as keyof Omit<Workspace, 'matrixMode'>,
+          collection: workspaceCollectionSchema.parse(collection),
           id: String(id),
         }),
       validateWorkspace,
@@ -59,7 +60,8 @@ test('capture, repeat completion, offline reload and Undo use typed domain data 
     const task = createTaskRecord('Daily review', view, {
       date: '2026-10-23',
       repeat: { frequency: 'daily', interval: 1 },
-    })!;
+    });
+    expect.assert(task !== null);
     await edit((draft) =>
       applyWorkspaceIntent(draft, { type: 'task.create', tasks: [task] }, context, 'UTC'),
     );
@@ -71,7 +73,9 @@ test('capture, repeat completion, offline reload and Undo use typed domain data 
       const next = Object.values(persisted.tasks).find(
         (candidate) => candidate.generatedFromId === task.id,
       );
-      expect(persisted.tasks[task.id].completedAt).toBe(context.now());
+
+      expect.assert(persisted.tasks[task.id] !== undefined);
+      expect(persisted.tasks[task.id]?.completedAt).toBe(context.now());
       expect(next?.schedule.date).toBe('2026-10-24');
     } finally {
       await reopened.close();
@@ -82,7 +86,9 @@ test('capture, repeat completion, offline reload and Undo use typed domain data 
     });
     await writing;
     const restored = readWorkspace(store.handle.fullDoc());
-    expect(restored.tasks[task.id].completedAt).toBeNull();
+
+    expect.assert(restored.tasks[task.id] !== undefined);
+    expect(restored.tasks[task.id]?.completedAt).toBeNull();
     expect(Object.keys(restored.tasks)).toEqual([task.id]);
     expect(() => validateWorkspace(restored)).not.toThrow();
   } finally {
@@ -100,7 +106,7 @@ test('Undo cannot remove a parent referenced by a later remote child', async () 
     const history = new WorkspaceHistory(
       ([collection, id]) =>
         recordVersion(store.handle.fullDoc(), {
-          collection: collection as keyof Omit<Workspace, 'matrixMode'>,
+          collection: workspaceCollectionSchema.parse(collection),
           id: String(id),
         }),
       validateWorkspace,
@@ -111,6 +117,7 @@ test('Undo cannot remove a parent referenced by a later remote child', async () 
     history.change(
       before,
       (draft) => {
+        expect.assert(listId !== undefined);
         createTask(draft, parentId, taskData(listId, 'Parent'), context);
       },
       (after) => {
@@ -120,6 +127,7 @@ test('Undo cannot remove a parent referenced by a later remote child', async () 
     await writing;
     const remote = structuredClone(readWorkspace(store.handle.fullDoc()));
     const childId = context.newId();
+    expect.assert(listId !== undefined);
     createTask(
       remote,
       childId,
@@ -136,7 +144,7 @@ test('Undo cannot remove a parent referenced by a later remote child', async () 
     ).toThrow();
     expect(history.canUndo).toBe(true);
     expect(history.canRedo).toBe(false);
-    expect(readWorkspace(store.handle.fullDoc()).tasks[childId].location.parentId).toBe(parentId);
+    expect(readWorkspace(store.handle.fullDoc()).tasks[childId]?.location.parentId).toBe(parentId);
     expect(readWorkspace(store.handle.fullDoc()).tasks[parentId]).toBeDefined();
   } finally {
     await store.close();

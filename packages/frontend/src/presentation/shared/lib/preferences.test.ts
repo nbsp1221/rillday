@@ -12,11 +12,13 @@ test('task view settings accept known values and isolate malformed or obsolete r
       'next': null,
     },
   });
+
   expect(value.taskViews).toStrictEqual({
     'all': { sort: 'title', group: 'list' },
     'today': { sort: 'date-desc', group: 'date' },
     'list:work': { sort: 'manual', group: 'priority' },
   });
+  expect.assert(value.taskViews.all !== undefined);
   value.taskViews.all.sort = 'manual';
   expect(defaultPreferences.taskViews).toStrictEqual({});
   expect(normalizePreferences({ taskViews: [] }).taskViews).toStrictEqual({});

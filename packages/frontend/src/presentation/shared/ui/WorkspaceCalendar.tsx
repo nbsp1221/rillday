@@ -229,9 +229,7 @@ export function WorkspaceCalendar({
             today={calendarDate(today.toString())}
             selected={value ? calendarDate(value) : undefined}
             onSelect={(day) => {
-              if (day) {
-                onChange(civilDate(day));
-              }
+              onChange(civilDate(day));
             }}
             month={calendarDate(month.toString())}
             onMonthChange={(day) => setMonth(Temporal.PlainDate.from(civilDate(day)))}

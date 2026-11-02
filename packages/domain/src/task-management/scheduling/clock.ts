@@ -5,11 +5,11 @@ export function scheduleInstant(schedule: {
   time: string | null;
   zone: string | null;
 }): string | null {
-  if (!schedule.date || !schedule.time) {
+  if (!schedule.date || !schedule.time || !schedule.zone) {
     return null;
   }
   return Temporal.PlainDateTime.from(`${schedule.date}T${schedule.time}`)
-    .toZonedDateTime(schedule.zone!, { disambiguation: 'compatible' })
+    .toZonedDateTime(schedule.zone, { disambiguation: 'compatible' })
     .toInstant()
     .toString();
 }

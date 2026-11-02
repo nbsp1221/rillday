@@ -1,3 +1,4 @@
+import { generateAutomergeUrl, parseAutomergeUrl } from '@automerge/automerge-repo';
 import 'fake-indexeddb/auto';
 import { MessageChannelNetworkAdapter } from '@automerge/automerge-repo-network-messagechannel';
 import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-indexeddb';
@@ -73,10 +74,9 @@ test('official network adapters exchange disjoint changes; both replicas persist
       dispose: () => channel.port1.close(),
     }),
   );
-  await secondDisk.save(
-    [first.handle.documentId, 'workspace'],
-    (await first.repo.export(first.handle.url))!,
-  );
+  const entry = await first.repo.export(first.handle.url);
+  expect.assert(entry !== undefined);
+  await secondDisk.save([first.handle.documentId, 'workspace'], entry);
   await first.change((doc) => {
     doc.task.priority = 3;
   });
@@ -191,8 +191,10 @@ test.each(['missing', 'corrupt', 'create'] as const)(
 
     const network = () => ({ adapters: [], dispose });
 
+    const { documentId } = parseAutomergeUrl(generateAutomergeUrl());
+
     if (failure === 'corrupt') {
-      await disk.save(['not-a-document', 'workspace'], new Uint8Array([1, 2, 3]));
+      await disk.save([documentId, 'workspace'], new Uint8Array([1, 2, 3]));
     }
     const opening =
       failure === 'create'
@@ -205,7 +207,7 @@ test.each(['missing', 'corrupt', 'create'] as const)(
             },
             network,
           )
-        : DurableRepo.open(disk, 'not-a-document', network);
+        : DurableRepo.open(disk, documentId, network);
     await expect(opening).rejects.toThrow();
     expect(dispose).toHaveBeenCalledTimes(1);
   },

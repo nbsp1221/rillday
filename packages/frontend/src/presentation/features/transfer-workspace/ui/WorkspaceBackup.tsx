@@ -112,32 +112,29 @@ export function WorkspaceBackupDialogs({
   backup: ReturnType<typeof useWorkspaceBackup>;
 }) {
   const { t } = useI18n();
+  const { inputRef, chooseFile, pending, close, busy, confirm, error } = backup;
 
   return (
     <>
       <input
-        ref={backup.inputRef}
+        ref={inputRef}
         hidden
         type="file"
         accept=".json,application/json"
-        onChange={backup.chooseFile}
+        onChange={chooseFile}
       />
-      {backup.pending && (
+      {pending && (
         <WorkspaceDialog
           title={t('backup.import')}
-          onClose={backup.close}
+          onClose={close}
           footer={
             <>
-              <Button
-                variant="outline"
-                onClick={backup.close}
-                className={'h-(--control-height) min-w-18'}
-              >
+              <Button variant="outline" onClick={close} className={'h-(--control-height) min-w-18'}>
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={backup.busy}
-                onClick={backup.confirm}
+                disabled={busy}
+                onClick={confirm}
                 className={
                   'h-(--control-height) min-w-18 bg-button-primary text-button-primary-foreground hover:bg-button-primary-hover'
                 }
@@ -147,16 +144,16 @@ export function WorkspaceBackupDialogs({
             </>
           }
           description={t('backup.replaceConfirmation', {
-            tasks: backup.pending.tasks,
-            habits: backup.pending.habits,
+            tasks: pending.tasks,
+            habits: pending.habits,
           })}
         >
           <p className="muted [.modal-body_>_&]:m-0 [.modal-body_>_&]:text-sm [.modal-body_>_&]:leading-(--text-sm--line-height) [.modal-body_>_&]:text-muted-foreground text-muted-foreground">
             {t('backup.replaceWarning')}
           </p>
-          {backup.error && (
+          {error && (
             <p role="alert" className="sync-error m-0 text-sm text-destructive wrap-anywhere">
-              {backup.error}
+              {error}
             </p>
           )}
         </WorkspaceDialog>

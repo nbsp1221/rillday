@@ -2,7 +2,7 @@ import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { pointerIntersection } from '@dnd-kit/collision';
 import { useDragDropMonitor, useDragOperation, useDroppable } from '@dnd-kit/react';
 import { Plus, Settings2 } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { type Quadrant, type Task, taskBelongsToQuadrant } from '#application';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
@@ -178,7 +178,7 @@ function QuadrantDrop({
       data-matrix-drop={quadrant.id}
       data-drop-active={(!disabled && isDropTarget) || undefined}
       aria-label={label}
-      style={{ '--quadrant-color': quadrant.color } as CSSProperties}
+      style={{ '--quadrant-color': quadrant.color }}
     >
       {children}
     </section>

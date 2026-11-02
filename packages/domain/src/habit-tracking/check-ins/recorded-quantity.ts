@@ -1,4 +1,5 @@
 import { Decimal } from 'decimal.js';
+import invariant from 'tiny-invariant';
 import { z } from 'zod';
 import { Fault } from '../../shared-kernel/fault.ts';
 
@@ -87,6 +88,7 @@ export function incrementQuantity(
   }
   if (Object.hasOwn(quantity.adjustments, adjustmentId)) {
     const existing = quantity.adjustments[adjustmentId];
+    invariant(existing !== undefined, 'Missing existing');
     if (existing.units !== amount || existing.generation !== quantity.generation) {
       throw new Fault('edit_conflict', 'conflict');
     }

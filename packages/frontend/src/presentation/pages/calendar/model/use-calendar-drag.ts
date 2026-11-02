@@ -73,7 +73,8 @@ function locateTarget(
   const hourHeight = bounds.height / 24;
   const width = (bounds.width - 52) / dates.length;
   const index = Math.floor((x - bounds.left - 52) / width);
-  if (index < 0 || index >= dates.length) {
+  const targetDate = dates[index];
+  if (index < 0 || index >= dates.length || targetDate === undefined) {
     return null;
   }
   const pointerMinutes = ((y - bounds.top) / hourHeight) * 60 - grabbedMinutes;
@@ -83,9 +84,9 @@ function locateTarget(
     .toString({ smallestUnit: 'minute' });
 
   return {
-    id: `time:${dates[index]}:${time}`,
+    id: `time:${targetDate}:${time}`,
     kind,
-    date: dates[index],
+    date: targetDate,
     time,
     minutes,
     left: 52 + index * width + 2,
@@ -198,7 +199,9 @@ export function useCalendarDrag(
       if (!pointRef.current) {
         return;
       }
-      scrollersRef.current.add(event.target as Element);
+      if (event.target instanceof Element) {
+        scrollersRef.current.add(event.target);
+      }
       if (scrollFrameRef.current !== null) {
         return;
       }
@@ -211,11 +214,10 @@ export function useCalendarDrag(
         }
         let moved = false;
         for (const drop of manager.registry.droppables.value) {
+          const element = drop.element;
           if (
-            drop.element &&
-            changed.some(
-              (scroller) => scroller !== drop.element && scroller.contains(drop.element!),
-            )
+            element &&
+            changed.some((scroller) => scroller !== element && scroller.contains(element))
           ) {
             drop.refreshShape();
             moved = true;

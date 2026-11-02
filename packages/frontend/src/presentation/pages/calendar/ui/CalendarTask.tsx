@@ -7,6 +7,7 @@ import { cn } from 'cn';
 import { Check as CompletionCheck } from 'lucide-react';
 import { type CSSProperties, type ReactNode, memo, useCallback, useRef, useState } from 'react';
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import type { Task } from '#application';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
@@ -53,7 +54,7 @@ export const CalendarTask = memo(function CalendarTask({
   const time = timeline && task.time ? Temporal.PlainTime.from(task.time) : null;
   const start = time ? time.hour * 60 + time.minute : 0;
   const layout = calendarEventLayout(task.duration, 1440 - start);
-  const style = {
+  const style: CSSProperties = {
     '--task-color': color,
     ...(timeline
       ? {
@@ -67,7 +68,7 @@ export const CalendarTask = memo(function CalendarTask({
           'zIndex': 4,
         }
       : {}),
-  } as CSSProperties;
+  };
 
   return (
     <div
@@ -76,7 +77,11 @@ export const CalendarTask = memo(function CalendarTask({
       data-compact={timeline && layout.compact ? '' : undefined}
       title={task.title}
       onClick={(event) => {
-        if (!(event.target as Element).closest('button, [role="checkbox"]')) {
+        if (
+          !(event.target instanceof Element
+            ? event.target.closest('button, [role="checkbox"]')
+            : null)
+        ) {
           selectTask(task.id);
         }
       }}
@@ -140,11 +145,15 @@ export const CalendarTaskStack = memo(function CalendarTaskStack({
   const { formatTime } = useI18n();
   const incoming = pending && !tasks.some((task) => task.id === pending.id) ? pending : null;
   const items = incoming
-    ? [...tasks, incoming].sort(
-        (a, b) =>
-          (dated ? (a.time || '').localeCompare(b.time || '') : 0) ||
-          order.get(a.id)! - order.get(b.id)!,
-      )
+    ? [...tasks, incoming].sort((a, b) => {
+        const timeOrder = dated ? (a.time || '').localeCompare(b.time || '') : 0;
+        if (timeOrder) {
+          return timeOrder;
+        }
+        const left = order.get(a.id);
+        const right = order.get(b.id);
+        return left !== undefined && right !== undefined ? left - right : 0;
+      })
     : tasks;
 
   const render = (task: Task) =>
@@ -226,14 +235,21 @@ function VirtualCalendarStack({
     },
   });
   const activeIndex = items.findIndex((task) => task.id === active);
-  // eslint-disable-next-line react-hooks/incompatible-library -- Keep TanStack's mutable virtualizer outside compiler memoization.
+  // oxlint-disable-next-line react/incompatible-library -- No React Compiler; TanStack/virtual#1119 tracks compatibility.
   const virtual = useVirtualizer({
     count: items.length,
     getScrollElement: () => rootRef.current?.closest<HTMLElement>('.calendar-day') ?? null,
     estimateSize: () => 24,
     gap: 3,
     overscan: 2,
-    getItemKey: useCallback((index) => items[index].id, [items]),
+    getItemKey: useCallback(
+      (index) => {
+        const task = items[index];
+        invariant(task !== undefined, 'Virtualizer index must reference a task');
+        return task.id;
+      },
+      [items],
+    ),
     scrollMargin: rootRef.current?.offsetTop ?? 0,
     rangeExtractor: useCallback(
       (range) => {
@@ -255,17 +271,21 @@ function VirtualCalendarStack({
       className="calendar-virtual-stack relative w-full shrink-0"
       style={{ height: virtual.getTotalSize() }}
     >
-      {virtual.getVirtualItems().map((row) => (
-        <div
-          key={row.key}
-          data-index={row.index}
-          ref={virtual.measureElement}
-          className="calendar-virtual-task absolute top-0 left-0 right-0"
-          style={{ transform: `translateY(${row.start - virtual.options.scrollMargin}px)` }}
-        >
-          {render(items[row.index])}
-        </div>
-      ))}
+      {virtual.getVirtualItems().map((row) => {
+        const task = items[row.index];
+        invariant(task !== undefined, 'Virtualizer row must reference a task');
+        return (
+          <div
+            key={row.key}
+            data-index={row.index}
+            ref={virtual.measureElement}
+            className="calendar-virtual-task absolute top-0 left-0 right-0"
+            style={{ transform: `translateY(${row.start - virtual.options.scrollMargin}px)` }}
+          >
+            {render(task)}
+          </div>
+        );
+      })}
     </div>
   );
 }

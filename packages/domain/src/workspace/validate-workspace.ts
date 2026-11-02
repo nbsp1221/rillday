@@ -41,6 +41,15 @@ const workspaceSchema = z.strictObject({
 
 export type WorkspaceCollection = Exclude<keyof Workspace, 'matrixMode'>;
 
+export const workspaceCollectionSchema = z.enum([
+  'tasks',
+  'lists',
+  'labels',
+  'habits',
+  'checkIns',
+  'quadrants',
+]);
+
 export type WorkspaceTarget =
   | { collection: WorkspaceCollection; id: string }
   | { collection: 'workspace'; id: 'matrixMode' };

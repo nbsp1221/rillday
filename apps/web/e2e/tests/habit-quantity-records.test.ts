@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -50,7 +51,8 @@ for (const width of [1183, 320]) {
     await expect
       .poll(async () => {
         const data = await storedWorkspace(page);
-        const habit = data.habits.find((habit) => habit.name === 'Drink enough water')!;
+        const habit = data.habits.find((habit) => habit.name === 'Drink enough water');
+        assert(habit !== undefined, 'Expected the saved water habit');
         const log = data.habitLogs.find(
           (log) => log.habitId === habit.id && log.date === '2026-10-29',
         );
@@ -71,8 +73,8 @@ for (const width of [1183, 320]) {
     await expect(today).toHaveText('0');
     await expect(panel.getByLabel('Check-in note', { exact: true })).toHaveValue('');
     const maximum = await panel.locator('input[type="number"]').getAttribute('max');
-    expect(maximum).not.toBeNull();
-    await total.fill(maximum!);
+    assert(maximum !== null, 'Amount input must expose its maximum');
+    await total.fill(maximum);
     await total.press('Tab');
     await expect(add).toBeDisabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(

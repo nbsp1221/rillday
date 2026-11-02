@@ -1,8 +1,9 @@
 import { type Locator, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { appearance } from '@repo/test-support/browser-appearance';
 
 async function optionAppearance(option: Locator) {
-  const box = (await option.boundingBox())!;
+  const box = await visibleBox(option);
   expect(box.height).toBeGreaterThanOrEqual(32);
   const label = option.locator('.choice-option-label');
   const labelBox = await label.boundingBox();
@@ -33,7 +34,7 @@ for (const theme of ['dark', 'light']) {
         const component = await mount('Choices', { theme, locale });
         const name = locale === 'ko' ? '언어' : 'Language';
         const trigger = component.getByRole('combobox', { name, exact: true });
-        const box = (await trigger.boundingBox())!;
+        const box = await visibleBox(trigger);
         expect([box.width, box.height]).toEqual([200, 36]);
         await trigger.hover();
         expect(await trigger.boundingBox()).toEqual(box);
@@ -42,14 +43,14 @@ for (const theme of ['dark', 'light']) {
         await expect(page.getByRole('option', { name: 'English', exact: true })).toBeFocused();
         const menu = page.getByRole('listbox', { name, exact: true });
         const surface = page.locator('.choice-field-panel').filter({ has: menu });
-        const bounds = (await surface.boundingBox())!;
+        const bounds = await visibleBox(surface);
         expect(bounds.width).toBe(200);
         expect(bounds.x).toBeGreaterThanOrEqual(8);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 8);
         expect(bounds.y).toBeGreaterThanOrEqual(8);
         expect(bounds.y + bounds.height).toBeLessThanOrEqual(472);
         for (const option of await menu.getByRole('option').all()) {
-          expect((await option.boundingBox())!.height).toBe(32);
+          expect((await visibleBox(option)).height).toBe(32);
           await optionAppearance(option);
         }
         const longLabel = menu.getByRole('option').last().locator('.choice-option-label');
@@ -88,7 +89,7 @@ for (const theme of ['dark', 'light']) {
     await expect(page.getByRole('group', { name: 'Weekly', exact: true })).toBeVisible();
     await expect(page.getByRole('group', { name: 'Monthly', exact: true })).toBeVisible();
     const surface = page.locator('.choice-field-panel');
-    const box = (await surface.boundingBox())!;
+    const box = await visibleBox(surface);
     expect(box.y).toBeGreaterThanOrEqual(8);
     expect(box.y + box.height).toBeLessThanOrEqual(472);
     for (const option of await page.getByRole('option').all()) {

@@ -1,5 +1,7 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
+import { visibleBox } from '@repo/test-support';
 import { appearance } from '@repo/test-support/browser-appearance';
 import { browserToday } from '../support/clock';
 import { seedWorkspace, storedWorkspace } from '../support/storage';
@@ -11,23 +13,27 @@ async function fixture(page: Page) {
   const icons = ['circle', 'sparkles', 'coffee', 'sun', 'clover', 'music', 'star', 'diamond', '🧘'];
   const colors = ['#94b781', '#c77f87', '#000000', '#ffffff'];
   const today = (await browserToday(page)).toString();
-  data.habits = icons.map((icon, index) => ({
-    id: `habit-${index}`,
-    name: `Habit ${index}`,
-    icon,
-    color: colors[index % colors.length],
-    kind: 'boolean',
-    goal: 1,
-    unit: 'times',
-    frequency: 'daily',
-    weekdays: [1, 2, 3, 4, 5],
-    weeklyTarget: 3,
-    intervalDays: 1,
-    step: 1,
-    reminderTime: null,
-    archived: false,
-    createdAt: '2026-01-01T00:00:00.000Z',
-  }));
+  data.habits = icons.map((icon, index) => {
+    const color = colors[index % colors.length];
+    assert(color !== undefined, 'Habit fixture requires a color');
+    return {
+      id: `habit-${index}`,
+      name: `Habit ${index}`,
+      icon,
+      color,
+      kind: 'boolean',
+      goal: 1,
+      unit: 'times',
+      frequency: 'daily',
+      weekdays: [1, 2, 3, 4, 5],
+      weeklyTarget: 3,
+      intervalDays: 1,
+      step: 1,
+      reminderTime: null,
+      archived: false,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+  });
   data.habitLogs = data.habits.map((habit) => ({
     habitId: habit.id,
     date: today,
@@ -57,7 +63,7 @@ test('existing icon IDs and emoji survive editing; the searchable catalogue has 
   );
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  expect((await storedWorkspace(page)).habits[0].icon).toBe('circle');
+  expect((await storedWorkspace(page)).habits[0]?.icon).toBe('circle');
   expect((await storedWorkspace(page)).habitLogs).toEqual(before.habitLogs);
 });
 
@@ -85,12 +91,13 @@ test('appearance changes remain a local draft until Save, and cancellation prese
   await page.getByRole('radio', { name: 'Reading', exact: true }).click();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect.poll(async () => (await storedWorkspace(page)).habits[0].icon).toBe('book-open');
+  await expect.poll(async () => (await storedWorkspace(page)).habits[0]?.icon).toBe('book-open');
   await page.reload();
   await page.getByLabel('Habit Tracker', { exact: true }).click();
   await expect(page.locator('.habit-name').first().locator('svg').first()).toHaveClass(
     /lucide-book-open/,
   );
+  expect((await storedWorkspace(page)).habits[0]?.icon).toBe('book-open');
   await expect(page.locator('.habit-name').first().locator('.habit-symbol')).toHaveScreenshot(
     'reading-row.png',
     { animations: 'disabled' },
@@ -112,7 +119,7 @@ test('appearance search, roving radio keys and layered Escape fit a narrow scree
   await page.getByLabel('Search icons', { exact: true }).fill('medication');
   await expect(page.locator('.habit-icon-grid [role=radio]')).toHaveCount(1);
   await page.getByRole('radio', { name: 'Medication', exact: true }).click();
-  const box = (await page.locator('.habit-appearance-panel').boundingBox())!;
+  const box = await visibleBox(page.locator('.habit-appearance-panel'));
   expect(box.x).toBeGreaterThanOrEqual(8);
   expect(box.x + box.width).toBeLessThanOrEqual(312);
   await page.keyboard.press('Escape');
@@ -146,6 +153,7 @@ for (const theme of ['Dark', 'Light']) {
         ink: getComputedStyle(el).color,
       }));
       const name = await control.getAttribute('aria-label');
+      assert(name !== null, 'Habit checkbox must have an accessible name');
       await control.hover();
       expect(
         await control.evaluate((el) => ({
@@ -156,10 +164,10 @@ for (const theme of ['Dark', 'Light']) {
       expect((await appearance(control)).contrast).toBeGreaterThanOrEqual(4.5);
       await control.click();
       await expect(control).not.toBeChecked();
-      await expect(control).toHaveAccessibleName(name!);
+      await expect(control).toHaveAccessibleName(name);
       await control.press('Space');
       await expect(control).toBeChecked();
-      await expect(control).toHaveAccessibleName(name!);
+      await expect(control).toHaveAccessibleName(name);
     }
     expect((await storedWorkspace(page)).habitLogs).toHaveLength(9);
   });
@@ -218,6 +226,10 @@ test('icon-free, emoji and long habit names retain the same leading slots at eve
   page,
 }) => {
   const data = await fixture(page);
+  assert(
+    data.habits[0] && data.habits[1] && data.habits[2],
+    'Identity fixture must contain three habits',
+  );
   data.habits[0].icon = 'none';
   data.habits[0].name = 'A';
   data.habits[1].name = 'A deliberately long habit name '.repeat(4).slice(0, 120);
@@ -233,9 +245,15 @@ test('icon-free, emoji and long habit names retain the same leading slots at eve
         page.locator('.habit-row').evaluateAll((rows) =>
           rows.every((row) => {
             const box = row.getBoundingClientRect();
-            const icon = row.querySelector('.habit-symbol')!.getBoundingClientRect();
-            const title = row.querySelector('.habit-name strong')!.getBoundingClientRect();
-            const description = row.querySelector('.habit-name small')!.getBoundingClientRect();
+            const iconElement = row.querySelector('.habit-symbol');
+            const titleElement = row.querySelector('.habit-name strong');
+            const descriptionElement = row.querySelector('.habit-name small');
+            if (!iconElement || !titleElement || !descriptionElement) {
+              throw new Error('Habit row must render its identity and description');
+            }
+            const icon = iconElement.getBoundingClientRect();
+            const title = titleElement.getBoundingClientRect();
+            const description = descriptionElement.getBoundingClientRect();
             return (
               Math.abs(icon.left - box.left - 16) < 0.5 &&
               icon.width === 36 &&

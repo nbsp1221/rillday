@@ -3,6 +3,7 @@ import { cn } from 'cn';
 import { Archive, Flame, Pencil, Plus, RotateCcw, Sprout, Trash2 } from 'lucide-react';
 import { Fragment } from 'react';
 import { Temporal } from 'temporal-polyfill/implementation';
+import invariant from 'tiny-invariant';
 import {
   type Habit,
   type HabitCheckinAction,
@@ -56,6 +57,8 @@ export function HabitWeekTable({
   const { preferences } = useAppPreferences();
   const { data } = useWorkspace();
   const { dayNames, scheduleLabel } = useHabitDisplay();
+  const weekEnd = dates.at(-1);
+  invariant(weekEnd !== undefined, 'Habit week must include date columns');
   const habits = data.habits.filter((habit) => habit.archived === showArchived);
   const grouped = habits.some((habit) => habit.timeOfDay && habit.timeOfDay !== 'anytime');
   const groupOrder = ['morning', 'afternoon', 'evening', 'anytime'];
@@ -66,7 +69,6 @@ export function HabitWeekTable({
           groupOrder.indexOf(b.timeOfDay ?? 'anytime'),
       )
     : habits;
-  const weeklyProgress = dates.map((date) => habitDayProgress(data.habits, data.habitLogs, date));
 
   return (
     <div className="habit-table [margin:0_var(--habit-inset)_24px]">
@@ -79,9 +81,11 @@ export function HabitWeekTable({
         <span className="habit-column-label self-end pb-3 pl-4 text-sm [@container((max-width:_760px))]:hidden">
           {showArchived ? t('habits.archiveHeading') : t('habits.myHabits')}
         </span>
-        {dates.map((date, index) => {
+        {dates.map((date) => {
           const day = Temporal.PlainDate.from(date);
           const current = date === today;
+          const progress = habitDayProgress(data.habits, data.habitLogs, date);
+
           return (
             <div
               key={date}
@@ -103,13 +107,13 @@ export function HabitWeekTable({
               </time>
               {!showArchived && (
                 <HabitProgressRing
-                  {...weeklyProgress[index]}
+                  {...progress}
                   compact
                   label={t('habits.dateProgress', {
-                    count: weeklyProgress[index].total,
+                    count: progress.total,
                     date: formatDate(date),
-                    done: weeklyProgress[index].completed,
-                    total: weeklyProgress[index].total,
+                    done: progress.completed,
+                    total: progress.total,
                   })}
                 />
               )}
@@ -122,7 +126,7 @@ export function HabitWeekTable({
         <Fragment key={habit.id}>
           {grouped &&
             (index === 0 ||
-              (ordered[index - 1].timeOfDay ?? 'anytime') !== (habit.timeOfDay ?? 'anytime')) && (
+              (ordered[index - 1]?.timeOfDay ?? 'anytime') !== (habit.timeOfDay ?? 'anytime')) && (
               <h3 className="habit-time-group mb-3 mt-6 px-4 text-xs font-medium text-muted-foreground">
                 {t(`habits.${habit.timeOfDay ?? 'anytime'}`)}
               </h3>
@@ -175,7 +179,7 @@ export function HabitWeekTable({
                     </small>
                     <HabitWeeklyProgress
                       habit={habit}
-                      date={dates.includes(habitToday(habit)) ? habitToday(habit) : dates[6]}
+                      date={dates.includes(habitToday(habit)) ? habitToday(habit) : weekEnd}
                     />
                   </span>
                 </span>

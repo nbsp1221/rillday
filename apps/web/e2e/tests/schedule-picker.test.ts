@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { selectCalendarDate, setPickerRepeat, setPickerTime } from '../support/date-picker';
 import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
@@ -72,11 +74,18 @@ test('a picked monthly rule retains month-end dates and stops after its inclusiv
     await row.locator('.task-check').click();
   }
   await expect(page.locator('.task-row')).toHaveCount(0);
+
   await expect
     .poll(async () =>
       (await storedWorkspace(page)).tasks
         .map((task) => ({ date: task.date, completed: task.completedAt !== null }))
-        .sort((first, second) => first.date!.localeCompare(second.date!)),
+        .sort((first, second) => {
+          assert(
+            first.date !== null && second.date !== null,
+            'Scheduled task fixture requires dates',
+          );
+          return first.date.localeCompare(second.date);
+        }),
     )
     .toEqual([
       { date: '2030-01-31', completed: true },
@@ -271,19 +280,22 @@ for (const touch of [false, true]) {
           await page.getByLabel('Custom repeat', { exact: true }).click();
           await page.getByLabel('Repeat end date', { exact: true }).click();
         }
-        const footer = await panel(page).locator('.date-picker-footer').boundingBox();
+        const footer = await visibleBox(panel(page).locator('.date-picker-footer'));
         await panel(page)
           .locator('.date-picker-body')
           .evaluate((el) => (el.scrollTop = el.scrollHeight));
-        expect(await panel(page).locator('.date-picker-footer').boundingBox()).toEqual(footer);
-        const bounds = (await panel(page).boundingBox())!;
+        expect(await visibleBox(panel(page).locator('.date-picker-footer'))).toEqual(footer);
+        const bounds = await visibleBox(panel(page));
+
         expect(bounds.x).toBeGreaterThanOrEqual(8);
         expect(bounds.y).toBeGreaterThanOrEqual(8);
         expect(bounds.y + bounds.height).toBeLessThanOrEqual(472);
         await page.keyboard.press('Escape');
         await expect(trigger).toBeFocused();
-        const body = (await panel(page).locator('.date-picker-body').boundingBox())!;
-        const box = (await trigger.boundingBox())!;
+        const body = await visibleBox(panel(page).locator('.date-picker-body'));
+
+        const box = await visibleBox(trigger);
+
         expect(box.y).toBeGreaterThanOrEqual(body.y);
         expect(box.y + box.height).toBeLessThanOrEqual(body.y + body.height + 1);
       }

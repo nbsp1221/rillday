@@ -84,7 +84,10 @@ export function TaskDetail() {
         return;
       }
 
-      const target = event.target as HTMLElement;
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
 
       if (
         !panelRef.current?.contains(target) &&

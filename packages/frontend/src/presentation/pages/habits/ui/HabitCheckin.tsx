@@ -4,6 +4,7 @@ import { Textarea } from '@repo/ui/components/textarea';
 import { cn } from 'cn';
 import { CalendarDays, Check, Minus, Plus, RotateCcw, SkipForward } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import invariant from 'tiny-invariant';
 import {
   type Habit,
   type HabitCheckinAction,
@@ -57,7 +58,8 @@ export function HabitCheckin({
     setOpen(false);
   }
 
-  const maximum = habitCheckInAmountSchema.maxValue!;
+  const maximum = habitCheckInAmountSchema.maxValue;
+  invariant(maximum !== null, 'Check-in schema must define a maximum amount');
   const invalid = !habitCheckInAmountSchema.safeParse(amount).success;
 
   function commitAmount(next: number | null) {

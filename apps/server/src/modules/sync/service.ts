@@ -45,6 +45,9 @@ class DocumentScope {
     permitted: (socket: WebSocket) => boolean,
     report: (error: unknown) => void,
   ) {
+    if (!isValidDocumentId(record.documentId)) {
+      throw new Error('invalid_document_id');
+    }
     this.store = store;
     this.record = record;
     this.permitted = permitted;
@@ -57,12 +60,10 @@ class DocumentScope {
     this.repo = new Repo({ network: [network] });
     if (record.data) {
       this.repo.import<Document>(record.data, {
-        docId: record.documentId as DocHandle<Document>['documentId'],
+        docId: record.documentId,
       });
     }
-    const progress = this.repo.findWithProgress<Document>(
-      record.documentId as DocHandle<Document>['documentId'],
-    );
+    const progress = this.repo.findWithProgress<Document>(record.documentId);
     this.unsubscribe = progress.subscribe((state) => {
       if (state.state === 'ready') {
         this.watch(state.handle);
@@ -84,7 +85,7 @@ class DocumentScope {
     this.persist();
   }
 
-  private persist = () => {
+  private readonly persist = () => {
     if (!this.handle?.isReady()) {
       return;
     }
@@ -217,7 +218,7 @@ export class SyncService {
       const url = new URL(request.url ?? '/', 'http://localhost');
       const match = /^\/v1\/workspace\/([^/]+)$/.exec(url.pathname);
       if (
-        !match ||
+        !match?.[1] ||
         this.closing ||
         (request.headers.origin && !this.origins.includes(request.headers.origin))
       ) {

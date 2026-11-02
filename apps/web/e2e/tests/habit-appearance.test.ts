@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Locator, type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { appearance } from '@repo/test-support/browser-appearance';
 import { storedWorkspace } from '../support/storage';
 
@@ -14,7 +16,10 @@ async function paint(locator: Locator) {
   return locator.evaluate((el) => {
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 1;
-    const context = canvas.getContext('2d')!;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Canvas 2D context is required for color measurements');
+    }
     const ancestors: Element[] = [];
     for (let node: Element | null = el; node; node = node.parentElement) {
       ancestors.unshift(node);
@@ -70,7 +75,12 @@ for (const theme of ['Dark', 'Light']) {
       await button.evaluate(async (el) => Promise.all(el.getAnimations().map((a) => a.finished)));
       const after = await paint(button);
       // A near-identical hover fill was previously indistinguishable from the popup.
-      expect(Math.max(...after.map((v, i) => Math.abs(v - before[i])))).toBeGreaterThanOrEqual(12);
+      const channelChanges = after.map((value, index) => {
+        const initial = before[index];
+        assert(initial !== undefined, 'Color samples must have matching channels');
+        return Math.abs(value - initial);
+      });
+      expect(Math.max(...channelChanges)).toBeGreaterThanOrEqual(12);
       expect(await button.boundingBox()).toEqual(box);
       expect((await appearance(button)).contrast).toBeGreaterThanOrEqual(4.5);
       await button.focus();
@@ -183,7 +193,7 @@ test('all appearance panels retain reachable actions on a short narrow screen', 
   const popup = await newHabit(page);
   for (const name of ['Icon', 'Emoji', 'Color']) {
     await popup.getByRole('tab', { name, exact: true }).click();
-    const box = (await popup.boundingBox())!;
+    const box = await visibleBox(popup);
     expect(box.x).toBeGreaterThanOrEqual(8);
     expect(box.y).toBeGreaterThanOrEqual(8);
     expect(box.x + box.width).toBeLessThanOrEqual(312);

@@ -24,7 +24,11 @@ export class SqliteAccountRepository implements AccountRepository {
   }
 
   count() {
-    return this.store.prepare<{ count: number }>('SELECT count(*) count FROM user').get()!.count;
+    const row = this.store.prepare<{ count: number }>('SELECT count(*) count FROM user').get();
+    if (!row) {
+      throw new Error('Account count query returned no result');
+    }
+    return row.count;
   }
 
   list() {

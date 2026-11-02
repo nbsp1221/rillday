@@ -88,10 +88,11 @@ test('streak and successes count completed weeks, not partial daily amounts', ()
   });
 });
 test('skipping does not reduce a cumulative target and editing past values recalculates it', () => {
-  const logs = [reading('2026-10-19', 20), { ...reading('2026-10-20', 60), skipped: true }];
+  const skipped = { ...reading('2026-10-20', 60), skipped: true };
+  const logs = [reading('2026-10-19', 20), skipped];
   expect(weeklyHabitAmount(habit, logs, '2026-10-22', 0).value).toBe(20);
   expect(habitStatistics(habit, logs, '2026-10-22', 0).total).toBe(0);
-  expect(habitStatistics(habit, [{ ...logs[0], value: 60 }, logs[1]], '2026-10-22', 0).total).toBe(
+  expect(habitStatistics(habit, [reading('2026-10-19', 60), skipped], '2026-10-22', 0).total).toBe(
     1,
   );
 });

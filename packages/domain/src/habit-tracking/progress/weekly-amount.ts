@@ -25,9 +25,14 @@ function period(habit: Pick<Habit, 'startDate' | 'rules'>, date: string, startsO
   const rule = currentRule(habit, date);
   const start = weekStart(date, startsOn);
   const next = habit.rules.find((candidate) => candidate.from > rule.from);
+  const end = addDays(start, 6);
+  const nextBoundary = next ? addDays(next.from, -1) : end;
   return {
-    from: [start, habit.startDate, rule.from].sort().at(-1)!,
-    through: [addDays(start, 6), ...(next ? [addDays(next.from, -1)] : [])].sort()[0],
+    from: [habit.startDate, rule.from].reduce(
+      (latest, date) => (date > latest ? date : latest),
+      start,
+    ),
+    through: nextBoundary < end ? nextBoundary : end,
     goal: rule.goal,
     unit: rule.unit,
     value: 0,

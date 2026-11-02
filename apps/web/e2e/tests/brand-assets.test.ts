@@ -1,11 +1,13 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { createTaskRecord, emptyWorkspace } from '@repo/frontend/application';
+import { z } from 'zod';
 import { seedWorkspace } from '../support/storage';
 
-interface BrandManifest {
-  name: string;
-  icons: { src: string; sizes: string; purpose: string }[];
-}
+const manifestSchema = z.object({
+  name: z.string(),
+  icons: z.array(z.object({ src: z.string(), sizes: z.string(), purpose: z.string().optional() })),
+});
 
 test('web identity assets decode at their declared sizes and remain available offline', async ({
   page,
@@ -15,14 +17,18 @@ test('web identity assets decode at their declared sizes and remain available of
   await expect(page.locator('.task-title').first()).toBeVisible();
   const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute('href');
   expect(manifestUrl).toBeTruthy();
-  const manifest = await page.evaluate(async (url) => {
-    const response = await fetch(url!);
-    return (await response.json()) as BrandManifest;
-  }, manifestUrl);
-  expect(manifest.name).toBe('Rillday');
-  expect(manifest.icons.some((icon: { purpose: string }) => icon.purpose === 'maskable')).toBe(
-    true,
+  const manifest = manifestSchema.parse(
+    await page.evaluate(async (url) => {
+      if (url === null) {
+        throw new Error('Missing url');
+      }
+      const response = await fetch(url);
+      const value: unknown = await response.json();
+      return value;
+    }, manifestUrl),
   );
+  expect(manifest.name).toBe('Rillday');
+  expect(manifest.icons.some((icon) => icon.purpose === 'maskable')).toBe(true);
   const assets = await page.evaluate(async (icons: { src: string; sizes: string }[]) => {
     const links = [
       ...document.querySelectorAll<HTMLLinkElement>(
@@ -46,7 +52,8 @@ test('web identity assets decode at their declared sizes and remain available of
     );
   }, manifest.icons);
   for (const icon of manifest.icons) {
-    const asset = assets.find((asset) => asset.src === icon.src)!;
+    const asset = assets.find((asset) => asset.src === icon.src);
+    assert(asset !== undefined, 'Missing asset');
     expect(`${asset.width}x${asset.height}`).toBe(icon.sizes);
   }
   expect(assets.every((asset) => asset.status === 200 && asset.width > 0)).toBe(true);
@@ -73,13 +80,13 @@ for (const [theme, label, chrome] of [
     await page.goto('/');
     await expect(page.locator('#quick-add-input')).toBeVisible();
     const data = emptyWorkspace();
-    data.tasks.push(
-      createTaskRecord('Low priority', data, {
-        priority: 1,
-        notes: '[Review link](https://example.com)',
-        notesFormat: 'markdown',
-      })!,
-    );
+    const task = createTaskRecord('Low priority', data, {
+      priority: 1,
+      notes: '[Review link](https://example.com)',
+      notesFormat: 'markdown',
+    });
+    assert(task !== null, 'Missing priority fixture');
+    data.tasks.push(task);
     await seedWorkspace(page, data);
     await page.reload();
     await page.getByRole('button', { name: 'Settings and backup', exact: true }).click();
@@ -94,7 +101,12 @@ for (const [theme, label, chrome] of [
     await page.getByText('Low priority', { exact: true }).click();
     await expect(page.getByRole('link', { name: 'Review link', exact: true })).toBeVisible();
     const colors = await page.evaluate(() => {
-      const context = document.createElement('canvas').getContext('2d')!;
+      const context = document.createElement('canvas').getContext('2d');
+      const link = document.querySelector('.td-markdown a');
+      const priority = document.querySelector('.task-check.p1');
+      if (context === null || link === null || priority === null) {
+        throw new Error('Missing semantic color fixture');
+      }
 
       const pixel = (color: string) => {
         context.clearRect(0, 0, 1, 1);
@@ -104,10 +116,8 @@ for (const [theme, label, chrome] of [
       };
 
       return {
-        link: pixel(getComputedStyle(document.querySelector('.td-markdown a')!).color),
-        priority: pixel(
-          getComputedStyle(document.querySelector('.task-check.p1')!, '::before').borderColor,
-        ),
+        link: pixel(getComputedStyle(link).color),
+        priority: pixel(getComputedStyle(priority, '::before').borderColor),
       };
     });
     expect(colors.link[3]).toBe(255);

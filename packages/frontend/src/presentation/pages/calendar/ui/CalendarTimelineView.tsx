@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cn } from 'cn';
 import { Plus } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Temporal, Intl as TemporalIntl } from 'temporal-polyfill/implementation';
 import type { Task } from '#application';
 import { useI18n } from '#shared/i18n';
@@ -58,7 +58,7 @@ export function CalendarTimelineView({
   return (
     <div
       className="calendar-timeline flex flex-col min-h-0 flex-1 overflow-x-auto [&::-webkit-scrollbar]:size-[7px] [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-scrollbar [&::-webkit-scrollbar-thumb:hover]:bg-scrollbar-hover"
-      style={{ '--calendar-timeline-min': `${52 + dates.length * 90}px` } as CSSProperties}
+      style={{ '--calendar-timeline-min': `${52 + dates.length * 90}px` }}
     >
       <div
         className="calendar-time-head grid shrink-0 [border-bottom:1px_solid_var(--grid-line)] min-w-[calc(var(--calendar-timeline-min)_+_var(--scrollbar-size))] h-17 pr-(--scrollbar-size) [&_>_button]:border-0 [&_>_button]:bg-transparent [&_>_button]:flex [&_>_button]:items-center [&_>_button]:justify-center [&_>_button]:flex-col [&_>_button]:gap-1.5 [&_>_button_span]:text-xs [&_>_button_span]:text-muted-foreground [&_>_button_span]:leading-(--text-xs--line-height) [&_>_button_strong]:text-base [&_>_button_strong]:font-normal [&_>_button_strong]:leading-(--text-base--line-height)"
@@ -93,7 +93,11 @@ export function CalendarTimelineView({
             date={date}
             key={date}
             onDoubleClick={(event) => {
-              if ((event.target as HTMLElement).closest('button, .calendar-task')) {
+              if (
+                event.target instanceof Element
+                  ? event.target.closest('button, .calendar-task')
+                  : null
+              ) {
                 return;
               }
 
@@ -117,8 +121,10 @@ export function CalendarTimelineView({
         ref={setTimeElement}
         onFocusCapture={(event) =>
           setFocusedId(
-            (event.target as HTMLElement).closest<HTMLElement>('[data-task-id]')?.dataset.taskId ??
-              null,
+            (event.target instanceof Element
+              ? event.target.closest<HTMLElement>('[data-task-id]')
+              : null
+            )?.dataset.taskId ?? null,
           )
         }
         onBlurCapture={(event) => {

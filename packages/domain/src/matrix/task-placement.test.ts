@@ -7,7 +7,7 @@ const quadrants = [
   { key: 'plan', important: true, urgent: false },
   { key: 'delegate', important: false, urgent: true },
   { key: 'later', important: false, urgent: false },
-] satisfies Pick<QuadrantData, 'key' | 'important' | 'urgent'>[];
+] as const satisfies readonly Pick<QuadrantData, 'key' | 'important' | 'urgent'>[];
 
 test.each(quadrants)('placing a task in $key makes it belong there in either mode', (quadrant) => {
   const today = '2026-10-31';
@@ -17,10 +17,17 @@ test.each(quadrants)('placing a task in $key makes it belong there in either mod
         const task = { priority, date };
         const moved = { ...task, ...placeTaskInQuadrant(task, quadrant, mode, today) };
         expect(belongsToQuadrant(moved, quadrant, mode, today)).toBe(true);
-        if (mode === 'simple') {
-          expect(moved.date).toBe(date);
-        }
       }
+    }
+  }
+});
+
+test.each(quadrants)('simple placement in $key preserves the date', (quadrant) => {
+  for (const date of [null, '2026-10-30', '2026-11-01', '2026-11-05']) {
+    for (const priority of [0, 1, 2, 3] as const) {
+      const task = { priority, date };
+      const moved = { ...task, ...placeTaskInQuadrant(task, quadrant, 'simple', '2026-10-31') };
+      expect(moved.date).toBe(date);
     }
   }
 });

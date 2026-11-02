@@ -51,7 +51,7 @@ test('standard JSON logs correlate requests and unexpected errors without reques
   const logs = text
     .trim()
     .split('\n')
-    .map((line) => JSON.parse(line) as Record<string, unknown>);
+    .map((line) => z.record(z.string(), z.unknown()).parse(JSON.parse(line)));
   const error = logs.find((entry) => entry.level === 50 && entry.msg === 'Request failed');
   expect.assert(error);
   const detail = z.object({ type: z.string(), stack: z.string() }).parse(error.err);

@@ -1,4 +1,6 @@
+import assert from 'node:assert/strict';
 import { type Page, expect, test } from '@playwright/test';
+import { visibleBox } from '@repo/test-support';
 import { appearance } from '@repo/test-support/browser-appearance';
 
 async function openWeek(page: Page, theme: string) {
@@ -52,15 +54,23 @@ for (const theme of ['Dark', 'Light']) {
       await page.setViewportSize({ width, height: 1000 });
       const rows = await page.locator('.habit-row').evaluateAll((rows) =>
         rows.map((row) => {
+          function required(selector: string) {
+            const element = row.querySelector(selector);
+            if (!element) {
+              throw new Error(`Habit row is missing ${selector}`);
+            }
+            return element;
+          }
+
           const bounds = row.getBoundingClientRect();
-          const menu = row.querySelector('.row-menu-trigger')!.getBoundingClientRect();
-          const name = row.querySelector('.habit-name')!;
-          const icon = name.querySelector('.habit-symbol')!.getBoundingClientRect();
-          const title = name.querySelector('strong')!.getBoundingClientRect();
-          const description = name.querySelector('small')!.getBoundingClientRect();
+          const menu = required('.row-menu-trigger').getBoundingClientRect();
+          const name = required('.habit-name');
+          const icon = required('.habit-symbol').getBoundingClientRect();
+          const title = required('strong').getBoundingClientRect();
+          const description = required('small').getBoundingClientRect();
           const progress = name.querySelector('.habit-week-amount')?.getBoundingClientRect();
           const nameBounds = name.getBoundingClientRect();
-          const actions = row.querySelector('.habit-menu-anchor')!.getBoundingClientRect();
+          const actions = required('.habit-menu-anchor').getBoundingClientRect();
           const center = {
             x: nameBounds.x + nameBounds.width / 2,
             y: nameBounds.y + nameBounds.height / 2,
@@ -77,7 +87,11 @@ for (const theme of ['Dark', 'Light']) {
           });
           const cells = [...row.querySelectorAll('.habit-day-wrap')].map((cell, index) => {
             const box = cell.getBoundingClientRect();
-            return Math.abs(box.x + box.width / 2 - heads[index]);
+            const head = heads[index];
+            if (head === undefined) {
+              throw new Error('Date cell must have a matching column header');
+            }
+            return Math.abs(box.x + box.width / 2 - head);
           });
           return {
             inset: bounds.right - menu.right,
@@ -90,7 +104,7 @@ for (const theme of ['Dark', 'Light']) {
             titleGap: title.left - icon.right,
             descriptionAxisError: Math.abs(description.left - title.left),
             progressAxisError: progress ? Math.abs(progress.left - title.left) : 0,
-            glyphSize: name.querySelector('.habit-symbol svg')!.getBoundingClientRect().width,
+            glyphSize: required('.habit-symbol svg').getBoundingClientRect().width,
             cells,
           };
         }),
@@ -143,7 +157,11 @@ for (const theme of ['Dark', 'Light']) {
       .evaluateAll((labels) =>
         labels.every((label) => {
           const box = label.getBoundingClientRect();
-          const cell = label.parentElement!.getBoundingClientRect();
+          const parent = label.parentElement;
+          if (!parent) {
+            throw new Error('Statistic label must have a cell');
+          }
+          const cell = parent.getBoundingClientRect();
           return box.left >= cell.left - 1 && box.right <= cell.right + 1;
         }),
       );
@@ -157,9 +175,9 @@ for (const theme of ['Dark', 'Light']) {
       for (const state of ['complete', 'recorded', 'empty']) {
         const cell = page.locator(`.habit-day[data-state="${state}"]:not(:disabled)`).first();
         await page.mouse.move(0, 0);
-        const before = await cell.boundingBox();
-        expect(before!.width).toBe(28);
-        expect(before!.height).toBe(28);
+        const before = await visibleBox(cell);
+        expect(before.width).toBe(28);
+        expect(before.height).toBe(28);
         const normal = await cell.evaluate((el) => {
           const s = getComputedStyle(el);
           return { background: s.backgroundColor, shadow: s.boxShadow, color: s.color };
@@ -213,12 +231,13 @@ for (const theme of ['Dark', 'Light']) {
     expect(completedIndex).toBeGreaterThanOrEqual(0);
     const toggle = cells.nth(completedIndex);
     const name = await toggle.getAttribute('aria-label');
+    assert(name !== null, 'Habit checkbox must have an accessible name');
     await toggle.press('Space');
     await expect(toggle).not.toBeChecked();
-    await expect(toggle).toHaveAccessibleName(name!);
+    await expect(toggle).toHaveAccessibleName(name);
     await toggle.click();
     await expect(toggle).toBeChecked();
-    await expect(toggle).toHaveAccessibleName(name!);
+    await expect(toggle).toHaveAccessibleName(name);
     await page.reload();
     await page.getByLabel('Habit Tracker', { exact: true }).click();
     await expect(cells.nth(completedIndex)).toBeChecked();

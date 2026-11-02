@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { expect, test } from '@playwright/test';
 import { emptyWorkspace } from '@repo/frontend/application';
 import { reloadSavedPage } from '../support/navigation';
@@ -107,7 +108,8 @@ test('weekly quantity targets, optional grouping and quick records share the rea
   await expect
     .poll(async () => {
       const data = await storedWorkspace(page);
-      const habit = data.habits.find((habit) => habit.name === 'Weekly study')!;
+      const habit = data.habits.find((habit) => habit.name === 'Weekly study');
+      assert(habit !== undefined, 'Expected the saved weekly study habit');
       const log = data.habitLogs.find((log) => log.habitId === habit.id);
       return {
         frequency: habit.frequency,
@@ -146,14 +148,19 @@ test('reopening a weekly habit edits its planned target without changing the act
   await page.getByLabel('Edit habit', { exact: true }).click();
   await page.getByRole('textbox', { name: 'Weekly target', exact: true }).fill('90');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(row.locator('small')).toContainText('60 min');
   await expect
     .poll(async () => {
       const habit = (await storedWorkspace(page)).habits.find(
         (habit) => habit.name === 'Make time to read',
-      )!;
-      return { active: habit.goal, planned: habit.rules?.at(-1)?.goal };
+      );
+      assert(habit !== undefined, 'Expected the saved reading habit');
+      return habit.rules?.map(({ from, goal }) => ({ from, goal }));
     })
-    .toEqual({ active: 60, planned: 90 });
+    .toEqual([
+      { from: '2026-10-29', goal: 60 },
+      { from: '2026-11-01', goal: 90 },
+    ]);
   await page.getByLabel('Edit habit', { exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Weekly target', exact: true })).toHaveValue('90');
   await expect(page.locator('.habit-editor')).toContainText(

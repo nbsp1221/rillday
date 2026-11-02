@@ -40,7 +40,7 @@
       },
       "site": {
         "dependencies": {
-          "allow": ["ui", "config"]
+          "allow": ["ui", "test-support", "config"]
         }
       }
     }

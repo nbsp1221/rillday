@@ -1,5 +1,5 @@
 import { Tag } from 'lucide-react';
-import { type KeyboardEvent, type RefObject, useRef, useState } from 'react';
+import { type KeyboardEvent, useRef, useState } from 'react';
 import { Autocomplete } from 'react-aria-components/Autocomplete';
 import { ListBox, ListBoxItem } from 'react-aria-components/ListBox';
 import { TextArea, TextField } from 'react-aria-components/TextField';
@@ -39,7 +39,7 @@ export function QuickAdd({
   tag?: string;
   parentId?: string;
   draftKey?: string;
-  boundary: RefObject<HTMLDivElement | null>;
+  boundary: HTMLDivElement | null;
 }) {
   const { t } = useI18n();
   const { preferences } = useAppPreferences();
@@ -50,24 +50,27 @@ export function QuickAdd({
   const [inputFocused, setInputFocused] = useState(false);
   const [caret, setCaret] = useState(draft.text.length);
   const [dismissed, setDismissed] = useState(false);
-  const composingRef = useRef(false);
+  const [composing, setComposing] = useState(false);
   const refRef = useRef<HTMLTextAreaElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const prefix = draft.text.slice(0, caret);
   const match = prefix.match(/(?:^|\s)#([^\s#]*)$/u);
-  const tokenStart = match ? caret - match[1].length - 1 : caret;
+  const token = match?.[1] ?? '';
+
+  const tokenStart = match ? caret - token.length - 1 : caret;
   const remainingToken = draft.text.slice(caret).match(/^[^\s#]*/u)?.[0].length ?? 0;
   const tokenEnd = caret + remainingToken;
+
   const tags = workspaceLabels(data)
     .filter(
       (value) =>
         match &&
-        value.toLocaleLowerCase().startsWith(match[1].toLocaleLowerCase()) &&
+        value.toLocaleLowerCase().startsWith(token.toLocaleLowerCase()) &&
         value !== draft.text.slice(tokenStart + 1, tokenEnd),
     )
     .slice(0, 6);
   const showSuggestions =
-    inputFocused && !dismissed && !composingRef.current && Boolean(match) && tags.length > 0;
+    inputFocused && !dismissed && !composing && Boolean(match) && tags.length > 0;
 
   function change(patch: Partial<CaptureDraft>) {
     const next = { ...draftRef.current, ...patch };
@@ -90,7 +93,7 @@ export function QuickAdd({
   }
 
   function submit() {
-    if (composingRef.current || !draftRef.current.text.trim()) {
+    if (composing || !draftRef.current.text.trim()) {
       return;
     }
 
@@ -151,7 +154,7 @@ export function QuickAdd({
       return;
     }
 
-    if (event.nativeEvent.isComposing || composingRef.current || event.keyCode === 229) {
+    if (event.nativeEvent.isComposing || composing || event.keyCode === 229) {
       return;
     }
 
@@ -201,10 +204,10 @@ export function QuickAdd({
                 }
               }}
               onCompositionStart={() => {
-                composingRef.current = true;
+                setComposing(true);
               }}
               onCompositionEnd={(event) => {
-                composingRef.current = false;
+                setComposing(false);
                 setCaret(event.currentTarget.selectionStart);
                 setDismissed(false);
               }}
@@ -222,7 +225,7 @@ export function QuickAdd({
               initialFocus={false}
               finalFocus={false}
               side="top"
-              collisionBoundary={boundary.current ?? undefined}
+              collisionBoundary={boundary ?? undefined}
               className="tag-suggestions flex flex-col w-[min(var(--anchor-width),_calc(100vw_-_16px))] min-w-45 overflow-hidden p-1"
               role="presentation"
               aria-label={t('labels.suggestions')}

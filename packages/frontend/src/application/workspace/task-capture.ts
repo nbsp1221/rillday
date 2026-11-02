@@ -72,7 +72,11 @@ export function prepareTaskCapture(
     }
 
     if (draft.priority !== '') {
-      options.priority = Number(draft.priority) as Task['priority'];
+      const priority = Number(draft.priority);
+      if (priority !== 0 && priority !== 1 && priority !== 2 && priority !== 3) {
+        throw new Error('invalid_task');
+      }
+      options.priority = priority;
     }
 
     if (parentId) {

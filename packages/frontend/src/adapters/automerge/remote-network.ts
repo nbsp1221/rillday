@@ -122,7 +122,7 @@ export class RemoteWorkspaceNetwork extends WebSocketClientAdapter {
     }
   }
 
-  private publish = () => {
+  private readonly publish = () => {
     for (const listener of this.observers) {
       listener();
     }
@@ -154,10 +154,14 @@ export class RemoteWorkspaceNetwork extends WebSocketClientAdapter {
         }
         if (this.status === 'offline' || this.status === 'error') {
           this.stopped.signal.throwIfAborted();
+          const peerId = this.peerId;
+          if (peerId === undefined) {
+            throw new Error('network_not_initialized');
+          }
           this.disconnect();
           this.status = 'syncing';
           this.error = '';
-          this.connect(this.peerId!, this.peerMetadata);
+          this.connect(peerId, this.peerMetadata);
           this.publish();
         }
         const signal = AbortSignal.any([AbortSignal.timeout(12000), this.stopped.signal]);
