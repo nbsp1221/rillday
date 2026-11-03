@@ -11,7 +11,7 @@ export const habitRuleSchema = z
     goal: habitAmountSchema,
     unit: z.string().trim().min(1).max(20),
     step: habitAmountSchema,
-    frequency: z.enum(['daily', 'weekdays', 'weekly', 'interval']),
+    frequency: z.enum(['daily', 'weekdays', 'weekly', 'interval', 'weekly-total']),
     weekdays: z.array(z.int().min(0).max(6)).max(7),
     weeklyTarget: z.int().min(1).max(7),
     intervalDays: z.int().min(1).max(30),
@@ -19,10 +19,15 @@ export const habitRuleSchema = z
   .refine(
     (v) =>
       new Set(v.weekdays).size === v.weekdays.length &&
-      (v.frequency !== 'weekdays' || v.weekdays.length > 0),
+      (v.frequency !== 'weekdays' || v.weekdays.length > 0) &&
+      (v.frequency !== 'weekly-total' || v.kind === 'quantity'),
   );
 
 export type HabitRule = z.infer<typeof habitRuleSchema>;
+
+export function isWeeklyHabitRule(rule: Pick<HabitRule, 'frequency'>) {
+  return rule.frequency === 'weekly' || rule.frequency === 'weekly-total';
+}
 
 function habitRuleEffectiveDate(today: string, weekly: boolean, weekStartsOn: 0 | 1) {
   if (!weekly) {
@@ -47,7 +52,7 @@ export function reviseHabitRules(
   }
   const from = habitRuleEffectiveDate(
     today,
-    current.frequency === 'weekly' || next.frequency === 'weekly',
+    isWeeklyHabitRule(current) || isWeeklyHabitRule(next),
     weekStartsOn,
   );
   return [...previous.rules.filter((rule) => rule.from < from), { ...next, from }];
@@ -73,8 +78,7 @@ export function validateHabitRuleTransition(
     if (rule.from < today) {
       throw new Fault('historical_rule_immutable', 'conflict');
     }
-    const weekly =
-      currentRule(previous, rule.from).frequency === 'weekly' || rule.frequency === 'weekly';
+    const weekly = isWeeklyHabitRule(currentRule(previous, rule.from)) || isWeeklyHabitRule(rule);
     if (!weekly) {
       continue;
     }

@@ -191,6 +191,7 @@ function saveHabit(
     name: habit.name,
     color: habit.color,
     icon: habit.icon,
+    ...(habit.timeOfDay ? { timeOfDay: habit.timeOfDay } : {}),
     archived: habit.archived,
     startDate: habit.startDate ?? firstRule.from,
     reminderTime: habit.reminderTime,

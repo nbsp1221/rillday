@@ -1,3 +1,5 @@
+@layer emoji-picker, theme, base, components, utilities;
+
 @import '@repo/ui/styles/globals.css';
 
 @source '../..';
@@ -60,8 +62,8 @@
   --button-primary-foreground: #ffffff;
   --secondary: #262626;
   --secondary-foreground: #e5e5e5;
-  --muted: #1f1f1f;
-  --muted-foreground: #a3a3a3;
+  --muted: #404040;
+  --muted-foreground: #b0b0b0;
   --accent: #2e2842;
   --accent-foreground: #beb0fa;
   --destructive: #ef4444;
@@ -102,8 +104,9 @@
   --primary-foreground: #ffffff;
   --secondary: #f3f4f6;
   --secondary-foreground: #4b5563;
-  --muted: #f9fafb;
-  --muted-foreground: #6b7280;
+  --muted: #e5e7eb;
+  --surface-inset: #f9fafb;
+  --muted-foreground: #5b6472;
   --accent: #f0ebfc;
   --accent-foreground: #564193;
   --destructive: #ef4444;
@@ -135,7 +138,7 @@
 /* Product roles keep structural separators quieter than interactive bounds. */
 
 :root {
-  --surface-inset: var(--muted);
+  --surface-inset: #1f1f1f;
   --surface-hover: color-mix(in srgb, var(--foreground) 5%, transparent);
   --surface-selected: var(--secondary);
   --control-border: color-mix(in srgb, var(--foreground) 28%, var(--background));

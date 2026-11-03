@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import * as Automerge from '@automerge/automerge';
 import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-indexeddb';
@@ -570,4 +571,40 @@ test('future and unscheduled check-ins leave history and logs unchanged', async 
   expect(session.getSnapshot().data.habitLogs).toEqual([]);
   expect(session.getSnapshot().data).toEqual(unchanged.data);
   expect(session.getSnapshot().canUndo).toBe(unchanged.canUndo);
+});
+
+test('weekly amounts and grouping persist offline through the real session without daily completion shortcuts', async () => {
+  const { session, store } = await fixture();
+  try {
+    const habit = {
+      ...createHabitDraft('min'),
+      name: 'Practice',
+      kind: 'quantity' as const,
+      frequency: 'weekly-total' as const,
+      goal: 60,
+      step: 10,
+      timeOfDay: 'evening' as const,
+    };
+    session.apply({ type: 'habit.save', habit, weekStartsOn: 0 });
+    session.toggleHabit(habit.id, '2026-10-23');
+    session.toggleHabit(habit.id, '2026-10-23');
+    session.changeHabitCheckin(habit.id, '2026-10-23', { type: 'complete' });
+    session.changeHabitCheckin(habit.id, '2026-10-23', { type: 'note', text: 'Actual practice' });
+    await session.flush();
+    const workspace = readWorkspace(store.handle.fullDoc());
+    expect(workspace.habits[habit.id]).toMatchObject({
+      timeOfDay: 'evening',
+      rules: [{ frequency: 'weekly-total' }],
+    });
+    const log = session.getSnapshot().data.habitLogs[0];
+    assert(log !== undefined, 'Recorded habit must persist offline');
+    expect(log).toMatchObject({ value: 20, unit: 'min', note: 'Actual practice' });
+    session.undo();
+    session.redo();
+    await session.flush();
+    expect(session.getSnapshot().data.habitLogs[0]).toMatchObject(log);
+    expect(session.getSnapshot().syncState).toBe('local');
+  } finally {
+    await session.close();
+  }
 });

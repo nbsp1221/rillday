@@ -87,7 +87,7 @@ for (const language of ['ko', 'en']) {
         .getByRole('button', { name: en ? 'Calendar view' : '캘린더 보기', exact: true })
         .click();
       await page.getByRole('menuitemradio', { name: en ? 'Month' : '월', exact: true }).click();
-      await page.getByLabel(en ? 'Habit' : '습관', { exact: true }).click();
+      await page.getByLabel(en ? 'Habit Tracker' : '습관 트래커', { exact: true }).click();
       await expect(page.locator('.habit-table-head > div > span:first-child')).toHaveText(expected);
       await page.locator('.habit-name').first().click();
       await expect(page.locator('.habit-history-grid > span')).toHaveText(expected);
@@ -128,7 +128,7 @@ test('week start regroups persisted habit statistics when the setting changes', 
   await expect(page.locator('#quick-add-input')).toBeVisible();
   await seedWorkspace(page, data);
   await page.reload();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').first().click();
   await expect(page.locator('.habit-week-progress')).toHaveText('1 / 2 days completed this week');
   await expect(page.locator('.habit-stats strong').last()).toHaveText('50%');
@@ -139,7 +139,7 @@ test('week start regroups persisted habit statistics when the setting changes', 
     .click();
   await chooseChoice(page, page.getByLabel('Start week on', { exact: true }), '1');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
-  await page.getByLabel('Habit', { exact: true }).click();
+  await page.getByLabel('Habit Tracker', { exact: true }).click();
   await page.locator('.habit-name').first().click();
   await expect(page.locator('.habit-week-progress')).toHaveText('2 / 2 days completed this week');
   await expect(page.locator('.habit-stats strong').last()).toHaveText('100%');

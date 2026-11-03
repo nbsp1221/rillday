@@ -1,29 +1,69 @@
+import { cn } from 'cn';
 import {
+  Activity,
   Apple,
+  Baby,
+  Bath,
   Bed,
   Bike,
   BookOpen,
   Brain,
+  Camera,
+  Cat,
+  Check,
   Circle,
+  Cloud,
   Clover,
   Code,
   Coffee,
+  CookingPot,
   Diamond,
+  Dog,
   Droplets,
   Dumbbell,
+  Film,
+  Flag,
+  Flower2,
   Footprints,
   GraduationCap,
+  Guitar,
+  HandHeart,
+  Headphones,
   Heart,
+  HeartHandshake,
+  HeartPulse,
   House,
-  type LucideProps,
+  Languages,
+  Leaf,
+  MessageCircle,
+  Mic,
   Moon,
+  Mountain,
   Music,
+  NotebookPen,
+  Paintbrush,
+  Palette,
   Pencil,
+  PersonStanding,
+  Phone,
+  Pill,
+  Scissors,
+  Shirt,
+  ShoppingBag,
+  Sofa,
   Sparkles,
+  SprayCan,
   Star,
   Sun,
+  Sunrise,
+  Target,
   Timer,
+  Toothbrush,
+  Users,
+  Utensils,
   Wallet,
+  Waves,
+  Wind,
 } from 'lucide-react';
 
 export const habitIcons = [
@@ -51,18 +91,61 @@ export const habitIcons = [
   { id: 'clover', label: 'icons.clover', icon: Clover },
   { id: 'house', label: 'icons.home', icon: House },
   { id: 'wallet', label: 'icons.finance', icon: Wallet },
+  { id: 'pill', label: 'icons.medication', icon: Pill },
+  { id: 'toothbrush', label: 'icons.dental', icon: Toothbrush },
+  { id: 'heart-pulse', label: 'icons.wellbeing', icon: HeartPulse },
+  { id: 'languages', label: 'icons.language', icon: Languages },
+  { id: 'notebook-pen', label: 'icons.journal', icon: NotebookPen },
+  { id: 'headphones', label: 'icons.listening', icon: Headphones },
+  { id: 'activity', label: 'icons.activity', icon: Activity },
+  { id: 'person-standing', label: 'icons.stretching', icon: PersonStanding },
+  { id: 'mountain', label: 'icons.outdoors', icon: Mountain },
+  { id: 'waves', label: 'icons.swimming', icon: Waves },
+  { id: 'utensils', label: 'icons.meals', icon: Utensils },
+  { id: 'cooking-pot', label: 'icons.cooking', icon: CookingPot },
+  { id: 'shopping-bag', label: 'icons.shopping', icon: ShoppingBag },
+  { id: 'shirt', label: 'icons.laundry', icon: Shirt },
+  { id: 'spray-can', label: 'icons.cleaning', icon: SprayCan },
+  { id: 'sunrise', label: 'icons.morning', icon: Sunrise },
+  { id: 'flower-2', label: 'icons.plants', icon: Flower2 },
+  { id: 'leaf', label: 'icons.nature', icon: Leaf },
+  { id: 'cloud', label: 'icons.weather', icon: Cloud },
+  { id: 'wind', label: 'icons.breathing', icon: Wind },
+  { id: 'sofa', label: 'icons.rest', icon: Sofa },
+  { id: 'bath', label: 'icons.selfCare', icon: Bath },
+  { id: 'palette', label: 'icons.art', icon: Palette },
+  { id: 'camera', label: 'icons.photography', icon: Camera },
+  { id: 'paintbrush', label: 'icons.painting', icon: Paintbrush },
+  { id: 'guitar', label: 'icons.instrument', icon: Guitar },
+  { id: 'film', label: 'icons.film', icon: Film },
+  { id: 'mic', label: 'icons.speaking', icon: Mic },
+  { id: 'scissors', label: 'icons.craft', icon: Scissors },
+  { id: 'users', label: 'icons.friends', icon: Users },
+  { id: 'phone', label: 'icons.calling', icon: Phone },
+  { id: 'message-circle', label: 'icons.conversation', icon: MessageCircle },
+  { id: 'hand-heart', label: 'icons.kindness', icon: HandHeart },
+  { id: 'baby', label: 'icons.family', icon: Baby },
+  { id: 'dog', label: 'icons.dog', icon: Dog },
+  { id: 'cat', label: 'icons.cat', icon: Cat },
+  { id: 'heart-handshake', label: 'icons.relationships', icon: HeartHandshake },
+  { id: 'flag', label: 'icons.milestone', icon: Flag },
+  { id: 'target', label: 'icons.practice', icon: Target },
+  { id: 'check', label: 'icons.check', icon: Check },
 ] as const;
 
 export function resolveHabitIcon(value: string) {
   return habitIcons.find((item) => item.id === value);
 }
 
-export function HabitGlyph({ value, size = 18 }: { value: string; size?: LucideProps['size'] }) {
+export function HabitGlyph({ value, className }: { value: string; className?: string }) {
+  if (value === 'none') {
+    return null;
+  }
   const item = resolveHabitIcon(value);
   return item ? (
-    <item.icon size={size} className="inline-block shrink-0 align-middle" />
+    <item.icon className={cn('inline-block size-4.5 shrink-0 align-middle', className)} />
   ) : (
-    <span className="habit-custom-glyph" aria-hidden="true">
+    <span className="habit-custom-glyph max-w-full truncate" aria-hidden="true">
       {value}
     </span>
   );

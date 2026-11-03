@@ -1,32 +1,36 @@
 import { Button } from '@repo/ui/components/button';
 import { Input } from '@repo/ui/components/input';
 import { cn } from 'cn';
-import { type FormEvent, useState } from 'react';
-import { type Habit, habitAmountSchema, habitStartDate } from '#application';
+import { type FormEvent, type RefObject, useRef, useState } from 'react';
+import { type Habit, habitAmountSchema, habitAt, habitStartDate, habitToday } from '#application';
 import { useAppPreferences } from '#entities/preferences';
 import { useWorkspace } from '#entities/workspace';
 import { useI18n } from '#shared/i18n';
-import { WorkspaceColorField } from '#shared/ui/WorkspaceColorField';
 import { WorkspaceDialog } from '#shared/ui/WorkspaceDialog';
-import { HabitIconPicker } from './HabitIconPicker';
+import { HabitAppearancePicker } from './HabitAppearancePicker';
 import { HabitSettings } from './HabitSettings';
-import { habitColors, useHabitDisplay } from './habit-display';
-import { HabitGlyph } from './habit-icons';
+import { useHabitDisplay } from './habit-display';
 
 export function HabitEditor({
   initialHabit,
   close,
   onSaved,
+  finalFocus,
 }: {
   initialHabit: Habit;
   close: () => void;
   onSaved: (habit: Habit) => void;
+  finalFocus?: RefObject<HTMLButtonElement | null>;
 }) {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const { data, apply } = useWorkspace();
   const { preferences } = useAppPreferences();
   const { weekdayOrder, dayNames } = useHabitDisplay();
-  const [editor, setEditor] = useState(initialHabit);
+  const [editor, setEditor] = useState(() =>
+    habitAt(initialHabit, initialHabit.rules?.at(-1)?.from ?? habitToday(initialHabit)),
+  );
+  const nameRef = useRef<HTMLInputElement>(null);
+  const pendingFrom = initialHabit.rules?.at(-1)?.from;
 
   function saveHabit(event: FormEvent) {
     event.preventDefault();
@@ -69,6 +73,8 @@ export function HabitEditor({
       className="habit-editor [&_fieldset]:border-0 [&_fieldset]:p-0 [&_fieldset]:m-0 [&_fieldset]:min-w-0 [&_legend]:text-sm [&_legend]:text-muted-foreground [&_legend]:p-0 [&_legend]:mb-2 [&_legend]:leading-(--text-sm--line-height)"
       title={data.habits.some((h) => h.id === editor.id) ? t('habits.edit') : t('habits.new')}
       onClose={close}
+      initialFocus={nameRef}
+      finalFocus={finalFocus}
       onSubmit={saveHabit}
       footer={
         <>
@@ -93,17 +99,14 @@ export function HabitEditor({
         </>
       }
     >
-      <div
-        className="habit-identity-preview flex items-center gap-3"
-        style={habitColors(editor.color)}
-      >
-        <span
-          className="habit-symbol w-9 h-9 flex items-center justify-center rounded-lg [background:color-mix(in_srgb,_var(--habit-color,_var(--primary))_14%,_transparent)] text-[color:var(--habit-color,_var(--primary))] text-2xl shrink-0 leading-(--text-2xl--line-height) [.habit-detail-title_&]:w-12 [.habit-detail-title_&]:h-12 [.habit-detail-title_&]:m-auto [.habit-detail-title_&]:text-3xl [.habit-detail-title_&]:leading-(--text-3xl--line-height)"
-          aria-hidden="true"
-        >
-          <HabitGlyph value={editor.icon} />
-        </span>
+      <div className="habit-identity-preview flex items-center gap-3">
+        <HabitAppearancePicker
+          icon={editor.icon}
+          color={editor.color}
+          onChange={(patch) => setEditor({ ...editor, ...patch })}
+        />
         <Input
+          ref={nameRef}
           required
           maxLength={120}
           aria-label={t('habits.name')}
@@ -116,22 +119,13 @@ export function HabitEditor({
           )}
         />
       </div>
-      <div className="habit-appearance-fields grid grid-cols-[repeat(2,_minmax(0,_1fr))] gap-3">
-        <HabitIconPicker value={editor.icon} onChange={(icon) => setEditor({ ...editor, icon })} />
-        <WorkspaceColorField
-          className="w-full min-w-0"
-          label={t('common.color')}
-          value={editor.color}
-          onChange={(color) => {
-            if (color) {
-              setEditor({ ...editor, color });
-            }
-          }}
-        />
-      </div>
-      <p className="muted [.modal-body_>_&]:m-0 [.modal-body_>_&]:text-sm [.modal-body_>_&]:leading-(--text-sm--line-height) [.modal-body_>_&]:text-muted-foreground text-muted-foreground">
-        {t('habits.ruleEffectiveDateDescription')}
-      </p>
+      {data.habits.some((habit) => habit.id === editor.id) && (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {pendingFrom && pendingFrom > habitToday(initialHabit)
+            ? t('habits.ruleEffectiveOn', { date: formatDate(pendingFrom) })
+            : t('habits.ruleEffectiveDateDescription')}
+        </p>
+      )}
       <HabitSettings
         key={editor.id}
         value={editor}

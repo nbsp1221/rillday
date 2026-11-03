@@ -70,7 +70,7 @@ export function CalendarYearView({
                     }}
                     className={cn(
                       !day.toPlainYearMonth().equals(yearMonth)
-                        ? 'outside [.calendar-mini-month_button&]:opacity-25'
+                        ? 'outside [.calendar-mini-month_button&]:text-muted-foreground'
                         : '',
                       date === today
                         ? 'today [.calendar-day-head_button&]:text-primary-foreground [.calendar-day-head_button&]:bg-primary [.calendar-time-head_>_button&_strong]:bg-primary [.calendar-time-head_>_button&_strong]:rounded-full [.calendar-time-head_>_button&_strong]:w-7 [.calendar-time-head_>_button&_strong]:h-7 [.calendar-time-head_>_button&_strong]:flex [.calendar-time-head_>_button&_strong]:items-center [.calendar-time-head_>_button&_strong]:justify-center [.calendar-time-head_>_button&_strong]:text-primary-foreground [.calendar-mini-month_button&]:bg-primary [.calendar-mini-month_button&]:text-primary-foreground'
