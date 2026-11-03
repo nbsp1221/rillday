@@ -4,6 +4,78 @@ import { reloadSavedPage } from '../support/navigation';
 import { storedWorkspace } from '../support/storage';
 
 for (const width of [1183, 320]) {
+  for (const enter of [false, true]) {
+    test(`quantity edits persist when dismissed ${enter ? 'with Enter then Escape' : 'with Escape'} at ${width}px`, async ({
+      page,
+      context,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.clock.install({ time: new Date('2026-10-29T03:00:00Z') });
+      await page.goto('/?demo=1');
+      await page.getByLabel('Habit Tracker', { exact: true }).click();
+      const today = page
+        .locator('.habit-row')
+        .filter({ hasText: 'Drink enough water' })
+        .locator('.habit-day.today');
+      await expect(today).toHaveText('5');
+      await today.click();
+      const panel = page.locator('.habit-record-panel');
+      const total = panel.getByRole('textbox', { name: 'Daily total (cups)', exact: true });
+      await context.setOffline(true);
+      await total.fill('7');
+      if (enter) {
+        await total.press('Enter');
+      }
+      await total.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(today).toBeFocused();
+      await expect(today).toHaveText('7');
+      await expect
+        .poll(async () => {
+          const data = await storedWorkspace(page);
+          const habit = data.habits.find((habit) => habit.name === 'Drink enough water');
+          assert(habit !== undefined, 'Expected the saved water habit');
+          return data.habitLogs.find((log) => log.habitId === habit.id && log.date === '2026-10-29')
+            ?.value;
+        })
+        .toBe(7);
+      await context.setOffline(false);
+      await reloadSavedPage(page);
+      await page.getByLabel('Habit Tracker', { exact: true }).click();
+      await expect(today).toHaveText('7');
+      await today.click();
+      await expect(total).toHaveValue('7');
+    });
+  }
+
+  test(`dismissing invalid quantity drafts preserves the saved total at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.clock.install({ time: new Date('2026-10-29T03:00:00Z') });
+    await page.goto('/?demo=1');
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
+    const today = page
+      .locator('.habit-row')
+      .filter({ hasText: 'Drink enough water' })
+      .locator('.habit-day.today');
+    const panel = page.locator('.habit-record-panel');
+    const total = panel.getByRole('textbox', { name: 'Daily total (cups)', exact: true });
+    for (const draft of ['', '-3']) {
+      await today.click();
+      await total.fill(draft);
+      await expect(total).toHaveAttribute('aria-invalid', 'true');
+      await total.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(today).toBeFocused();
+      await expect(today).toHaveText('5');
+    }
+    await reloadSavedPage(page);
+    await page.getByLabel('Habit Tracker', { exact: true }).click();
+    await today.click();
+    await expect(total).toHaveValue('5');
+  });
+
   test(`dated quantity recording retains above-goal totals and offline edits at ${width}px`, async ({
     page,
     context,

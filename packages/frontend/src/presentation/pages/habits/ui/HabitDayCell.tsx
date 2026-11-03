@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
 import { Popover } from '@base-ui/react/popover';
 import { Button } from '@repo/ui/components/button';
 import { Checkbox } from '@repo/ui/components/checkbox';
 import { cn } from 'cn';
 import { Check, Minus, SkipForward } from 'lucide-react';
+import { type ReactNode, useRef } from 'react';
 import {
   type Habit,
   type HabitCheckinAction,
@@ -45,6 +45,7 @@ export function HabitDayCell({
   onLogChange: (action: HabitCheckinAction) => void;
 }) {
   const { t, formatDate } = useI18n();
+  const panelRef = useRef<HTMLDivElement>(null);
   const formatAmount = useHabitAmountFormat();
   const done = habitDone(habit, log);
   const scheduled = habitScheduled(habit, date);
@@ -140,11 +141,23 @@ export function HabitDayCell({
   return (
     <div className="habit-day-wrap relative grid h-9 place-items-center">
       {habit.kind === 'quantity' ? (
-        <Popover.Root modal="trap-focus">
+        <Popover.Root
+          modal="trap-focus"
+          onOpenChange={(open) => {
+            if (!open) {
+              const active = document.activeElement;
+              if (active instanceof HTMLElement && panelRef.current?.contains(active)) {
+                // Commit validated fields while they are still mounted.
+                active.blur();
+              }
+            }
+          }}
+        >
           <Popover.Trigger render={quantityControl} />
           <Popover.Portal>
             <Popover.Positioner sideOffset={8} collisionPadding={8} className="isolate z-50">
               <Popover.Popup
+                ref={panelRef}
                 aria-label={t('habits.editRecord')}
                 style={habitColors(habit.color)}
                 className="habit-record-panel w-80 max-w-[calc(100vw-24px)] max-h-(--available-height) overflow-auto rounded-lg bg-popover p-4 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none"
