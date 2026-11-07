@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { dateSchema, uuid } from '../../shared-kernel/values.ts';
 import type { RecordedQuantity } from './recorded-quantity.ts';
+import { recordingTimeSchema } from './recording-time.ts';
 export const habitCheckInAmountSchema = z.number().finite().min(0).max(1000000000);
 export const habitLogSchema = z.strictObject({
   habitId: uuid,
@@ -11,6 +12,7 @@ export const habitLogSchema = z.strictObject({
   goal: z.number().positive(),
   unit: z.string(),
   ruleFrom: dateSchema,
+  recordedAt: recordingTimeSchema.optional(),
 });
 
 export type HabitCheckInData = z.infer<typeof habitLogSchema>;

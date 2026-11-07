@@ -1,6 +1,8 @@
 import * as Automerge from '@automerge/automerge';
 import {
+  type HistoricalCheckIn,
   type Workspace,
+  checkInId,
   completeTask,
   createHabit,
   createLabel,
@@ -8,6 +10,7 @@ import {
   createWorkspace,
   editLabel,
   editTask,
+  importCheckIns,
   incrementCheckIn,
   inspectWorkspace,
   purgeTask,
@@ -295,6 +298,118 @@ function quantityFixture(value?: number) {
   });
   return { initial, habitId };
 }
+
+function importRecord(
+  doc: Automerge.Doc<WorkspaceDocument>,
+  habitId: string,
+  snapshot: HistoricalCheckIn,
+) {
+  const id = checkInId(habitId, snapshot.date);
+  const baseVersion = recordVersion(doc, { collection: 'checkIns', id });
+  return change(doc, (workspace) =>
+    importCheckIns(workspace, habitId, [{ snapshot, baseVersion }], context),
+  );
+}
+
+test('offline repeated imports merge once, preserve recording time and surface different corrections', () => {
+  const { initial, habitId } = quantityFixture();
+  const record = {
+    date: '2026-10-23',
+    value: 2,
+    goal: 8,
+    unit: 'cups',
+    skipped: false,
+    note: '',
+    recordedAt: { kind: 'time' as const, value: '08:30' },
+  };
+  const left = importRecord(Automerge.clone(initial), habitId, record);
+  const right = importRecord(Automerge.clone(initial), habitId, record);
+  const combined = Automerge.merge(left, right);
+  const id = checkInId(habitId, record.date);
+  const log = readWorkspace(combined).checkIns[id];
+  expect.assert(log !== undefined);
+  expect(quantityValue(log.quantity)).toBe(2);
+  expect(log.recordedAt).toEqual(record.recordedAt);
+  expect(documentConflicts(combined)).toEqual([]);
+  expect(combined.format).toBe(2);
+  const different = importRecord(Automerge.clone(initial), habitId, {
+    ...record,
+    value: 3,
+    recordedAt: { kind: 'time', value: '09:30' },
+  });
+  const conflict = Automerge.merge(combined, different);
+  expect(documentConflicts(conflict).some((entry) => entry.field === '$quantity')).toBe(true);
+  expect(documentConflicts(conflict).some((entry) => entry.field === 'recordedAt')).toBe(true);
+});
+
+test('replacing an edited import exposes a concurrent increment as a quantity conflict', () => {
+  const { initial, habitId } = quantityFixture();
+  const record = {
+    date: '2026-10-23',
+    value: 20,
+    goal: 8,
+    unit: 'cups',
+    skipped: false,
+    note: '',
+  };
+  const imported = importRecord(initial, habitId, record);
+  const edited = change(imported, (workspace) =>
+    incrementCheckIn(workspace, habitId, record.date, 1, context),
+  );
+  const replaced = importRecord(Automerge.clone(edited), habitId, record);
+  const concurrent = change(Automerge.clone(edited), (workspace) =>
+    incrementCheckIn(workspace, habitId, record.date, 2, context),
+  );
+  const conflict = documentConflicts(Automerge.merge(replaced, concurrent)).find(
+    (entry) => entry.field === '$quantity',
+  );
+  expect(conflict?.options.map(({ value }) => value)).toEqual(expect.arrayContaining([20, 23]));
+});
+
+test('recreating a tombstoned check-in clears omitted recording time and old adjustments', () => {
+  const { initial, habitId } = quantityFixture();
+  const record = {
+    date: '2026-10-23',
+    value: 20,
+    goal: 8,
+    unit: 'cups',
+    skipped: false,
+    note: '',
+  };
+  const id = checkInId(habitId, record.date);
+  const imported = importRecord(initial, habitId, record);
+  const edited = change(imported, (workspace) => {
+    incrementCheckIn(workspace, habitId, record.date, 1, context);
+    const log = workspace.checkIns[id];
+    expect.assert(log !== undefined);
+    log.recordedAt = { kind: 'time', value: '08:30' };
+  });
+  const deleted = change(edited, (workspace) => {
+    delete workspace.checkIns[id];
+  });
+  const recreated = importRecord(deleted, habitId, record);
+  const log = readWorkspace(recreated).checkIns[id];
+  expect.assert(log !== undefined);
+  expect(quantityValue(log.quantity)).toBe(20);
+  expect(log.recordedAt).toBeUndefined();
+  expect(documentConflicts(recreated)).toEqual([]);
+});
+
+test('existing records with unknown times remain readable in format1 and newer markers fail closed', () => {
+  const { initial, habitId } = quantityFixture(1);
+  const historical = change(initial, (workspace) => {
+    delete workspace.checkIns[checkInId(habitId, '2026-10-23')]?.recordedAt;
+  });
+  const old = Automerge.change(historical, (draft) => {
+    draft.format = 1;
+  });
+  expect(readWorkspace(old).checkIns[checkInId(habitId, '2026-10-23')]?.recordedAt).toBeUndefined();
+  const future = Automerge.change(Automerge.clone(old), (draft) => {
+    draft.format = 99;
+  });
+  expect(() => readWorkspace(future)).toThrow();
+  expect(readWorkspace(old).checkIns[checkInId(habitId, '2026-10-23')]).toBeDefined();
+});
 
 test('quantity entries merge through native map operations and unseen corrections await explicit review', () => {
   const { initial, habitId } = quantityFixture();

@@ -118,7 +118,47 @@ function writeQuantity(
   }
 }
 
+function clearRevivedRecords(doc: WorkspaceDocument, before: Workspace, after: Workspace) {
+  const revived = new Set<string>();
+  for (const collection of collections) {
+    const previous = records(before, collection);
+    for (const id of Object.keys(records(after, collection))) {
+      if (previous[id]) {
+        continue;
+      }
+      const presence = key(collection, id, '$presence');
+      if (Object.hasOwn(doc.fields, presence)) {
+        revived.add(presence);
+      }
+    }
+  }
+  if (!revived.size) {
+    return;
+  }
+  // Tombstones retain data for conflict review. An explicit recreation starts from its new snapshot.
+  for (const fieldKey of Object.keys(doc.fields)) {
+    const [collection, id, field] = addressSchema.parse(JSON.parse(fieldKey));
+    if (
+      field !== '$presence' &&
+      field !== '$revision' &&
+      revived.has(key(collection, id, '$presence'))
+    ) {
+      delete doc.fields[fieldKey];
+    }
+  }
+  for (const [id, value] of Object.entries(doc.quantities)) {
+    const { checkInId } = quantityEntrySchema.parse(decode(value));
+    if (revived.has(key('checkIns', checkInId, '$presence'))) {
+      delete doc.quantities[id];
+    }
+  }
+}
+
 export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after: Workspace) {
+  clearRevivedRecords(doc, before, after);
+  if (Object.values(after.checkIns).some((log) => log.recordedAt)) {
+    doc.format = 2;
+  }
   for (const collection of collections) {
     const previous = records(before, collection);
     const current = records(after, collection);
@@ -143,6 +183,18 @@ export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after:
       doc.fields[key(collection, id, '$revision')] = encode(revision);
       if (!record) {
         continue;
+      }
+      // Omitted optional fields are deletions, not permission to retain stale metadata.
+      for (const [field] of entries(old ?? {})) {
+        if (
+          !Object.hasOwn(record, field) &&
+          field !== 'id' &&
+          field !== 'quantity' &&
+          field !== 'rules' &&
+          field !== 'startDate'
+        ) {
+          delete doc.fields[key(collection, id, field)];
+        }
       }
       for (const [field, value] of entries(record)) {
         if (
@@ -194,7 +246,7 @@ function cellValue(doc: Automerge.Doc<WorkspaceDocument>, fieldKey: string, fiel
 }
 
 export function readWorkspace(doc: Automerge.Doc<WorkspaceDocument>): Workspace {
-  if (doc.format !== 1) {
+  if (doc.format !== 1 && doc.format !== 2) {
     throw new Error('invalid_workspace');
   }
   const result: Record<WorkspaceCollection, Record<string, unknown>> = {

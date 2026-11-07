@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -10,6 +12,9 @@ const metadata: unknown = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
 );
 const { version } = z.object({ version: z.string() }).parse(metadata);
+const frontendDependencies = createRequire(
+  createRequire(import.meta.url).resolve('@repo/frontend'),
+);
 
 export default defineConfig({
   define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(version) },
@@ -20,6 +25,11 @@ export default defineConfig({
     {
       name: 'project-license',
       generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'licenses/sheetjs-Apache-2.0.txt',
+          source: readFileSync(resolve(dirname(frontendDependencies.resolve('xlsx')), 'LICENSE')),
+        });
         this.emitFile({
           type: 'asset',
           fileName: 'LICENSE',

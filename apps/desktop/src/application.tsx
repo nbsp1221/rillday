@@ -1,6 +1,7 @@
 import type { Root } from 'react-dom/client';
 import { type HostLifecycleProps, RilldayApplication } from '@repo/frontend';
 import { createApplication } from '@repo/frontend/application';
+import { createHabitImportReader } from '@repo/frontend/importing';
 import { createFetchServerTransport } from '@repo/frontend/network/http';
 import { createIndexedDbStorage, withWorkspaceLock } from '@repo/frontend/storage/indexeddb';
 import { StrictMode } from 'react';
@@ -25,6 +26,7 @@ export function mountApplication(root: Root) {
   root.render(
     <StrictMode>
       <RilldayApplication
+        habitImportReader={demo ? undefined : createHabitImportReader()}
         application={application}
         runtime="desktop"
         version={import.meta.env.VITE_APP_VERSION}
