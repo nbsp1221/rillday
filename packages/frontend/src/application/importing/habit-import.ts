@@ -168,14 +168,15 @@ function build(
       if (!habit) {
         throw new Error('import_target_mismatch');
       }
-      const accepted: HistoricalCheckIn[] = [];
+      const accepted: { snapshot: HistoricalCheckIn; baseVersion: string }[] = [];
       for (const record of group.records) {
         const rule = currentRule(habit, record.date);
         if (rule.kind !== choice.kind || rule.unit !== record.unit) {
           throw new Error('import_target_mismatch');
         }
         const id = checkInId(targetId, record.date);
-        versions.push(repository.version({ collection: 'checkIns', id }));
+        const baseVersion = repository.version({ collection: 'checkIns', id });
+        versions.push(baseVersion);
         const previous = current.workspace.checkIns[id];
         const existing: HistoricalCheckIn | undefined = previous
           ? {
@@ -203,7 +204,7 @@ function build(
           ...(existing ? { existing } : {}),
         });
         if (action === 'add' || action === 'replace') {
-          accepted.push(record);
+          accepted.push({ snapshot: record, baseVersion });
         }
       }
       importCheckIns(workspace, targetId, accepted, context);

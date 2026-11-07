@@ -89,6 +89,31 @@ test('habit import reviews without writes, preserves unrelated edits and saves r
   }
 });
 
+test('same-file reimport after deletion persists the reviewed amount without old increments', async () => {
+  const { session, store } = await fixture();
+  try {
+    await session.habitImports.apply(session.habitImports.review(importDraft, importChoices));
+    const habit = session.getSnapshot().data.habits[0];
+    assert(habit);
+    session.changeHabitCheckin(habit.id, '2024-02-29', { type: 'step', direction: 'increase' });
+    expect(session.getSnapshot().data.habitLogs[0]?.value).toBe(16);
+    session.apply({ type: 'habit.remove', id: habit.id });
+    await session.flush();
+    expect(session.getSnapshot().data.habitLogs).toEqual([]);
+    const reviewed = session.habitImports.review(importDraft, importChoices);
+    expect(reviewed.days[0]).toMatchObject({ action: 'add', incoming: { value: 15 } });
+    await session.habitImports.apply(reviewed);
+    expect(session.getSnapshot().data.habitLogs[0]?.value).toBe(15);
+    const saved = Automerge.load<WorkspaceDocument>(Automerge.save(store.handle.fullDoc()));
+    expect(Object.values(readWorkspace(saved).checkIns)[0]?.recordedAt).toEqual({
+      kind: 'time',
+      value: '21:30',
+    });
+  } finally {
+    await session.close();
+  }
+});
+
 test('habit import refuses stale targets and foreign workspaces and makes replacement explicit', async () => {
   const first = await fixture();
   const second = await fixture();

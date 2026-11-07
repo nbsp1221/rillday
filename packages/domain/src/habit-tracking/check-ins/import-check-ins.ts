@@ -27,12 +27,12 @@ export function historicalCheckInIdentity(log: HistoricalCheckIn): string {
 export function importCheckIns(
   workspace: Workspace,
   habitId: string,
-  history: readonly HistoricalCheckIn[],
+  history: readonly { snapshot: HistoricalCheckIn; baseVersion: string }[],
   context: DomainContext,
 ) {
   const habit = requireHabit(workspace, habitId);
   const seen = new Set<string>();
-  const accepted = history.map((snapshot) => {
+  const accepted = history.map(({ snapshot, baseVersion }) => {
     const rule = currentRule(habit, snapshot.date);
     const log = habitLogSchema.parse({ ...snapshot, habitId, ruleFrom: rule.from });
     if (
@@ -50,7 +50,11 @@ export function importCheckIns(
     }
     seen.add(log.date);
     const id = checkInId(habitId, log.date);
-    const generation = uuidV5(id + ':' + historicalCheckInIdentity(snapshot), uuidV5.URL);
+    // Identical imports share a generation only when based on the same record revision.
+    const generation = uuidV5(
+      canonical([id, baseVersion, historicalCheckInIdentity(snapshot)]),
+      uuidV5.URL,
+    );
     const { value, ...fields } = log;
     return { ...fields, id, quantity: recordQuantity(value, generation) };
   });

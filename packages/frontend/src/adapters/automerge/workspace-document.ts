@@ -118,7 +118,44 @@ function writeQuantity(
   }
 }
 
+function clearRevivedRecords(doc: WorkspaceDocument, before: Workspace, after: Workspace) {
+  const revived = new Set<string>();
+  for (const collection of collections) {
+    const previous = records(before, collection);
+    for (const id of Object.keys(records(after, collection))) {
+      if (previous[id]) {
+        continue;
+      }
+      const presence = key(collection, id, '$presence');
+      if (Object.hasOwn(doc.fields, presence)) {
+        revived.add(presence);
+      }
+    }
+  }
+  if (!revived.size) {
+    return;
+  }
+  // Tombstones retain data for conflict review. An explicit recreation starts from its new snapshot.
+  for (const fieldKey of Object.keys(doc.fields)) {
+    const [collection, id, field] = addressSchema.parse(JSON.parse(fieldKey));
+    if (
+      field !== '$presence' &&
+      field !== '$revision' &&
+      revived.has(key(collection, id, '$presence'))
+    ) {
+      delete doc.fields[fieldKey];
+    }
+  }
+  for (const [id, value] of Object.entries(doc.quantities)) {
+    const { checkInId } = quantityEntrySchema.parse(decode(value));
+    if (revived.has(key('checkIns', checkInId, '$presence'))) {
+      delete doc.quantities[id];
+    }
+  }
+}
+
 export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after: Workspace) {
+  clearRevivedRecords(doc, before, after);
   if (Object.values(after.checkIns).some((log) => log.recordedAt)) {
     doc.format = 2;
   }

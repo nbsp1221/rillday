@@ -54,7 +54,8 @@ const record = {
 
 test('history preserves snapshots and time-only precision without manufacturing a timestamp', () => {
   const { workspace, id } = fixture();
-  importCheckIns(workspace, id, [record], context);
+  const history = [{ snapshot: record, baseVersion: 'initial' }];
+  importCheckIns(workspace, id, history, context);
   const log = workspace.checkIns[checkInId(id, record.date)];
   expect.assert(log !== undefined);
   expect(log).toMatchObject({
@@ -65,7 +66,7 @@ test('history preserves snapshots and time-only precision without manufacturing 
   });
   expect(quantityValue(log.quantity)).toBe(15);
   const before = structuredClone(log);
-  importCheckIns(workspace, id, [record], context);
+  importCheckIns(workspace, id, history, context);
   expect(workspace.checkIns[checkInId(id, record.date)]).toEqual(before);
 });
 
@@ -77,7 +78,8 @@ test('history rejects duplicate, future, pre-start and rounded amounts before mo
     [{ ...record, date: '2023-01-01' }],
     [{ ...record, value: 0.0000001 }],
   ]) {
-    expect(() => importCheckIns(workspace, id, records, context)).toThrow();
+    const history = records.map((snapshot) => ({ snapshot, baseVersion: 'initial' }));
+    expect(() => importCheckIns(workspace, id, history, context)).toThrow();
     expect(workspace.checkIns).toEqual({});
   }
 });
