@@ -5,6 +5,7 @@ import { type Page, type TestInfo, expect } from '@playwright/test';
 import { createServer } from '@repo/server/runtime';
 import { createServerFixture, password } from '@repo/test-support';
 import { z } from 'zod';
+import { verifyNativeHabitImport } from './habit-import';
 
 declare global {
   interface Window {
@@ -63,6 +64,7 @@ export async function nativeSyncFixture(
       });
       await page.reload();
       await expect(page.locator('.rail-sync')).toHaveAttribute('data-sync-state', 'synced');
+      await verifyNativeHabitImport(page, info);
       await page.getByLabel('Settings and backup', { exact: true }).click();
       await page.getByRole('button', { name: 'Sync', exact: true }).click();
       await page.getByRole('button', { name: 'Disconnect server', exact: true }).click();

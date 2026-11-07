@@ -1,6 +1,7 @@
 import * as Automerge from '@automerge/automerge';
 import {
   type Workspace,
+  checkInId,
   completeTask,
   createHabit,
   createLabel,
@@ -8,6 +9,7 @@ import {
   createWorkspace,
   editLabel,
   editTask,
+  importCheckIns,
   incrementCheckIn,
   inspectWorkspace,
   purgeTask,
@@ -295,6 +297,60 @@ function quantityFixture(value?: number) {
   });
   return { initial, habitId };
 }
+
+test('offline repeated imports merge once, preserve recording time and surface different corrections', () => {
+  const { initial, habitId } = quantityFixture();
+  const record = {
+    date: '2026-10-23',
+    value: 2,
+    goal: 8,
+    unit: 'cups',
+    skipped: false,
+    note: '',
+    recordedAt: { kind: 'time' as const, value: '08:30' },
+  };
+  const left = change(Automerge.clone(initial), (workspace) =>
+    importCheckIns(workspace, habitId, [record], context),
+  );
+  const right = change(Automerge.clone(initial), (workspace) =>
+    importCheckIns(workspace, habitId, [record], context),
+  );
+  const combined = Automerge.merge(left, right);
+  const id = checkInId(habitId, record.date);
+  const log = readWorkspace(combined).checkIns[id];
+  expect.assert(log !== undefined);
+  expect(quantityValue(log.quantity)).toBe(2);
+  expect(log.recordedAt).toEqual(record.recordedAt);
+  expect(documentConflicts(combined)).toEqual([]);
+  expect(combined.format).toBe(2);
+  const different = change(Automerge.clone(initial), (workspace) =>
+    importCheckIns(
+      workspace,
+      habitId,
+      [{ ...record, value: 3, recordedAt: { kind: 'time', value: '09:30' } }],
+      context,
+    ),
+  );
+  const conflict = Automerge.merge(combined, different);
+  expect(documentConflicts(conflict).some((entry) => entry.field === '$quantity')).toBe(true);
+  expect(documentConflicts(conflict).some((entry) => entry.field === 'recordedAt')).toBe(true);
+});
+
+test('existing records with unknown times remain readable in format1 and newer markers fail closed', () => {
+  const { initial, habitId } = quantityFixture(1);
+  const historical = change(initial, (workspace) => {
+    delete workspace.checkIns[checkInId(habitId, '2026-10-23')]?.recordedAt;
+  });
+  const old = Automerge.change(historical, (draft) => {
+    draft.format = 1;
+  });
+  expect(readWorkspace(old).checkIns[checkInId(habitId, '2026-10-23')]?.recordedAt).toBeUndefined();
+  const future = Automerge.change(Automerge.clone(old), (draft) => {
+    draft.format = 99;
+  });
+  expect(() => readWorkspace(future)).toThrow();
+  expect(readWorkspace(old).checkIns[checkInId(habitId, '2026-10-23')]).toBeDefined();
+});
 
 test('quantity entries merge through native map operations and unseen corrections await explicit review', () => {
   const { initial, habitId } = quantityFixture();

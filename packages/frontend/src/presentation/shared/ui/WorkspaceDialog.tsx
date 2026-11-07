@@ -1,4 +1,4 @@
-import type { ComponentProps, FormEventHandler, ReactNode } from 'react';
+import type { ComponentProps, FormEventHandler, ReactNode, Ref } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { Form } from '@base-ui/react/form';
 import { Button } from '@repo/ui/components/button';
@@ -27,6 +27,8 @@ export function WorkspaceDialog({
   finalFocus,
   onSubmit,
   className,
+  closeDisabled = false,
+  bodyRef,
 }: {
   title: string;
   description?: string;
@@ -38,6 +40,8 @@ export function WorkspaceDialog({
   finalFocus?: ComponentProps<typeof DialogPrimitive.Popup>['finalFocus'];
   onSubmit?: FormEventHandler<HTMLFormElement>;
   className?: string;
+  closeDisabled?: boolean;
+  bodyRef?: Ref<HTMLDivElement>;
 }) {
   const { t } = useI18n();
   const content = (
@@ -47,7 +51,10 @@ export function WorkspaceDialog({
           {title}
         </DialogTitle>
       </DialogHeader>
-      <div className="modal-body flex min-h-0 flex-col gap-(--layout-form-gap) overflow-auto overscroll-contain p-(--overlay-inset)">
+      <div
+        ref={bodyRef}
+        className="modal-body flex min-h-0 flex-col gap-(--layout-form-gap) overflow-auto overscroll-contain p-(--overlay-inset)"
+      >
         {description && <DialogDescription>{description}</DialogDescription>}
         {children}
       </div>
@@ -57,6 +64,7 @@ export function WorkspaceDialog({
         </DialogFooter>
       )}
       <DialogClose
+        disabled={closeDisabled}
         render={<Button variant="ghost" size="icon-sm" />}
         className="modal-close absolute top-5 right-5"
         aria-label={t('common.close')}

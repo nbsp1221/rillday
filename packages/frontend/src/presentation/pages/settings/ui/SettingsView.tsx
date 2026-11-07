@@ -25,11 +25,13 @@ import { type ReactNode, useId } from 'react';
 import type {
   ConnectionPort,
   DataDirectoryPort,
+  HabitImportReader,
   WorkspacePort,
   WorkspaceProfile,
 } from '#application';
 import type { HostRuntime } from '#shared/lib/host-runtime';
 import { useAppPreferences } from '#entities/preferences';
+import { ImportHabits } from '#features/import-habits';
 import { useI18n } from '#shared/i18n';
 import { WorkspaceChoice, type WorkspaceChoiceProps } from '#shared/ui/WorkspaceChoice';
 import { WorkspaceHeader } from '../../../shared/ui/WorkspaceHeader';
@@ -90,6 +92,7 @@ function SettingsChoice<T extends string | number>({
 }
 
 interface SettingsViewProps {
+  habitImportReader?: HabitImportReader;
   section: string;
   setSection: (value: string) => void;
   connection: ConnectionPort;
@@ -316,6 +319,8 @@ function CalendarSettings() {
 }
 
 function DataSettings({
+  habitImportReader,
+  workspace,
   account,
   profileName,
   renameProfile,
@@ -324,7 +329,14 @@ function DataSettings({
   dataDirectory,
 }: Pick<
   SettingsViewProps,
-  'account' | 'profileName' | 'renameProfile' | 'exportData' | 'importData' | 'dataDirectory'
+  | 'account'
+  | 'profileName'
+  | 'renameProfile'
+  | 'exportData'
+  | 'importData'
+  | 'dataDirectory'
+  | 'workspace'
+  | 'habitImportReader'
 >) {
   const { t } = useI18n();
 
@@ -351,6 +363,17 @@ function DataSettings({
         </SettingsRow>
       )}
       {dataDirectory && <DataDirectorySettings directory={dataDirectory} />}
+      {habitImportReader && (
+        <SettingsRow label={t('habitImport.title')} description={t('habitImport.description')}>
+          <ImportHabits
+            reader={habitImportReader}
+            workspace={workspace}
+            destination={
+              account.server ? `${account.server.email} · ${account.server.url}` : profileName
+            }
+          />
+        </SettingsRow>
+      )}
       <div className="settings-card p-(--layout-card-inset) rounded-lg bg-surface-inset [&_>_h3]:[margin:0_0_8px] [&_>_h3]:text-base [&_>_h3]:font-medium [&_>_h3]:leading-(--text-base--line-height) [&_>_p:not(.settings-description)]:m-0 [&_>_p:not(.settings-description)]:text-sm [&_>_p:not(.settings-description)]:leading-(--text-sm--line-height) [.settings-card_+_&]:mt-(--layout-section-gap) [.settings-row_+_&]:mt-(--layout-section-gap) [.sync-settings_&]:m-0">
         <h3>{t('backup.title')}</h3>
         <p className="settings-description [margin:4px_0_0] text-xs leading-(--text-xs--line-height) text-muted-foreground">
@@ -420,6 +443,7 @@ function AboutSettings({ runtime, version }: Pick<SettingsViewProps, 'runtime' |
 }
 
 export function SettingsView({
+  habitImportReader,
   section,
   setSection,
   connection,
@@ -553,6 +577,8 @@ export function SettingsView({
           {section === 'calendar' && <CalendarSettings />}
           {section === 'data' && (
             <DataSettings
+              workspace={workspace}
+              habitImportReader={habitImportReader}
               account={account}
               profileName={profileName}
               renameProfile={renameProfile}

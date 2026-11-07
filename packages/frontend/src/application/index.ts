@@ -14,3 +14,13 @@ export { applyWorkspaceIntent } from './workspace/apply-intent.ts';
 export { presentWorkspace } from './workspace/present-workspace.ts';
 export type { ServerTransport } from './server-transport.ts';
 export { ServerRequestError } from './server-transport.ts';
+export type { RecordingTime } from '@repo/domain';
+export { HabitImportPendingSave } from './importing/habit-import.ts';
+export type {
+  HabitImportReader,
+  HabitImportDraft,
+  HabitImportGroup,
+  HabitImportChoice,
+  HabitImportReview,
+  HabitImportPort,
+} from './importing/habit-import.ts';

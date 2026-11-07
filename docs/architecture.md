@@ -4,6 +4,8 @@ Web and Windows share product rules, a local application and a React interface. 
 
 ## Responsibilities
 
+Habit file readers implement an application-owned import port. Web and desktop inject the same worker-backed CSV/XLSX adapter at their entry points. Import review and batch application share the existing domain and repository; the server receives ordinary document changes, not source files. Native workspace restoration remains separate from additive foreign imports.
+
 - `apps/web`: browser composition, cookie sessions, PWA lifecycle and a Vite build.
 - `apps/desktop`: Tauri composition, its own renderer build, Windows credentials and application-close integration.
 - `apps/server`: optional authentication, account isolation, opaque document replication, SQLite persistence and maintenance. It does not execute task or habit actions.

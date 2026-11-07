@@ -3,7 +3,8 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import canonicalize from 'canonicalize';
 import { Fault } from './fault.ts';
 
-export const hash = (text: string) => bytesToHex(sha256(new TextEncoder().encode(text)));
+export const hash = (text: string | Uint8Array) =>
+  bytesToHex(sha256(typeof text === 'string' ? new TextEncoder().encode(text) : text));
 
 export function canonical(value: object): string;
 export function canonical(value: unknown): string | undefined;

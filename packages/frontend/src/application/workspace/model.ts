@@ -3,6 +3,7 @@ import {
   type HabitTimeOfDay,
   type Priority,
   type QuadrantKey,
+  type RecordingTime,
   createWorkspace,
 } from '@repo/domain';
 import { createDomainContext, deviceZone } from '../context.ts';
@@ -70,6 +71,7 @@ export interface Habit {
 }
 
 export interface HabitLog {
+  recordedAt?: RecordingTime;
   habitId: string;
   date: string;
   value: number;

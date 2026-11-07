@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import * as Automerge from '@automerge/automerge';
 import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-indexeddb';
-import { createWorkspace } from '@repo/domain';
+import { createHabit, createWorkspace } from '@repo/domain';
 import { expect, onTestFinished, test, vi } from 'vitest';
 import { DurableRepo } from '../adapters/automerge/durable-repo.ts';
 import {
@@ -12,11 +12,250 @@ import {
   writeWorkspace,
 } from '../adapters/automerge/workspace-document.ts';
 import { AutomergeWorkspaceRepository } from '../adapters/automerge/workspace-repository.ts';
+import type { HabitImportChoice, HabitImportDraft } from './importing/habit-import.ts';
+import { HabitImportPendingSave } from './importing/habit-import.ts';
 import { WorkspaceSession } from './workspace-session.ts';
 import { createHabitDraft } from './workspace/habits.ts';
 import { createTaskRecord } from './workspace/tasks.ts';
 
+const importDraft: HabitImportDraft = {
+  fingerprint: 'synthetic-export',
+  groups: [
+    {
+      key: 'reading',
+      name: 'Read a book',
+      kind: 'quantity',
+      goal: 20,
+      unit: 'min',
+      records: [
+        {
+          date: '2024-02-29',
+          value: 15,
+          goal: 20,
+          unit: 'min',
+          skipped: false,
+          note: 'Historical note',
+          recordedAt: { kind: 'time', value: '21:30' },
+        },
+      ],
+      errors: [],
+      warnings: [],
+    },
+  ],
+};
+const importChoices: HabitImportChoice[] = [
+  {
+    key: 'reading',
+    targetId: null,
+    kind: 'quantity',
+    frequency: 'daily',
+    weeklyTarget: 3,
+    confirmed: true,
+    replaceDates: [],
+  },
+];
+
 const context = { now: () => '2026-10-23T10:00:00.000Z', newId: () => crypto.randomUUID() };
+
+test('habit import reviews without writes, preserves unrelated edits and saves repeated imports once', async () => {
+  const { session, store } = await fixture();
+  try {
+    const reviewed = session.habitImports.review(importDraft, importChoices);
+    expect(session.getSnapshot().data.habits).toEqual([]);
+    const task = createTaskRecord('Keep this task', session.getSnapshot().data);
+    assert(task);
+    session.apply({ type: 'task.create', tasks: [task] });
+    await session.habitImports.apply(reviewed);
+    expect(session.getSnapshot().saveState).toBe('saved');
+    expect(session.getSnapshot().data.tasks[0]?.title).toBe('Keep this task');
+    expect(session.getSnapshot().data.habitLogs[0]).toMatchObject({
+      value: 15,
+      recordedAt: { kind: 'time', value: '21:30' },
+    });
+    expect(store.handle.fullDoc().format).toBe(2);
+    const anotherTask = createTaskRecord('Undo after import', session.getSnapshot().data);
+    assert(anotherTask);
+    session.apply({ type: 'task.create', tasks: [anotherTask] });
+    await session.flush();
+    expect(session.getSnapshot().canUndo).toBe(true);
+    const duplicate = session.habitImports.review(importDraft, importChoices);
+    expect(duplicate.days[0]?.action).toBe('duplicate');
+    await session.habitImports.apply(duplicate);
+    expect(session.getSnapshot().canUndo).toBe(true);
+    expect(session.getSnapshot().data.habits).toHaveLength(1);
+    expect(session.getSnapshot().data.habitLogs).toHaveLength(1);
+  } finally {
+    await session.close();
+  }
+});
+
+test('habit import refuses stale targets and foreign workspaces and makes replacement explicit', async () => {
+  const first = await fixture();
+  const second = await fixture();
+  try {
+    const plan = first.session.habitImports.review(importDraft, importChoices);
+    await expect(second.session.habitImports.apply(plan)).rejects.toThrow('workspace_transition');
+    await first.session.habitImports.apply(plan);
+    const changedDraft = structuredClone(importDraft);
+    const record = changedDraft.groups[0]?.records[0];
+    assert(record);
+    record.value = 30;
+    const kept = first.session.habitImports.review(changedDraft, importChoices);
+    expect(kept.days[0]?.action).toBe('keep');
+    await first.session.habitImports.apply(kept);
+    expect(first.session.getSnapshot().data.habitLogs[0]?.value).toBe(15);
+    const choice = importChoices[0];
+    assert(choice);
+    const replace = first.session.habitImports.review(changedDraft, [
+      { ...choice, replaceDates: ['2024-02-29'] },
+    ]);
+    const habit = first.session.getSnapshot().data.habits[0];
+    assert(habit);
+    first.session.setHabitLog(habit.id, '2024-02-29', { note: 'New local edit' });
+    await expect(first.session.habitImports.apply(replace)).rejects.toThrow(
+      'import_review_changed',
+    );
+    expect(first.session.getSnapshot().data.habitLogs[0]?.note).toBe('New local edit');
+  } finally {
+    await Promise.all([first.session.close(), second.session.close()]);
+  }
+});
+
+test('habit import reports durable failure and uses existing retry without reimporting', async () => {
+  const { session, disk } = await fixture();
+  const saving = vi.spyOn(disk, 'save');
+  try {
+    const task = createTaskRecord('Existing undo history', session.getSnapshot().data);
+    assert(task);
+    session.apply({ type: 'task.create', tasks: [task] });
+    await session.flush();
+    expect(session.getSnapshot().canUndo).toBe(true);
+    const plan = session.habitImports.review(importDraft, importChoices);
+    saving.mockRejectedValue(new DOMException('Full', 'QuotaExceededError'));
+    const pending = session.habitImports.apply(plan);
+    expect(() => session.habitImports.suggestTarget(importDraft, 'reading')).not.toThrow();
+    await expect(session.habitImports.apply(plan)).rejects.toThrow('workspace_transition');
+    await expect(pending).rejects.toThrow();
+    expect(session.getSnapshot().saveState).toBe('error');
+    expect(session.getSnapshot().canUndo).toBe(false);
+    expect(session.getSnapshot().data.habitLogs).toHaveLength(1);
+    saving.mockRestore();
+    await session.retrySave();
+    expect(session.getSnapshot().saveState).toBe('saved');
+    expect(session.habitImports.review(importDraft, importChoices).days[0]?.action).toBe(
+      'duplicate',
+    );
+  } finally {
+    saving.mockRestore();
+    await session.close();
+  }
+});
+
+test('existing import targets use the rule effective on each historical day, not their first rule', async () => {
+  const { session, store } = await fixture();
+  try {
+    const id = context.newId();
+    const before = readWorkspace(store.handle.fullDoc());
+    const next = structuredClone(before);
+    const rule = {
+      from: '2023-01-01',
+      kind: 'quantity' as const,
+      goal: 20,
+      unit: 'pages',
+      step: 1,
+      frequency: 'daily' as const,
+      weekdays: [],
+      weeklyTarget: 3,
+      intervalDays: 1,
+    };
+    createHabit(
+      next,
+      id,
+      {
+        name: 'Read',
+        color: '#123456',
+        icon: 'circle',
+        archived: false,
+        startDate: rule.from,
+        zone: 'UTC',
+        rank: 'a0',
+        reminderTime: null,
+        rules: [rule, { ...rule, from: '2024-01-01', unit: 'min' }],
+      },
+      context,
+    );
+    await store.change((document) => writeWorkspace(document, before, next));
+    const choice = importChoices[0];
+    assert(choice);
+    const review = session.habitImports.review(importDraft, [{ ...choice, targetId: id }]);
+    await session.habitImports.apply(review);
+    expect(session.getSnapshot().data.habitLogs[0]).toMatchObject({
+      habitId: id,
+      unit: 'min',
+      value: 15,
+    });
+    const mismatch = structuredClone(importDraft);
+    const record = mismatch.groups[0]?.records[0];
+    assert(record);
+    record.date = '2023-02-28';
+    expect(() => session.habitImports.review(mismatch, [{ ...choice, targetId: id }])).toThrow(
+      'import_target_mismatch',
+    );
+  } finally {
+    await session.close();
+  }
+});
+
+test('a prior failed save cannot be mistaken for an accepted import', async () => {
+  const { session, disk } = await fixture();
+  const saving = vi.spyOn(disk, 'save');
+  try {
+    saving.mockRejectedValue(new DOMException('Full', 'QuotaExceededError'));
+    const task = createTaskRecord('Unsent existing task', session.getSnapshot().data);
+    assert(task);
+    session.apply({ type: 'task.create', tasks: [task] });
+    await expect(session.flush()).rejects.toThrow();
+    const review = session.habitImports.review(importDraft, importChoices);
+    await expect(session.habitImports.apply(review)).rejects.not.toBeInstanceOf(
+      HabitImportPendingSave,
+    );
+    expect(session.getSnapshot().data.habits).toEqual([]);
+    expect(session.getSnapshot().data.tasks).toHaveLength(1);
+    saving.mockRestore();
+    await session.retrySave();
+    expect(session.getSnapshot().data.habits).toEqual([]);
+  } finally {
+    saving.mockRestore();
+    await session.close();
+  }
+});
+
+test('same-file recognition survives a new document container while accounts remain isolated', async () => {
+  const first = await fixture();
+  const second = await fixture();
+  try {
+    await first.session.habitImports.apply(
+      first.session.habitImports.review(importDraft, importChoices),
+    );
+    const copied = readWorkspace(first.store.handle.fullDoc());
+    const before = readWorkspace(second.store.handle.fullDoc());
+    await second.store.change((document) => writeWorkspace(document, before, copied));
+    expect(second.session.habitImports.suggestTarget(importDraft, 'reading')).toBe(
+      first.session.getSnapshot().data.habits[0]?.id,
+    );
+    const reviewed = second.session.habitImports.review(importDraft, importChoices);
+    expect(reviewed.habits).toBe(0);
+    expect(reviewed.days[0]?.action).toBe('duplicate');
+    const habit = second.session.getSnapshot().data.habits[0];
+    assert(habit);
+    second.session.setHabitLog(habit.id, '2024-02-29', { value: 30 });
+    await second.session.flush();
+    expect(first.session.getSnapshot().data.habitLogs[0]?.value).toBe(15);
+    expect(second.session.getSnapshot().data.habitLogs[0]?.value).toBe(30);
+  } finally {
+    await Promise.all([first.session.close(), second.session.close()]);
+  }
+});
 
 async function fixture() {
   const disk = new IndexedDBStorageAdapter('session-' + crypto.randomUUID());

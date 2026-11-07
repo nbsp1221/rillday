@@ -119,6 +119,9 @@ function writeQuantity(
 }
 
 export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after: Workspace) {
+  if (Object.values(after.checkIns).some((log) => log.recordedAt)) {
+    doc.format = 2;
+  }
   for (const collection of collections) {
     const previous = records(before, collection);
     const current = records(after, collection);
@@ -143,6 +146,18 @@ export function writeWorkspace(doc: WorkspaceDocument, before: Workspace, after:
       doc.fields[key(collection, id, '$revision')] = encode(revision);
       if (!record) {
         continue;
+      }
+      // Omitted optional fields are deletions, not permission to retain stale metadata.
+      for (const [field] of entries(old ?? {})) {
+        if (
+          !Object.hasOwn(record, field) &&
+          field !== 'id' &&
+          field !== 'quantity' &&
+          field !== 'rules' &&
+          field !== 'startDate'
+        ) {
+          delete doc.fields[key(collection, id, field)];
+        }
       }
       for (const [field, value] of entries(record)) {
         if (
@@ -194,7 +209,7 @@ function cellValue(doc: Automerge.Doc<WorkspaceDocument>, fieldKey: string, fiel
 }
 
 export function readWorkspace(doc: Automerge.Doc<WorkspaceDocument>): Workspace {
-  if (doc.format !== 1) {
+  if (doc.format !== 1 && doc.format !== 2) {
     throw new Error('invalid_workspace');
   }
   const result: Record<WorkspaceCollection, Record<string, unknown>> = {
