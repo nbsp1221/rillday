@@ -1,6 +1,6 @@
 import { Button } from '@repo/ui/components/button';
 import { type ComponentType, type ReactNode, useMemo, useSyncExternalStore } from 'react';
-import type { Application, DataDirectoryPort } from '#application';
+import type { Application, DataDirectoryPort, HabitImportReader } from '#application';
 import type { HostRuntime } from '#shared/lib/host-runtime';
 import { PreferencesProvider } from '../../entities/preferences';
 import { createTranslations } from '../../shared/i18n';
@@ -15,6 +15,7 @@ function ConnectedApp({
   navigationFooter,
   dataDirectory,
   suggestedServerUrl,
+  habitImportReader,
 }: {
   application: Application;
   runtime: HostRuntime;
@@ -22,6 +23,7 @@ function ConnectedApp({
   navigationFooter?: ReactNode;
   dataDirectory?: DataDirectoryPort;
   suggestedServerUrl?: string;
+  habitImportReader?: HabitImportReader;
 }) {
   const state = useSyncExternalStore(application.subscribe, application.getSnapshot);
   return (
@@ -37,6 +39,7 @@ function ConnectedApp({
       navigationFooter={navigationFooter}
       dataDirectory={dataDirectory}
       suggestedServerUrl={suggestedServerUrl}
+      habitImportReader={habitImportReader}
       renameAccount={application.renameAccount}
     />
   );
@@ -56,6 +59,7 @@ export function RilldayApplication({
   navigationFooter,
   dataDirectory,
   suggestedServerUrl,
+  habitImportReader,
 }: {
   runtime: HostRuntime;
   version: string;
@@ -65,6 +69,7 @@ export function RilldayApplication({
   navigationFooter?: ReactNode;
   dataDirectory?: DataDirectoryPort;
   suggestedServerUrl?: string;
+  habitImportReader?: HabitImportReader;
 }) {
   const { ready, error, language, reportError, persistPreferences } =
     useApplicationStartup(application);
@@ -113,6 +118,7 @@ export function RilldayApplication({
           navigationFooter={navigationFooter}
           dataDirectory={dataDirectory}
           suggestedServerUrl={suggestedServerUrl}
+          habitImportReader={habitImportReader}
         />
         {children?.(ready.application)}
       </PreferencesProvider>

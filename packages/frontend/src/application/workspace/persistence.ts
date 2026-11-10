@@ -1,3 +1,4 @@
+import type { HabitImportPort } from '../importing/habit-import.ts';
 import type { WorkspaceIntent } from '../workspace-intents.ts';
 import type { HabitCheckinAction } from './habits.ts';
 import type { Habit, HabitLog, Priority, RepeatRule, WorkspaceData } from './model.ts';
@@ -45,6 +46,7 @@ export interface WorkspaceSnapshot {
 }
 
 export interface WorkspacePort {
+  readonly habitImports: HabitImportPort;
   getSnapshot: () => WorkspaceSnapshot;
   subscribe: (listener: () => void) => () => void;
   apply: (intents: WorkspaceIntent | WorkspaceIntent[], mergeKey?: string) => void;

@@ -56,6 +56,8 @@ When local work already exists, review it before adding it to the account or ope
 
 Export local data from **Settings → Data and backups**. Clearing browser site data can remove local work, and changing the website's scheme, hostname or port selects separate browser storage. Synchronization propagates deletions and does not replace a backup. See [server backup and restore](docs/self-hosting.md#back-up-and-restore).
 
+To bring existing check-ins into Rillday, see [Import habit history](docs/importing.md).
+
 ## Development and contributing
 
 See [development and testing](docs/development.md), [architecture](docs/architecture.md) and [UI conventions](docs/ui.md). Use [GitHub Issues](https://github.com/nbsp1221/rillday/issues) for bug reports and feature requests.

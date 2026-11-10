@@ -59,6 +59,7 @@ export function recordCheckIn(
     goal: rule.goal,
     unit: rule.unit,
     ruleFrom: rule.from,
+    recordedAt: { kind: 'instant' as const, value: context.now() },
   };
   const previousValue = quantityValue(previousQuantity);
   const parsed = habitLogSchema.safeParse({ ...data, value: previousValue, ...patch.data });

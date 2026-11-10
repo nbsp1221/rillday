@@ -4,6 +4,7 @@ import {
   completeTask,
   duplicateTask,
   editLabel,
+  historicalHabitId,
   incrementCheckIn,
   purgeTask,
   recordCheckIn,
@@ -19,6 +20,12 @@ import type { WorkspaceIntent } from './workspace-intents.ts';
 import type { HabitLog, WorkspacePort, WorkspaceSnapshot } from './workspace/index.ts';
 import type { WorkspaceRepository } from './workspace/repository.ts';
 import { createDomainContext, deviceZone } from './context.ts';
+import {
+  HabitImportPendingSave,
+  type HabitImportPort,
+  acceptHabitImport,
+  reviewHabitImport,
+} from './importing/habit-import.ts';
 import { WorkspaceHistory } from './workspace-history.ts';
 import { applyWorkspaceIntent } from './workspace/apply-intent.ts';
 import { workspaceDecisions } from './workspace/conflicts.ts';
@@ -52,6 +59,38 @@ export interface WorkspaceSessionOptions {
 }
 
 export class WorkspaceSession implements WorkspacePort {
+  readonly habitImports: HabitImportPort = {
+    suggestTarget: (draft, key) => {
+      const id = historicalHabitId(draft.fingerprint, key);
+      return this.repository.getSnapshot().workspace.habits[id] ? id : null;
+    },
+    review: (draft, choices) => {
+      this.requireActive();
+      return reviewHabitImport(this.repository, draft, choices, this.context, this.zone);
+    },
+    apply: async (review) => {
+      const resume = this.pause();
+      try {
+        await this.repository.flush();
+        if (this.closed) {
+          throw new Error('workspace_closed');
+        }
+        const next = acceptHabitImport(this.repository, review, this.context, this.zone);
+        if (next !== this.repository.getSnapshot().workspace) {
+          const persisted = this.repository.commit(next);
+          this.history.clear();
+          try {
+            await persisted;
+          } catch (cause) {
+            throw new HabitImportPendingSave(cause);
+          }
+        }
+      } finally {
+        resume();
+        this.publish();
+      }
+    },
+  };
   private state: WorkspaceSnapshot;
   private readonly repository: WorkspaceRepository;
   private readonly options: WorkspaceSessionOptions;

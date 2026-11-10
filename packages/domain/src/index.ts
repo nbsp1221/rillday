@@ -72,3 +72,14 @@ export {
 export { includeWorkspace } from './workspace/include-workspace.ts';
 
 export { habitCheckInAmountSchema } from './habit-tracking/check-ins/check-in.ts';
+export {
+  recordingTimeSchema,
+  recordingTimeIdentity,
+} from './habit-tracking/check-ins/recording-time.ts';
+export type { RecordingTime } from './habit-tracking/check-ins/recording-time.ts';
+export {
+  importCheckIns,
+  historicalCheckInIdentity,
+  historicalHabitId,
+} from './habit-tracking/check-ins/import-check-ins.ts';
+export type { HistoricalCheckIn } from './habit-tracking/check-ins/import-check-ins.ts';

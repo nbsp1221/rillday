@@ -1,5 +1,6 @@
 import { RilldayApplication } from '@repo/frontend';
 import { createApplication } from '@repo/frontend/application';
+import { createHabitImportReader } from '@repo/frontend/importing';
 import { createFetchServerTransport } from '@repo/frontend/network/http';
 import {
   createBrowserCredentialSession,
@@ -26,6 +27,7 @@ const application = createApplication({
 createRoot(root).render(
   <StrictMode>
     <RilldayApplication
+      habitImportReader={demo ? undefined : createHabitImportReader()}
       application={application}
       runtime="web"
       version={import.meta.env.VITE_APP_VERSION}

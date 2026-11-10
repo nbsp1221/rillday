@@ -15,6 +15,7 @@ import invariant from 'tiny-invariant';
 import type {
   ConnectionPort,
   DataDirectoryPort,
+  HabitImportReader,
   ProductArea,
   TaskList,
   WorkspacePort,
@@ -52,6 +53,7 @@ import { useWorkspaceNotifications } from '../model/use-workspace-notifications'
 import { useWorkspaceShortcuts } from '../model/use-workspace-shortcuts';
 
 export interface RilldayAppProps {
+  habitImportReader?: HabitImportReader;
   workspace: WorkspacePort;
   connection: ConnectionPort;
   settingsRequest: number;
@@ -307,6 +309,7 @@ function WorkspaceApp(props: RilldayAppProps) {
                   version={props.version}
                   dataDirectory={props.dataDirectory}
                   suggestedServerUrl={props.suggestedServerUrl}
+                  habitImportReader={props.habitImportReader}
                 />
               ) : (
                 <WorkspaceArea

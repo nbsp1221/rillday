@@ -16,6 +16,7 @@ import {
   habitToday,
 } from '#application';
 import { useI18n } from '#shared/i18n';
+import { RecordingTimeValue } from '#shared/ui/RecordingTimeValue';
 import { WorkspaceCalendar } from '#shared/ui/WorkspaceCalendar';
 import { WorkspaceNumberField } from '#shared/ui/WorkspaceNumberField';
 import { WorkspacePopover } from '#shared/ui/WorkspacePopover';
@@ -75,6 +76,7 @@ export function HabitCheckin({
 
   return (
     <div className="habit-checkin mt-4">
+      {log && <RecordingTimeValue value={log.recordedAt} />}
       <div className="habit-checkin-date flex items-center justify-between gap-2 text-sm text-muted-foreground leading-(--text-sm--line-height)">
         <span>{t('habits.checkInDate')}</span>
         {onDateChange ? (
