@@ -1,5 +1,11 @@
 # @repo/web
 
+## 0.3.0
+
+### Minor Changes
+
+- ba522e8: Import habit history from TickTick Excel or a documented CSV template, with local preview, explicit conflict choices and recording-time preservation across devices.
+
 ## 0.2.0
 
 ### Minor Changes
