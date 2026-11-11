@@ -21,7 +21,12 @@ async function fixture({
     transport,
     storage,
     coordination: { withWorkspaceLock },
-    credentials: { restore: vi.fn().mockResolvedValue(null), remember: vi.fn(), forget: vi.fn() },
+    credentials: {
+      restore: vi.fn().mockResolvedValue(null),
+      renew: vi.fn().mockResolvedValue(null),
+      remember: vi.fn(),
+      forget: vi.fn(),
+    },
     demo,
   });
   onTestFinished(() => app.dispose());

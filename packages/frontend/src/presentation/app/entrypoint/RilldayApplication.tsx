@@ -1,5 +1,11 @@
 import { Button } from '@repo/ui/components/button';
-import { type ComponentType, type ReactNode, useMemo, useSyncExternalStore } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useSyncExternalStore,
+} from 'react';
 import type { Application, DataDirectoryPort, HabitImportReader } from '#application';
 import type { HostRuntime } from '#shared/lib/host-runtime';
 import { PreferencesProvider } from '../../entities/preferences';
@@ -26,6 +32,26 @@ function ConnectedApp({
   habitImportReader?: HabitImportReader;
 }) {
   const state = useSyncExternalStore(application.subscribe, application.getSnapshot);
+  useEffect(() => {
+    const activity = () => {
+      if (document.visibilityState === 'visible') {
+        void application.noteActivity();
+      }
+    };
+
+    const listeners = new AbortController();
+    window.addEventListener('focus', activity, { signal: listeners.signal });
+    for (const event of ['pointerdown', 'keydown', 'wheel']) {
+      window.addEventListener(event, activity, {
+        capture: true,
+        passive: true,
+        signal: listeners.signal,
+      });
+    }
+    activity();
+    return () => listeners.abort();
+  }, [application]);
+
   return (
     <RilldayApp
       key={state.resetIdentity}

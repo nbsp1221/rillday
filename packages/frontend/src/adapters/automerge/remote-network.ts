@@ -143,6 +143,7 @@ export class RemoteWorkspaceNetwork extends WebSocketClientAdapter {
     document.handle.on('change', this.publish);
     return {
       getSnapshot: snapshot,
+      requireAuthentication: () => this.fail(new Error('login_required')),
       subscribe: (listener) => {
         this.observers.add(listener);
         return () => this.observers.delete(listener);

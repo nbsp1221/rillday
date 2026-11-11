@@ -1,1 +1,1 @@
-export { createFetchServerTransport } from './server-transport.ts';
+export { createFetchServerTransport, restoreServerSession } from './server-transport.ts';

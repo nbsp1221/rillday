@@ -23,6 +23,7 @@ import {
   usersResponse,
 } from './server-responses.ts';
 import { type ServerTransport, normalizeServerUrl } from './server-transport.ts';
+import { SessionActivity } from './session-activity.ts';
 import { WorkspaceSession } from './workspace-session.ts';
 
 const binding = (profile: WorkspaceProfile) =>
@@ -71,6 +72,7 @@ export class AccountCoordinator implements AccountHostPort {
   private readonly hostListeners = new Set<() => void>();
   private readonly connectionListeners = new Set<() => void>();
   private readonly credentials = new Map<string, string>();
+  private readonly sessionActivity = new SessionActivity();
   private readonly recoveredDocuments = new Map<string, string>();
   private current: WorkspaceSession | undefined;
   private document!: OpenWorkspace;
@@ -154,6 +156,7 @@ export class AccountCoordinator implements AccountHostPort {
     settingsRequest: number,
     cleanup: (() => Promise<unknown>)[] = [],
   ) {
+    this.sessionActivity.reset();
     const previous = this.current;
     const session = this.session(document, profile);
     this.document = document;
@@ -162,14 +165,14 @@ export class AccountCoordinator implements AccountHostPort {
     this.activeBinding = binding(profile);
     const failures: unknown[] = [];
     for (const action of [
-      () => connection && this.publishConnection(connection),
+      () => this.publishConnection({ ...connection, emailHint: profile.server?.email ?? '' }),
       () => this.publishHost(settingsRequest),
       () => previous?.close(),
       ...cleanup,
       () => this.refreshBackups(),
     ]) {
       try {
-        await action();
+        await Promise.resolve(action());
       } catch (error) {
         failures.push(error);
       }
@@ -351,6 +354,7 @@ export class AccountCoordinator implements AccountHostPort {
     if (this.connection.busy) {
       throw new Error('operation_in_progress');
     }
+    this.sessionActivity.reset();
     this.publishConnection({ busy: true, error: '' });
     try {
       return await action();
@@ -733,10 +737,30 @@ export class AccountCoordinator implements AccountHostPort {
         return null;
       });
     if (token) {
+      signal?.throwIfAborted();
       this.credentials.set(profile.id, token);
     }
     return token ?? '';
   }
+
+  noteActivity = async () => {
+    if (this.stopped || !this.state || this.connection.busy || this.connection.transitioning) {
+      return;
+    }
+    const { id, server } = this.profile();
+    const workspace = this.current;
+    if (!server || !workspace || workspace.getSnapshot().syncState === 'authentication-required') {
+      return;
+    }
+    await this.sessionActivity.check(async (signal) => {
+      const token = await this.options.credentials.renew(server, signal);
+      signal.throwIfAborted();
+      if (token) {
+        this.credentials.set(id, token);
+      }
+      return Boolean(token);
+    }, workspace.requireAuthentication);
+  };
 
   private exclusive<T>(action: () => Promise<T>): Promise<T> {
     const next = this.transition.catch(() => undefined).then(action);
@@ -1013,6 +1037,7 @@ export class AccountCoordinator implements AccountHostPort {
 
   private async finishClose() {
     this.stopped = true;
+    this.sessionActivity.reset();
     this.unsubscribeRegistry?.();
     await this.transition.catch(() => undefined);
     const failures = new Set<unknown>();

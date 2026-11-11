@@ -8,6 +8,7 @@ const fixture = createServerFixture((options) => createServer({ ...options, logg
 
 for (const keep of [true, false]) {
   test(`web disconnect ${keep ? 'retains' : 'removes'} the device copy after explicit confirmation`, async ({
+    context,
     page,
   }) => {
     const server = await fixture({
@@ -47,6 +48,13 @@ for (const keep of [true, false]) {
         page.getByRole('button', { name: 'Disconnect server', exact: true }),
       ).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeEnabled();
+      await expect
+        .poll(async () =>
+          (await context.cookies(server.origin)).some((cookie) =>
+            cookie.name.endsWith('session_token'),
+          ),
+        )
+        .toBe(false);
       await page.getByRole('button', { name: 'Back', exact: true }).click();
       await expect(page.getByText(title, { exact: true })).toHaveCount(keep ? 1 : 0);
       await reloadSavedPage(page);
