@@ -12,6 +12,7 @@ export interface CredentialAccount {
 
 export interface CredentialSession {
   restore(account: CredentialAccount, signal?: AbortSignal): Promise<string | null>;
+  renew(account: CredentialAccount, signal: AbortSignal): Promise<string | null>;
   remember(account: CredentialAccount, token: string): Promise<void>;
   forget(account: CredentialAccount): Promise<void>;
 }

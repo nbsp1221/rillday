@@ -47,6 +47,7 @@ export interface WorkspaceArchive {
 export interface WorkspaceSynchronization {
   getSnapshot(): { state: WorkspaceSnapshot['syncState']; pending: number; error: string };
   subscribe(listener: () => void): () => void;
+  requireAuthentication(): void;
   sync(): Promise<void>;
   close(): Promise<void>;
 }
@@ -387,6 +388,7 @@ export class WorkspaceSession implements WorkspacePort {
 
   flush = () => this.repository.flush();
   retrySave = () => this.repository.retrySave();
+  requireAuthentication = () => this.options.synchronization?.requireAuthentication();
   refresh = async () => {
     await this.flush();
     this.publish();

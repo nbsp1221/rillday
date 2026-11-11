@@ -34,6 +34,7 @@ export interface Application extends AccountHostPort {
   readonly connection: ConnectionPort;
   readonly preferences: Pick<PreferencesStore, 'loadPreferences' | 'savePreferences'>;
   initialize(): Promise<void>;
+  noteActivity(): Promise<void>;
   flushForExit(): Promise<void>;
   dispose(): Promise<void>;
 }
@@ -55,6 +56,7 @@ export function createApplication(dependencies: ApplicationDependencies): Applic
     subscribe: coordinator.subscribe,
     renameAccount: coordinator.renameAccount,
     connection: coordinator.connectionPort,
+    noteActivity: coordinator.noteActivity,
     preferences: storage.preferences,
     initialize: async () => {
       await coordinator.initialize();

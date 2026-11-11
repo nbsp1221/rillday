@@ -75,6 +75,7 @@ test('reset uses the regular archive flow and leaves the normal browser workspac
     coordination: { withWorkspaceLock },
     credentials: {
       restore: () => Promise.resolve(null),
+      renew: () => Promise.resolve(null),
       remember: () => Promise.resolve(),
       forget: () => Promise.resolve(),
     },

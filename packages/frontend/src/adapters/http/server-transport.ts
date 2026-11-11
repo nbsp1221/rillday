@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { serverResponse } from '../../application/server-responses.ts';
+import type { CredentialAccount } from '../../application/host.ts';
+import { serverResponse, sessionResponse } from '../../application/server-responses.ts';
 import { ServerRequestError, type ServerTransport } from '../../application/server-transport.ts';
 
 export function createFetchServerTransport(): ServerTransport {
@@ -28,6 +29,29 @@ export function createFetchServerTransport(): ServerTransport {
       );
     },
   };
+}
+
+export async function restoreServerSession(
+  account: CredentialAccount,
+  signal = AbortSignal.timeout(12000),
+  bearer?: string,
+) {
+  await verifyServerIdentity(
+    await fetchServer(account.url + '/v1/server', { credentials: 'omit', signal }),
+    account.serverId,
+  );
+
+  const session = sessionResponse.parse(
+    await responseJson(
+      await fetchServer(account.url + '/api/auth/get-session', {
+        credentials: bearer ? 'omit' : 'include',
+        ...(bearer ? { headers: { authorization: 'Bearer ' + bearer } } : {}),
+        signal,
+      }),
+    ),
+  );
+
+  return session?.user.id === account.userId ? session.session.token : null;
 }
 
 export async function fetchServer(input: string, init?: RequestInit) {

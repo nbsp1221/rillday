@@ -34,6 +34,7 @@ export function application(token: string, { reset = true } = {}) {
   }
   const credentials = {
     restore: vi.fn().mockResolvedValue(token),
+    renew: vi.fn().mockResolvedValue(token),
     remember: vi.fn(),
     forget: vi.fn(),
   };

@@ -1,7 +1,7 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware, setShouldSkipSessionRefresh } from 'better-auth/api';
 import { getMigrations } from 'better-auth/db/migration';
 import { fromNodeHeaders } from 'better-auth/node';
 import { admin, bearer } from 'better-auth/plugins';
@@ -16,6 +16,8 @@ import { HttpFault } from '../../../http-errors.ts';
 import { initializeAccountConstraints } from '../../../initialize-database.ts';
 import { maximumPasswordLength, minimumPasswordLength } from '../domain/policies.ts';
 import { findSessionToken } from './sqlite.ts';
+
+const day = 24 * 60 * 60;
 
 export async function createAuthentication(
   store: Store,
@@ -44,7 +46,15 @@ export async function createAuthentication(
       autoSignIn: false,
     },
     plugins,
-    session: { expiresIn: 86400 },
+    session: { expiresIn: 30 * day, updateAge: day },
+    hooks: {
+      before: createAuthMiddleware(async (context) => {
+        // Internal API calls cannot deliver the renewed cookie to the browser.
+        if (!context.request) {
+          await setShouldSkipSessionRefresh(true);
+        }
+      }),
+    },
     databaseHooks: {
       user: {
         create: {
@@ -66,6 +76,7 @@ export async function createAuthentication(
   // The DB constraint also arbitrates concurrent setup attempts in separate processes.
   initializeAccountConstraints(store.raw);
   const auth = betterAuth(config);
+
   let passwordWork = 0;
 
   async function passwordJob<T>(action: () => Promise<T>) {

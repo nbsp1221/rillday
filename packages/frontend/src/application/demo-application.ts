@@ -21,6 +21,7 @@ export function createDemoApplication({
     demo: true,
     credentials: {
       restore: () => Promise.resolve(null),
+      renew: unavailable,
       remember: unavailable,
       forget: () => Promise.resolve(),
     },

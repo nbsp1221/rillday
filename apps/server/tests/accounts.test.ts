@@ -8,11 +8,91 @@ import {
   setupAdministrator,
   signin,
 } from '@repo/test-support';
-import { expect } from 'vitest';
+import { expect, vi } from 'vitest';
 import { z } from 'zod';
 import { resetPassword } from '../src/maintenance.ts';
 import { documentFixture } from './support/document.ts';
 import { test } from './support/server-fixture.ts';
+
+test('activity renews the same session once a day while idle sessions expire', async ({
+  server: f,
+}) => {
+  const day = 24 * 60 * 60 * 1000;
+  const start = Date.now();
+  const sessionPath = '/api/auth/get-session';
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(start);
+  try {
+    const active = await setupAdministrator(f.origin);
+    const idleLogin = await fetch(f.origin + '/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'origin': f.origin },
+      body: JSON.stringify({ email: active.email, password }),
+    });
+    const idle = new ApiClient(f.origin, authentication.parse(await idleLogin.json()).token);
+    const member = await createUser(active);
+
+    const cookieHeader = (response: Response) => {
+      const cookie = response.headers
+        .getSetCookie()
+        .find((value) => value.includes('session_token='));
+      if (!cookie) {
+        throw new Error('Missing session cookie');
+      }
+      return cookie;
+    };
+
+    const idleCookie = cookieHeader(idleLogin);
+    expect(idleCookie).toMatch(/Max-Age=2592000/i);
+
+    const readSession = (cookie: string) =>
+      fetch(f.origin + sessionPath, { headers: { cookie: cookie.slice(0, cookie.indexOf(';')) } });
+
+    const session = f.store.prepare<{ expiresAt: string }>(
+      'SELECT expiresAt FROM session WHERE token=?',
+    );
+
+    const expires = (client: ApiClient) => Date.parse(session.get(client.token)?.expiresAt ?? '');
+
+    expect(expires(active)).toBe(start + 30 * day);
+    expect(expires(idle)).toBe(start + 30 * day);
+
+    vi.setSystemTime(start + day - 1);
+    expect((await active.request(sessionPath)).headers.getSetCookie()).toHaveLength(0);
+    expect(expires(active)).toBe(start + 30 * day);
+
+    vi.setSystemTime(start + day);
+    expect((await active.request('/v1/account')).status).toBe(200);
+    expect(
+      (await active.request(`/v1/admin/users/${member.owner}/status`, { disabled: true })).status,
+    ).toBe(200);
+    expect(expires(active)).toBe(start + 30 * day);
+    const refreshed = await fetch(f.origin + sessionPath, {
+      headers: { authorization: 'Bearer ' + active.token },
+    });
+    const cookie = cookieHeader(refreshed);
+    expect(cookie).toMatch(/Max-Age=2592000/i);
+    expect(cookie).toMatch(/HttpOnly/i);
+    expect(expires(active)).toBe(start + 31 * day);
+    expect((await active.request('/v1/account')).status).toBe(200);
+    expect((await readSession(cookie)).status).toBe(200);
+    expect(expires(idle)).toBe(start + 30 * day);
+
+    vi.setSystemTime(start + 30 * day + 1);
+    expect((await idle.request('/v1/account')).status).toBe(401);
+    expect(await (await readSession(idleCookie)).json()).toBeNull();
+    const resumed = await readSession(cookie);
+    expect(await resumed.json()).toHaveProperty('user.id', active.owner);
+    expect(cookieHeader(resumed)).toMatch(/Max-Age=2592000/i);
+    expect(expires(active)).toBe(start + 60 * day + 1);
+
+    expect((await active.request('/api/auth/sign-out', {})).status).toBe(200);
+    expect((await active.request('/v1/account')).status).toBe(401);
+    expect(await (await readSession(cookie)).json()).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 test('filesystem password recovery revokes every session and preserves account role and private data', async ({
   server: f,
