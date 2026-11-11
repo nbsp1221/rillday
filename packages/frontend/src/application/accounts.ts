@@ -747,8 +747,7 @@ export class AccountCoordinator implements AccountHostPort {
     if (this.stopped || !this.state || this.connection.busy || this.connection.transitioning) {
       return;
     }
-    const profile = this.profile();
-    const server = profile.server;
+    const { id, server } = this.profile();
     const workspace = this.current;
     if (!server || !workspace || workspace.getSnapshot().syncState === 'authentication-required') {
       return;
@@ -757,7 +756,7 @@ export class AccountCoordinator implements AccountHostPort {
       const token = await this.options.credentials.renew(server, signal);
       signal.throwIfAborted();
       if (token) {
-        this.credentials.set(profile.id, token);
+        this.credentials.set(id, token);
       }
       return Boolean(token);
     }, workspace.requireAuthentication);
